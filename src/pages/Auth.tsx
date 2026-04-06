@@ -139,6 +139,9 @@ const Auth = () => {
                   <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin}>
                     Entrar com Google
                   </Button>
+                  <Button type="button" variant="outline" className="w-full" onClick={handleAppleLogin}>
+                    Entrar com Apple
+                  </Button>
                   <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
                     Esqueci minha senha
                   </button>
