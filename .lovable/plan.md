@@ -1,76 +1,66 @@
 
 
-# PDF Processing & Page Rendering
+# Extract Text — Edge Function + Frontend Integration
 
 ## Overview
-Implement client-side PDF processing using `pdfjs-dist` when a project is loaded at `/projeto/:id`. The PDF is downloaded from Supabase Storage, each page is rendered to canvas, uploaded as PNG images (full + thumbnail), and inserted into the `pages` table. A processing screen with real progress is shown during this pipeline.
+Create `extract-text` edge function that uses Gemini Vision API to extract text/audiodescription from page images, then wire up the "Extrair todos os textos" button and per-page "Extrair esta página" button in the frontend with sequential processing, retry logic, and real-time status updates.
 
-## New Files
+## 1. Edge Function: `supabase/functions/extract-text/index.ts`
 
-### `src/hooks/usePdfProcessor.ts`
-Custom hook that encapsulates the entire PDF processing pipeline:
-- **Inputs**: `project` object, `pages` array, `refetch` callback
-- **State**: `processing`, `progress` (0-100), `currentPage`, `totalPages`, `error`
-- **Logic**:
-  1. On mount, check if `processing_status === 'pending'` AND `pages.length === 0` AND `pdf_url` exists → trigger processing
-  2. If `processing_status === 'ready'` or pages exist → skip
-  3. Download PDF: fetch signed URL from `supabase.storage.from('pdfs').createSignedUrl(project.pdf_url, 3600)`, then `fetch()` the URL
-  4. Load with `pdfjs-dist`: `getDocument({ data: arrayBuffer })`
-  5. Update `total_pages` on the project in Supabase
-  6. Process pages in **batches of 5** using a chunked Promise.all loop
-  7. For each page:
-     - Render at 150 DPI (scale = 150/72 ≈ 2.08) to canvas → PNG blob
-     - Render at 72 DPI (scale = 1.0) for thumbnail → PNG blob
-     - Upload full image to `page-images/{project_id}/pag_XXX.png`
-     - Upload thumbnail to `page-thumbnails/{project_id}/thumb_XXX.png`
-     - Get public URLs from the public buckets
-     - Insert row into `pages` table with `project_id`, `page_number`, `image_url`, `thumbnail_url`
-     - Free canvas memory (`canvas.width = 0`)
-     - Update progress state
-  8. On completion: update `processing_status = 'ready'`, call `refetch()`
-  9. Error handling: password-protected PDFs detected via pdfjs error, invalid PDFs show error message, individual page failures are skipped with toast
+- POST endpoint accepting `{ page_id, image_url, mode, book_type, global_style, page_style, gemini_api_key }`
+- Input validation with manual checks (return 400 on missing fields)
+- Download image from `image_url`, convert to base64
+- Select prompt based on `mode` (audiobook vs audiodesc) — full prompts as specified
+- Call Gemini Vision API: `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_api_key}`
+- Extract text from response, apply `cleanText()` function (acronym expansion, law number conversion, bracket removal)
+- Check for no-content markers (`PÁGINA_SEM_NARRAÇÃO` / `PÁGINA_SEM_AUDIODESCRIÇÃO`)
+- Update `pages` table via Supabase service role client with extracted text and status
+- Return `{ success, text, no_content, page_id }` or error with appropriate codes
+- CORS headers on all responses
 
-### `src/components/editor/ProcessingScreen.tsx`
-Processing overlay component:
-- Props: `progress`, `currentPage`, `totalPages`, `error`, `onRetry`
-- Animated spinner icon
-- Title "Processando seu livro..."
-- Real progress bar with percentage
-- Dynamic text: "Processando página X de Y"
-- Subtitle: "Não feche esta aba durante o processamento"
-- Error state: show error message + "Tentar novamente" button
-- Special message for password-protected PDFs
+## 2. API Key: User provides Gemini API key
+- The edge function receives it per-request in the body (`gemini_api_key`)
+- Frontend stores it in a state variable (prompted via dialog before batch extraction)
+- No server-side secret needed for Gemini key
 
-## Modified Files
+## 3. Frontend: `useTextExtractor` hook (`src/hooks/useTextExtractor.ts`)
+- State: `extracting`, `currentPage`, `totalPages`, `results` (extracted/no_content/error counts)
+- `extractAll(pages, mode, project)`: iterates pages sequentially, calls edge function for each
+- Retry with exponential backoff on 429: wait 2s, 4s, then skip after 3 attempts
+- Updates page state in real-time via `onPageUpdate` callback
+- `extractSingle(page, mode, project)`: extract one page
+- Returns progress and summary
 
-### `package.json`
-- Add `pdfjs-dist` dependency
+## 4. Frontend: Gemini API Key Dialog
+- Small dialog/popover in `GlobalConfigPanel` that asks for the Gemini API key before starting batch extraction
+- Store in component state (not persisted) — user enters once per session
+- Link to Google AI Studio for key generation
 
-### `src/pages/ProjectDetail.tsx`
-- Import and use `usePdfProcessor(project, pages, refetch)`
-- Replace the static "Processando PDF..." screen (lines 51-58) with `<ProcessingScreen>` component that shows real progress
-- Condition: if `processing` is true OR (`processing_status === 'pending'` AND no pages), show ProcessingScreen
-- Pass `refetch` from `useProjectEditor` to trigger re-render after processing completes
+## 5. Update `GlobalConfigPanel.tsx`
+- Add props: `pages`, `project`, `onPageUpdate`
+- Replace placeholder toast on "Extrair todos os textos" with actual extraction logic
+- Show progress bar during extraction: "Extraindo página X de Y..."
+- Show summary toast on completion
 
-### `src/components/editor/AudioPageCard.tsx`
-- Update image rendering: use `thumbnail_url` for the card preview (smaller/faster) instead of `image_url`
-- Keep `image_url` available for full-size viewing if needed later
+## 6. Update `AudioPageCard.tsx`
+- Wire "Extrair esta página" button to call `extract-text` for single page
+- Accept `project` prop for book_type and global_style
+- Show loading state on button during extraction
 
-### `src/hooks/useProjectEditor.ts`
-- Expose `setProject` or `setPages` so the processor can update local state without full refetch (optional optimization)
+## 7. Update `ProjectDetail.tsx`
+- Pass `project` and `pages` + `updatePage` to `GlobalConfigPanel`
+- Ensure page status updates propagate to badges in header
 
-## Technical Details
+## Files to Create
+- `supabase/functions/extract-text/index.ts`
+- `src/hooks/useTextExtractor.ts`
 
-- **pdfjs-dist worker**: Configure `GlobalWorkerOptions.workerSrc` to CDN URL matching the installed version
-- **Storage paths**: `page-images/{project_id}/pag_001.png` (public bucket), `page-thumbnails/{project_id}/thumb_001.png` (public bucket)
-- **Public URLs**: Use `supabase.storage.from('page-images').getPublicUrl(path)` since buckets are public
-- **Batch processing**: Process 5 pages concurrently per batch to balance speed and memory
-- **Canvas cleanup**: Set `canvas.width = 0; canvas.height = 0` after each page to free memory
-- **PDF download**: Use `createSignedUrl` since `pdfs` bucket is private
+## Files to Modify
+- `src/components/editor/GlobalConfigPanel.tsx` — add extraction UI + props
+- `src/components/editor/AudioPageCard.tsx` — wire single-page extraction + accept project prop
+- `src/pages/ProjectDetail.tsx` — pass new props down
 
-## Implementation Order
-1. Install `pdfjs-dist`, create `usePdfProcessor` hook
-2. Create `ProcessingScreen` component
-3. Update `ProjectDetail.tsx` to wire everything together
-4. Update `AudioPageCard` to use thumbnails
+## Deploy
+- Deploy edge function via `supabase--deploy_edge_functions`
+- Test with `supabase--curl_edge_functions`
 
