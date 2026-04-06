@@ -78,9 +78,9 @@ const VideoGlobalPanel = ({ visualStyle, transition, outputFormat, onVisualStyle
           <Button variant="outline" onClick={placeholder}><Play className="h-4 w-4 mr-1" /> Preview do Videobook</Button>
           <Button onClick={placeholder}><Download className="h-4 w-4 mr-1" /> Exportar Videobook MP4</Button>
         </div>
-        <Alert className="bg-yellow-50 border-yellow-200">
-          <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          <AlertDescription className="text-yellow-800 text-xs">
+        <Alert className="bg-accent/50 border-accent">
+          <AlertTriangle className="h-4 w-4 text-accent-foreground" />
+          <AlertDescription className="text-accent-foreground text-xs">
             A exportação pode levar entre 5 e 40 minutos. Mantenha esta aba aberta.
           </AlertDescription>
         </Alert>
