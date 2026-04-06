@@ -92,6 +92,8 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
+              apiKey={geminiApiKey}
+              onApiKeyChange={setGeminiApiKey}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -125,6 +127,8 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
+              apiKey={geminiApiKey}
+              onApiKeyChange={setGeminiApiKey}
             />
             <PageNavigator
               currentPair={pairIndex}
