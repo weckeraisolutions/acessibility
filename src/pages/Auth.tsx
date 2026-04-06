@@ -75,10 +75,21 @@ const Auth = () => {
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
+    if (result.error) {
+      toast({ title: "Erro ao entrar com Google", description: String(result.error), variant: "destructive" });
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    const result = await lovable.auth.signInWithOAuth("apple", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      toast({ title: "Erro ao entrar com Apple", description: String(result.error), variant: "destructive" });
+    }
   };
 
   const handleForgotPassword = async () => {
