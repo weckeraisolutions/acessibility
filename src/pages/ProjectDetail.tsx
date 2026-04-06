@@ -20,6 +20,7 @@ const ProjectDetail = () => {
   const processor = usePdfProcessor(project, pages, refetch);
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const isMobile = useIsMobile();
 
   const perPage = isMobile ? 1 : 2;
@@ -88,6 +89,11 @@ const ProjectDetail = () => {
               voice={project.audiobook_global_voice || "Zephyr"}
               onStyleChange={(v) => updateProject({ audiobook_global_style: v || null })}
               onVoiceChange={(v) => updateProject({ audiobook_global_voice: v })}
+              pages={pages}
+              project={project}
+              onPageUpdate={updatePage}
+              apiKey={geminiApiKey}
+              onApiKeyChange={setGeminiApiKey}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -102,6 +108,8 @@ const ProjectDetail = () => {
                   page={page}
                   mode="audiobook"
                   globalVoice={project.audiobook_global_voice || "Zephyr"}
+                  project={project}
+                  apiKey={geminiApiKey}
                   onUpdate={updatePage}
                 />
               ))}
@@ -116,6 +124,11 @@ const ProjectDetail = () => {
               voice={project.audiodesc_global_voice || "Kore"}
               onStyleChange={(v) => updateProject({ audiodesc_global_style: v || null })}
               onVoiceChange={(v) => updateProject({ audiodesc_global_voice: v })}
+              pages={pages}
+              project={project}
+              onPageUpdate={updatePage}
+              apiKey={geminiApiKey}
+              onApiKeyChange={setGeminiApiKey}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -130,6 +143,8 @@ const ProjectDetail = () => {
                   page={page}
                   mode="audiodesc"
                   globalVoice={project.audiodesc_global_voice || "Kore"}
+                  project={project}
+                  apiKey={geminiApiKey}
                   onUpdate={updatePage}
                 />
               ))}
