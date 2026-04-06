@@ -1,106 +1,76 @@
 
 
-# Editor Completo — /projeto/:id
+# PDF Processing & Page Rendering
 
-## Visão Geral
+## Overview
+Implement client-side PDF processing using `pdfjs-dist` when a project is loaded at `/projeto/:id`. The PDF is downloaded from Supabase Storage, each page is rendered to canvas, uploaded as PNG images (full + thumbnail), and inserted into the `pages` table. A processing screen with real progress is shown during this pipeline.
 
-Construir o editor de projeto completo com 3 abas (Audiobook, Audiodescrição, Videobook), header com nome editável inline, navegação de páginas em pares, cards de página com controles de texto/áudio/vídeo, painéis de configuração global colapsáveis, e auto-save com debounce.
+## New Files
 
-## Arquitetura de Componentes
+### `src/hooks/usePdfProcessor.ts`
+Custom hook that encapsulates the entire PDF processing pipeline:
+- **Inputs**: `project` object, `pages` array, `refetch` callback
+- **State**: `processing`, `progress` (0-100), `currentPage`, `totalPages`, `error`
+- **Logic**:
+  1. On mount, check if `processing_status === 'pending'` AND `pages.length === 0` AND `pdf_url` exists → trigger processing
+  2. If `processing_status === 'ready'` or pages exist → skip
+  3. Download PDF: fetch signed URL from `supabase.storage.from('pdfs').createSignedUrl(project.pdf_url, 3600)`, then `fetch()` the URL
+  4. Load with `pdfjs-dist`: `getDocument({ data: arrayBuffer })`
+  5. Update `total_pages` on the project in Supabase
+  6. Process pages in **batches of 5** using a chunked Promise.all loop
+  7. For each page:
+     - Render at 150 DPI (scale = 150/72 ≈ 2.08) to canvas → PNG blob
+     - Render at 72 DPI (scale = 1.0) for thumbnail → PNG blob
+     - Upload full image to `page-images/{project_id}/pag_XXX.png`
+     - Upload thumbnail to `page-thumbnails/{project_id}/thumb_XXX.png`
+     - Get public URLs from the public buckets
+     - Insert row into `pages` table with `project_id`, `page_number`, `image_url`, `thumbnail_url`
+     - Free canvas memory (`canvas.width = 0`)
+     - Update progress state
+  8. On completion: update `processing_status = 'ready'`, call `refetch()`
+  9. Error handling: password-protected PDFs detected via pdfjs error, invalid PDFs show error message, individual page failures are skipped with toast
 
-```text
-src/pages/ProjectDetail.tsx          (orquestrador principal)
-src/components/editor/
-  EditorHeader.tsx                   (header fixo: voltar, nome editável, badges)
-  EditorTabs.tsx                     (wrapper das 3 abas)
-  GlobalConfigPanel.tsx              (painel colapsável de estilo/voz global)
-  PageNavigator.tsx                  (navegação par anterior/próximo par)
-  AudioPageCard.tsx                  (card de página para Audiobook e Audiodescrição)
-  VideoPageCard.tsx                  (card de página para Videobook)
-  VideoGlobalPanel.tsx               (config global do videobook: formato, transição, resolução)
-  ExportFooter.tsx                   (seção de exportação compartilhada)
-src/hooks/
-  useProjectEditor.ts               (fetch projeto + páginas, estados, auto-save)
-  useDebounce.ts                     (debounce genérico)
-```
+### `src/components/editor/ProcessingScreen.tsx`
+Processing overlay component:
+- Props: `progress`, `currentPage`, `totalPages`, `error`, `onRetry`
+- Animated spinner icon
+- Title "Processando seu livro..."
+- Real progress bar with percentage
+- Dynamic text: "Processando página X de Y"
+- Subtitle: "Não feche esta aba durante o processamento"
+- Error state: show error message + "Tentar novamente" button
+- Special message for password-protected PDFs
 
-## Detalhes Técnicos
+## Modified Files
 
-### 1. ProjectDetail.tsx — Orquestrador
-- Busca projeto por ID e páginas ordenadas por `page_number`
-- Se `total_pages === 0 && processing_status === 'pending'`: mostra tela "Processando..."
-- Senão: renderiza `EditorHeader`, `Tabs` (Audiobook / Audiodescrição / Videobook), `ExportFooter`
-- Estado global: `project`, `pages[]`, `currentPairIndex`, `activeTab`, `saving`
+### `package.json`
+- Add `pdfjs-dist` dependency
 
-### 2. EditorHeader
-- Botão "← Dashboard" à esquerda
-- Nome editável inline (clique → input, blur/enter → salva via supabase update)
-- Badges à direita: contadores calculados das páginas (extraídas, áudios gerados, aprovados)
-- Indicador "Salvo ✓" temporário após auto-save
+### `src/pages/ProjectDetail.tsx`
+- Import and use `usePdfProcessor(project, pages, refetch)`
+- Replace the static "Processando PDF..." screen (lines 51-58) with `<ProcessingScreen>` component that shows real progress
+- Condition: if `processing` is true OR (`processing_status === 'pending'` AND no pages), show ProcessingScreen
+- Pass `refetch` from `useProjectEditor` to trigger re-render after processing completes
 
-### 3. GlobalConfigPanel (Audiobook e Audiodescrição)
-- `Collapsible` expandido por padrão
-- Textarea para estilo de narração (salva em `audiobook_global_style` ou `audiodesc_global_style` do projeto)
-- Select com 28 vozes (Zephyr, Puck, Charon, etc.) — salva em `*_global_voice`
-- Botão "Extrair todos os textos" (placeholder — chama toast "será implementado")
-- Progresso e rate limit visíveis condicionalmente
+### `src/components/editor/AudioPageCard.tsx`
+- Update image rendering: use `thumbnail_url` for the card preview (smaller/faster) instead of `image_url`
+- Keep `image_url` available for full-size viewing if needed later
 
-### 4. PageNavigator
-- Calcula pares: `[[p1,p2], [p3,p4], ...]`
-- Botões anterior/próximo, indicador "Par X de Y"
-- Responsivo: 2 colunas desktop, 1 coluna mobile
+### `src/hooks/useProjectEditor.ts`
+- Expose `setProject` or `setPages` so the processor can update local state without full refetch (optional optimization)
 
-### 5. AudioPageCard (reutilizado para Audiobook e Audiodescrição)
-- Props: `page`, `mode: 'audiobook' | 'audiodesc'`, `globalVoice`, `globalStyle`, `onUpdate`
-- Imagem da página com badge de status colorido (pendente/texto extraído/áudio gerado/aprovado)
-- Textarea editável com debounce 2s → auto-save no campo `audiobook_text` ou `audiodesc_text`
-- Botão "Extrair esta página" (placeholder)
-- Select de voz por página (herda global, badge "Personalizada" se diferente)
-- Input de estilo por página (placeholder "Herda configuração global se vazio")
-- Botão "Gerar Áudio" (habilitado se texto existe, placeholder)
-- Player HTML5 `<audio>` (visível se audio_url existe)
-- Botões Download MP3, Aprovar, Regerar (visíveis após áudio)
+## Technical Details
 
-### 6. VideoPageCard
-- Preview da imagem com badge de status (pendente/regiões/configurado/exportado)
-- Botão "Detectar regiões" e "Editar animações" (placeholders)
-- Select de transição de saída por página
+- **pdfjs-dist worker**: Configure `GlobalWorkerOptions.workerSrc` to CDN URL matching the installed version
+- **Storage paths**: `page-images/{project_id}/pag_001.png` (public bucket), `page-thumbnails/{project_id}/thumb_001.png` (public bucket)
+- **Public URLs**: Use `supabase.storage.from('page-images').getPublicUrl(path)` since buckets are public
+- **Batch processing**: Process 5 pages concurrently per batch to balance speed and memory
+- **Canvas cleanup**: Set `canvas.width = 0; canvas.height = 0` after each page to free memory
+- **PDF download**: Use `createSignedUrl` since `pdfs` bucket is private
 
-### 7. VideoGlobalPanel
-- Textarea estilo visual global
-- Selects: transição padrão, formato, resolução
-- Botões: detectar regiões em todas, preview, exportar MP4
-- Aviso amarelo sobre tempo de exportação
-
-### 8. ExportFooter
-- Select de capítulo/seção
-- Botões de download ZIP / MP4
-
-### 9. useProjectEditor hook
-- Fetch projeto e páginas do Supabase
-- Funções: `updateProject(fields)`, `updatePage(pageId, fields)` com debounce
-- Estado `saving` para indicador visual
-
-### 10. useDebounce hook
-- Debounce de 2 segundos para auto-save de textos
-
-### 11. Lista de vozes (constante compartilhada)
-- Array de 28 objetos `{ value, label, description }` em arquivo de constantes `src/constants/voices.ts`
-
-## Fluxo de Dados
-
-1. Ao montar: busca projeto + páginas
-2. Edições de texto → debounce 2s → `supabase.from('pages').update()`
-3. Edições de config global → `supabase.from('projects').update()`
-4. Nome do projeto → update imediato ao confirmar
-5. Indicador "Salvo" no header por 2s após qualquer save
-
-## Implementação
-
-Será dividido em 5 etapas:
-1. Hook `useProjectEditor` + `useDebounce` + constantes de vozes
-2. `EditorHeader` + `ProjectDetail` (orquestrador com loading/processing states)
-3. `GlobalConfigPanel` + `AudioPageCard` + `PageNavigator` (abas Audiobook/Audiodescrição)
-4. `VideoGlobalPanel` + `VideoPageCard` (aba Videobook)
-5. `ExportFooter` (rodapé compartilhado)
+## Implementation Order
+1. Install `pdfjs-dist`, create `usePdfProcessor` hook
+2. Create `ProcessingScreen` component
+3. Update `ProjectDetail.tsx` to wire everything together
+4. Update `AudioPageCard` to use thumbnails
 
