@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 import { useProjectEditor } from "@/hooks/useProjectEditor";
+import { usePdfProcessor } from "@/hooks/usePdfProcessor";
 import { useIsMobile } from "@/hooks/use-mobile";
 import EditorHeader from "@/components/editor/EditorHeader";
 import GlobalConfigPanel from "@/components/editor/GlobalConfigPanel";
@@ -12,10 +12,12 @@ import PageNavigator from "@/components/editor/PageNavigator";
 import AudioPageCard from "@/components/editor/AudioPageCard";
 import VideoPageCard from "@/components/editor/VideoPageCard";
 import ExportFooter from "@/components/editor/ExportFooter";
+import ProcessingScreen from "@/components/editor/ProcessingScreen";
 
 const ProjectDetail = () => {
   const { id } = useParams();
-  const { project, pages, loading, saving, updateProject, updatePage } = useProjectEditor(id);
+  const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
+  const processor = usePdfProcessor(project, pages, refetch);
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
   const isMobile = useIsMobile();
@@ -48,13 +50,15 @@ const ProjectDetail = () => {
     );
   }
 
-  if (project.total_pages === 0 && project.processing_status === "pending") {
+  if (processor.processing || processor.error || (project.processing_status === "pending" && pages.length === 0)) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <h2 className="text-xl font-semibold">Processando PDF...</h2>
-        <p className="text-muted-foreground">As páginas serão extraídas em breve.</p>
-      </div>
+      <ProcessingScreen
+        progress={processor.progress}
+        currentPage={processor.currentPage}
+        totalPages={processor.totalPages}
+        error={processor.error}
+        onRetry={processor.retry}
+      />
     );
   }
 
