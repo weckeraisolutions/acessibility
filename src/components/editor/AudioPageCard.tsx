@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RotateCw, Play, Download, Check, RefreshCw, Loader2 } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
@@ -27,11 +28,11 @@ interface AudioPageCardProps {
 
 function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   const status = mode === "audiobook" ? page.audiobook_status : page.audiodesc_status;
-  const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audio = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
+  const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   if (status === "approved") return { label: "✅ Aprovado", color: "bg-green-500" };
   if (status === "no_content") return { label: "⬜ Sem conteúdo", color: "bg-muted-foreground/40" };
-  if (audio) return { label: "🔊 Áudio gerado", color: "bg-orange-500" };
+  if (status === "audio_generated" || audio) return { label: "🔊 Áudio gerado", color: "bg-orange-500" };
   if (text) return { label: "📝 Texto extraído", color: "bg-blue-500" };
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
@@ -48,6 +49,9 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: A
   const [localText, setLocalText] = useState(text || "");
   const [localStyle, setLocalStyle] = useState(pageStyle || "");
   const [extracting, setExtracting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [showRegen, setShowRegen] = useState(false);
+  const [regenStyle, setRegenStyle] = useState("");
 
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
@@ -56,6 +60,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: A
   const styleField = mode === "audiobook" ? "audiobook_style" : "audiodesc_style";
   const voiceField = mode === "audiobook" ? "audiobook_voice" : "audiodesc_voice";
   const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
+  const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
+  const durationField = mode === "audiobook" ? "audiobook_audio_duration_seconds" : "audiodesc_audio_duration_seconds";
 
   const debouncedSaveText = useDebounce((val: string) => {
     onUpdate(page.id, { [textField]: val || null });
@@ -90,10 +96,86 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: A
     }
   };
 
-  const placeholderAction = () => toast({ title: "Em breve", description: "Funcionalidade será implementada." });
-
   const currentVoice = pageVoice || globalVoice;
   const isCustomVoice = !!pageVoice && pageVoice !== globalVoice;
+
+  const globalStyle = mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style;
+
+  const handleGenerateAudio = async (extraStyle?: string) => {
+    if (!apiKey) {
+      toast({ title: "Chave necessária", description: "Insira a chave da API Gemini no painel global primeiro.", variant: "destructive" });
+      return;
+    }
+    if (!localText.trim()) return;
+
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-audio", {
+        body: {
+          page_id: page.id,
+          project_id: project.id,
+          page_number: page.page_number,
+          text: localText,
+          voice: currentVoice,
+          global_style: globalStyle || "",
+          page_style: extraStyle || localStyle || "",
+          mode,
+          plan: "free",
+          gemini_api_key: apiKey,
+        },
+      });
+
+      if (error || !data?.success) {
+        const msg = data?.message || error?.message || "Erro ao gerar áudio";
+        toast({ title: "Erro", description: msg, variant: "destructive" });
+        return;
+      }
+
+      onUpdate(page.id, {
+        [audioUrlField]: data.audio_url,
+        [statusField]: "audio_generated",
+        [durationField]: data.duration_seconds,
+        [voiceField]: currentVoice,
+        [styleField]: extraStyle || localStyle || null,
+      });
+
+      toast({ title: "Áudio gerado", description: `Página ${page.page_number} — ${data.duration_seconds}s` });
+      setShowRegen(false);
+      setRegenStyle("");
+    } catch (e) {
+      toast({ title: "Erro", description: "Falha na geração de áudio.", variant: "destructive" });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!audioUrl) return;
+    try {
+      const res = await fetch(audioUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const pageNum = String(page.page_number).padStart(3, "0");
+      a.download = `pagina_${pageNum}_${mode}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Erro", description: "Falha ao baixar o áudio.", variant: "destructive" });
+    }
+  };
+
+  const handleApprove = () => {
+    onUpdate(page.id, { [statusField]: "approved" });
+    toast({ title: "Aprovado", description: `Página ${page.page_number} aprovada.` });
+  };
+
+  const handleRegen = () => {
+    handleGenerateAudio(regenStyle);
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -168,31 +250,55 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: A
           <Button
             size="sm"
             className="w-full"
-            disabled={!localText.trim()}
-            onClick={placeholderAction}
+            disabled={!localText.trim() || generating}
+            onClick={() => handleGenerateAudio()}
           >
-            <Play className="h-3 w-3 mr-1" /> Gerar Áudio
+            {generating ? (
+              <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Gerando...</>
+            ) : (
+              <><Play className="h-3 w-3 mr-1" /> Gerar Áudio</>
+            )}
           </Button>
 
           {audioUrl && (
             <>
               <audio controls src={audioUrl} className="w-full h-8" />
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" asChild>
-                  <a href={audioUrl} download><Download className="h-3 w-3 mr-1" /> MP3</a>
+                <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
+                  <Download className="h-3 w-3 mr-1" /> MP3
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex-1"
-                  onClick={() => onUpdate(page.id, { [statusField]: "approved" })}
+                  onClick={handleApprove}
                 >
                   <Check className="h-3 w-3 mr-1" /> Aprovar
                 </Button>
               </div>
-              <Button variant="ghost" size="sm" className="w-full" onClick={placeholderAction}>
-                <RefreshCw className="h-3 w-3 mr-1" /> Regerar com ajuste
-              </Button>
+              {!showRegen ? (
+                <Button variant="ghost" size="sm" className="w-full" onClick={() => setShowRegen(true)}>
+                  <RefreshCw className="h-3 w-3 mr-1" /> Regerar com ajuste
+                </Button>
+              ) : (
+                <div className="space-y-1">
+                  <Input
+                    value={regenStyle}
+                    onChange={(e) => setRegenStyle(e.target.value)}
+                    placeholder="Ex: mais lento, tom grave..."
+                    className="h-8 text-xs"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" className="flex-1" onClick={handleRegen} disabled={generating || !regenStyle.trim()}>
+                      {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                      Regerar
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setShowRegen(false); setRegenStyle(""); }}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
