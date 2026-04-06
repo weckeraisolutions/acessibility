@@ -1,66 +1,45 @@
 
 
-# Extract Text — Edge Function + Frontend Integration
+# Generate Audio — Edge Function + Frontend Integration
 
 ## Overview
-Create `extract-text` edge function that uses Gemini Vision API to extract text/audiodescription from page images, then wire up the "Extrair todos os textos" button and per-page "Extrair esta página" button in the frontend with sequential processing, retry logic, and real-time status updates.
+Create `generate-audio` edge function that uses Gemini TTS API to convert page text to speech, upload to Storage, and update the database. Wire up the "Gerar Áudio" button in `AudioPageCard` with loading states, player, download, approve, and regenerate functionality.
 
-## 1. Edge Function: `supabase/functions/extract-text/index.ts`
+## 1. Edge Function: `supabase/functions/generate-audio/index.ts`
 
-- POST endpoint accepting `{ page_id, image_url, mode, book_type, global_style, page_style, gemini_api_key }`
-- Input validation with manual checks (return 400 on missing fields)
-- Download image from `image_url`, convert to base64
-- Select prompt based on `mode` (audiobook vs audiodesc) — full prompts as specified
-- Call Gemini Vision API: `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={gemini_api_key}`
-- Extract text from response, apply `cleanText()` function (acronym expansion, law number conversion, bracket removal)
-- Check for no-content markers (`PÁGINA_SEM_NARRAÇÃO` / `PÁGINA_SEM_AUDIODESCRIÇÃO`)
-- Update `pages` table via Supabase service role client with extracted text and status
-- Return `{ success, text, no_content, page_id }` or error with appropriate codes
+- POST endpoint accepting `{ page_id, project_id, page_number, text, voice, global_style, page_style, mode, plan, gemini_api_key }`
+- Validation: reject empty text, `PÁGINA_SEM_NARRAÇÃO`, `PÁGINA_SEM_AUDIODESCRIÇÃO`, and text >8000 chars
+- Model selection: `gemini-2.5-pro-preview-tts` for enterprise, `gemini-2.5-flash-preview-tts` otherwise
+- `prepareText()` — same cleaning as extract-text (acronyms, law numbers, brackets)
+- Build TTS prompt with voice style instructions in Portuguese
+- Call Gemini TTS API with `responseModalities: ["AUDIO"]` and `speechConfig.voiceConfig`
+- Decode base64 audio response to `Uint8Array`
+- Estimate duration: `(wordCount / 130) * 60`
+- Upload to `audiobook-audios` or `audiodesc-audios` bucket at `{project_id}/pag_XXX.mp3` with `upsert: true`
+- Create signed URL (private buckets) for the audio file
+- Update `pages` table with audio URL, status `audio_generated`, duration, voice, and style
+- Return `{ success, audio_url, duration_seconds, page_id }`
+- Error handling: `empty_text`, `text_too_long`, `invalid_api_key`, `rate_limit`, `api_error`
 - CORS headers on all responses
 
-## 2. API Key: User provides Gemini API key
-- The edge function receives it per-request in the body (`gemini_api_key`)
-- Frontend stores it in a state variable (prompted via dialog before batch extraction)
-- No server-side secret needed for Gemini key
+## 2. Frontend: Update `AudioPageCard.tsx`
 
-## 3. Frontend: `useTextExtractor` hook (`src/hooks/useTextExtractor.ts`)
-- State: `extracting`, `currentPage`, `totalPages`, `results` (extracted/no_content/error counts)
-- `extractAll(pages, mode, project)`: iterates pages sequentially, calls edge function for each
-- Retry with exponential backoff on 429: wait 2s, 4s, then skip after 3 attempts
-- Updates page state in real-time via `onPageUpdate` callback
-- `extractSingle(page, mode, project)`: extract one page
-- Returns progress and summary
+- Wire "Gerar Áudio" button to call `generate-audio` edge function via `supabase.functions.invoke()`
+- Pass voice (page override or global), style, mode, project_id, page_number, plan (from project or default "free"), and gemini_api_key
+- Show `Loader2` spinner during generation
+- On success: update local state with audio URL, show `<audio controls>` player
+- Show "⬇ Download MP3" button: fetch audio URL → create blob → trigger download as `pagina_XXX_audiobook.mp3`
+- Show "✅ Aprovar" button: update status to `approved` via `onUpdate`
+- Show "🔁 Regerar com ajuste" button: expand an input for additional style instructions, call generate-audio again with the new `page_style`
+- All three buttons already have placeholders — just wire them up
 
-## 4. Frontend: Gemini API Key Dialog
-- Small dialog/popover in `GlobalConfigPanel` that asks for the Gemini API key before starting batch extraction
-- Store in component state (not persisted) — user enters once per session
-- Link to Google AI Studio for key generation
+## 3. Files to Create
+- `supabase/functions/generate-audio/index.ts`
 
-## 5. Update `GlobalConfigPanel.tsx`
-- Add props: `pages`, `project`, `onPageUpdate`
-- Replace placeholder toast on "Extrair todos os textos" with actual extraction logic
-- Show progress bar during extraction: "Extraindo página X de Y..."
-- Show summary toast on completion
+## 4. Files to Modify
+- `src/components/editor/AudioPageCard.tsx` — wire generate/download/approve/regenerate logic
 
-## 6. Update `AudioPageCard.tsx`
-- Wire "Extrair esta página" button to call `extract-text` for single page
-- Accept `project` prop for book_type and global_style
-- Show loading state on button during extraction
-
-## 7. Update `ProjectDetail.tsx`
-- Pass `project` and `pages` + `updatePage` to `GlobalConfigPanel`
-- Ensure page status updates propagate to badges in header
-
-## Files to Create
-- `supabase/functions/extract-text/index.ts`
-- `src/hooks/useTextExtractor.ts`
-
-## Files to Modify
-- `src/components/editor/GlobalConfigPanel.tsx` — add extraction UI + props
-- `src/components/editor/AudioPageCard.tsx` — wire single-page extraction + accept project prop
-- `src/pages/ProjectDetail.tsx` — pass new props down
-
-## Deploy
-- Deploy edge function via `supabase--deploy_edge_functions`
-- Test with `supabase--curl_edge_functions`
+## 5. Deploy & Test
+- Deploy edge function
+- Test with curl
 
