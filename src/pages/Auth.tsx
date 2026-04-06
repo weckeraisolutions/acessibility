@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { lovable } from "@/integrations/lovable/index";
 
 const Auth = () => {
   const { session, loading } = useAuth();
@@ -74,10 +75,21 @@ const Auth = () => {
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
     });
+    if (result.error) {
+      toast({ title: "Erro ao entrar com Google", description: String(result.error), variant: "destructive" });
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    const result = await lovable.auth.signInWithOAuth("apple", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) {
+      toast({ title: "Erro ao entrar com Apple", description: String(result.error), variant: "destructive" });
+    }
   };
 
   const handleForgotPassword = async () => {
@@ -126,6 +138,9 @@ const Auth = () => {
                   </Button>
                   <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin}>
                     Entrar com Google
+                  </Button>
+                  <Button type="button" variant="outline" className="w-full" onClick={handleAppleLogin}>
+                    Entrar com Apple
                   </Button>
                   <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
                     Esqueci minha senha
