@@ -1,63 +1,106 @@
 
 
-# Accessibility — Acessibilidade Editorial com IA
+# Editor Completo — /projeto/:id
 
 ## Visão Geral
-Aplicação SaaS para acessibilidade editorial com IA. Três páginas iniciais: autenticação, dashboard e criação de projeto. Backend com Supabase (auth, banco, storage).
 
-## Identidade Visual
-- Paleta: azul profundo #1E3A5F, azul médio #2E86C1, branco, cinza claro #F4F6F8, verde #27AE60, laranja #E67E22
-- Tipografia Inter, tema claro, estilo corporativo-moderno
-- Logo com ícone de acessibilidade + ondas de áudio + texto "Accessibility"
+Construir o editor de projeto completo com 3 abas (Audiobook, Audiodescrição, Videobook), header com nome editável inline, navegação de páginas em pares, cards de página com controles de texto/áudio/vídeo, painéis de configuração global colapsáveis, e auto-save com debounce.
 
-## Páginas
+## Arquitetura de Componentes
 
-### 1. /auth — Autenticação (página inicial)
-- Layout centralizado com logo no topo
-- Tabs "Entrar" / "Cadastrar"
-- Login: email, senha, botão "Entrar", botão "Entrar com Google" (outline), link "Esqueci minha senha"
-- Cadastro: nome, email, senha, confirmar senha, botão "Cadastrar"
-- Redireciona para /dashboard após login
+```text
+src/pages/ProjectDetail.tsx          (orquestrador principal)
+src/components/editor/
+  EditorHeader.tsx                   (header fixo: voltar, nome editável, badges)
+  EditorTabs.tsx                     (wrapper das 3 abas)
+  GlobalConfigPanel.tsx              (painel colapsável de estilo/voz global)
+  PageNavigator.tsx                  (navegação par anterior/próximo par)
+  AudioPageCard.tsx                  (card de página para Audiobook e Audiodescrição)
+  VideoPageCard.tsx                  (card de página para Videobook)
+  VideoGlobalPanel.tsx               (config global do videobook: formato, transição, resolução)
+  ExportFooter.tsx                   (seção de exportação compartilhada)
+src/hooks/
+  useProjectEditor.ts               (fetch projeto + páginas, estados, auto-save)
+  useDebounce.ts                     (debounce genérico)
+```
 
-### 2. /dashboard — Painel principal (protegida)
-- Header fixo: logo à esquerda, nome do usuário + badge do plano + botão "Sair" à direita
-- Título "Meus Projetos" + botão "+ Novo Projeto"
-- Filtros por tipo: Todos / Audiobook / Audiodescrição / Videobook
-- Grid responsivo de cards (3/2/1 colunas) com nome, tipo (badge), data, total de páginas, barras de progresso (Audiobook/Audiodescrição/Videobook %), ações "Abrir" + dropdown (Renomear/Excluir)
-- Estado vazio com ilustração e call-to-action
+## Detalhes Técnicos
 
-### 3. /projeto/novo — Criar projeto (protegida)
-- Header com "← Voltar" + título "Novo Projeto"
-- Formulário centralizado (max 600px): nome do projeto, título do livro, tipo do livro (select), dropzone para PDF (drag-and-drop, máx 100MB)
-- Upload para bucket `pdfs` no caminho `{user_id}/{project_id}/original.pdf`
-- Botão "Criar Projeto" com loading/progress state
-- Redireciona para /projeto/:id após criação
+### 1. ProjectDetail.tsx — Orquestrador
+- Busca projeto por ID e páginas ordenadas por `page_number`
+- Se `total_pages === 0 && processing_status === 'pending'`: mostra tela "Processando..."
+- Senão: renderiza `EditorHeader`, `Tabs` (Audiobook / Audiodescrição / Videobook), `ExportFooter`
+- Estado global: `project`, `pages[]`, `currentPairIndex`, `activeTab`, `saving`
 
-### 4. /projeto/:id — Página placeholder
-- Placeholder simples para receber o redirecionamento pós-criação
+### 2. EditorHeader
+- Botão "← Dashboard" à esquerda
+- Nome editável inline (clique → input, blur/enter → salva via supabase update)
+- Badges à direita: contadores calculados das páginas (extraídas, áudios gerados, aprovados)
+- Indicador "Salvo ✓" temporário após auto-save
 
-## Banco de Dados Supabase
+### 3. GlobalConfigPanel (Audiobook e Audiodescrição)
+- `Collapsible` expandido por padrão
+- Textarea para estilo de narração (salva em `audiobook_global_style` ou `audiodesc_global_style` do projeto)
+- Select com 28 vozes (Zephyr, Puck, Charon, etc.) — salva em `*_global_voice`
+- Botão "Extrair todos os textos" (placeholder — chama toast "será implementado")
+- Progresso e rate limit visíveis condicionalmente
 
-### Tabelas
-- **profiles**: id, name, email, plan, stripe fields, pages_used_month, timestamps
-- **projects**: id, user_id, name, book_title, book_type, pdf_url, total_pages, processing_status, configurações globais de audiobook/audiodesc/videobook, timestamps
-- **pages**: id, project_id, page_number, URLs de imagem/áudio/vídeo, textos, status por módulo, configurações de vídeo (JSONB), timestamps, UNIQUE(project_id, page_number)
+### 4. PageNavigator
+- Calcula pares: `[[p1,p2], [p3,p4], ...]`
+- Botões anterior/próximo, indicador "Par X de Y"
+- Responsivo: 2 colunas desktop, 1 coluna mobile
 
-### RLS
-- profiles: usuário lê/edita apenas seu perfil
-- projects: CRUD restrito ao próprio user_id
-- pages: acesso apenas a páginas de projetos do usuário
+### 5. AudioPageCard (reutilizado para Audiobook e Audiodescrição)
+- Props: `page`, `mode: 'audiobook' | 'audiodesc'`, `globalVoice`, `globalStyle`, `onUpdate`
+- Imagem da página com badge de status colorido (pendente/texto extraído/áudio gerado/aprovado)
+- Textarea editável com debounce 2s → auto-save no campo `audiobook_text` ou `audiodesc_text`
+- Botão "Extrair esta página" (placeholder)
+- Select de voz por página (herda global, badge "Personalizada" se diferente)
+- Input de estilo por página (placeholder "Herda configuração global se vazio")
+- Botão "Gerar Áudio" (habilitado se texto existe, placeholder)
+- Player HTML5 `<audio>` (visível se audio_url existe)
+- Botões Download MP3, Aprovar, Regerar (visíveis após áudio)
 
-### Trigger
-- Ao criar usuário no Auth → inserir automaticamente em profiles com name e email
+### 6. VideoPageCard
+- Preview da imagem com badge de status (pendente/regiões/configurado/exportado)
+- Botão "Detectar regiões" e "Editar animações" (placeholders)
+- Select de transição de saída por página
 
-## Storage Supabase
-- Buckets: `pdfs` (privado), `page-images` (público), `page-thumbnails` (público), `audiobook-audios` (privado), `audiodesc-audios` (privado), `videobook-final` (privado)
-- RLS nos buckets privados: acesso apenas ao próprio user_id path
+### 7. VideoGlobalPanel
+- Textarea estilo visual global
+- Selects: transição padrão, formato, resolução
+- Botões: detectar regiões em todas, preview, exportar MP4
+- Aviso amarelo sobre tempo de exportação
 
-## Componentes Compartilhados
-- Logo component (ícone acessibilidade + ondas + texto)
-- ProtectedRoute (redireciona para /auth se não autenticado)
-- AuthContext com hook useAuth
-- Header do dashboard reutilizável
+### 8. ExportFooter
+- Select de capítulo/seção
+- Botões de download ZIP / MP4
+
+### 9. useProjectEditor hook
+- Fetch projeto e páginas do Supabase
+- Funções: `updateProject(fields)`, `updatePage(pageId, fields)` com debounce
+- Estado `saving` para indicador visual
+
+### 10. useDebounce hook
+- Debounce de 2 segundos para auto-save de textos
+
+### 11. Lista de vozes (constante compartilhada)
+- Array de 28 objetos `{ value, label, description }` em arquivo de constantes `src/constants/voices.ts`
+
+## Fluxo de Dados
+
+1. Ao montar: busca projeto + páginas
+2. Edições de texto → debounce 2s → `supabase.from('pages').update()`
+3. Edições de config global → `supabase.from('projects').update()`
+4. Nome do projeto → update imediato ao confirmar
+5. Indicador "Salvo" no header por 2s após qualquer save
+
+## Implementação
+
+Será dividido em 5 etapas:
+1. Hook `useProjectEditor` + `useDebounce` + constantes de vozes
+2. `EditorHeader` + `ProjectDetail` (orquestrador com loading/processing states)
+3. `GlobalConfigPanel` + `AudioPageCard` + `PageNavigator` (abas Audiobook/Audiodescrição)
+4. `VideoGlobalPanel` + `VideoPageCard` (aba Videobook)
+5. `ExportFooter` (rodapé compartilhado)
 
