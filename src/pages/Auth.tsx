@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { lovable } from "@/integrations/lovable/index";
 
 const Auth = () => {
   const { session, loading } = useAuth();
