@@ -14,7 +14,205 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      pages: {
+        Row: {
+          audiobook_audio_duration_seconds: number | null
+          audiobook_audio_url: string | null
+          audiobook_status: string
+          audiobook_style: string | null
+          audiobook_text: string | null
+          audiobook_voice: string | null
+          audiodesc_audio_duration_seconds: number | null
+          audiodesc_audio_url: string | null
+          audiodesc_status: string
+          audiodesc_style: string | null
+          audiodesc_text: string | null
+          audiodesc_voice: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          page_number: number
+          project_id: string
+          thumbnail_url: string | null
+          updated_at: string
+          video_animations: Json | null
+          video_clip_url: string | null
+          video_regions: Json | null
+          video_status: string
+          video_timestamps: Json | null
+          video_transition: string | null
+        }
+        Insert: {
+          audiobook_audio_duration_seconds?: number | null
+          audiobook_audio_url?: string | null
+          audiobook_status?: string
+          audiobook_style?: string | null
+          audiobook_text?: string | null
+          audiobook_voice?: string | null
+          audiodesc_audio_duration_seconds?: number | null
+          audiodesc_audio_url?: string | null
+          audiodesc_status?: string
+          audiodesc_style?: string | null
+          audiodesc_text?: string | null
+          audiodesc_voice?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          page_number: number
+          project_id: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_animations?: Json | null
+          video_clip_url?: string | null
+          video_regions?: Json | null
+          video_status?: string
+          video_timestamps?: Json | null
+          video_transition?: string | null
+        }
+        Update: {
+          audiobook_audio_duration_seconds?: number | null
+          audiobook_audio_url?: string | null
+          audiobook_status?: string
+          audiobook_style?: string | null
+          audiobook_text?: string | null
+          audiobook_voice?: string | null
+          audiodesc_audio_duration_seconds?: number | null
+          audiodesc_audio_url?: string | null
+          audiodesc_status?: string
+          audiodesc_style?: string | null
+          audiodesc_text?: string | null
+          audiodesc_voice?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          page_number?: number
+          project_id?: string
+          thumbnail_url?: string | null
+          updated_at?: string
+          video_animations?: Json | null
+          video_clip_url?: string | null
+          video_regions?: Json | null
+          video_status?: string
+          video_timestamps?: Json | null
+          video_transition?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          month_reset_at: string
+          name: string
+          pages_used_month: number
+          plan: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          month_reset_at?: string
+          name: string
+          pages_used_month?: number
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          month_reset_at?: string
+          name?: string
+          pages_used_month?: number
+          plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          audiobook_global_style: string | null
+          audiobook_global_voice: string | null
+          audiodesc_global_style: string | null
+          audiodesc_global_voice: string | null
+          book_title: string | null
+          book_type: string
+          created_at: string
+          id: string
+          name: string
+          pdf_url: string | null
+          processing_status: string
+          total_pages: number
+          updated_at: string
+          user_id: string
+          videobook_global_transition: string | null
+          videobook_global_visual_style: string | null
+          videobook_output_format: string | null
+          videobook_url: string | null
+        }
+        Insert: {
+          audiobook_global_style?: string | null
+          audiobook_global_voice?: string | null
+          audiodesc_global_style?: string | null
+          audiodesc_global_voice?: string | null
+          book_title?: string | null
+          book_type?: string
+          created_at?: string
+          id?: string
+          name: string
+          pdf_url?: string | null
+          processing_status?: string
+          total_pages?: number
+          updated_at?: string
+          user_id: string
+          videobook_global_transition?: string | null
+          videobook_global_visual_style?: string | null
+          videobook_output_format?: string | null
+          videobook_url?: string | null
+        }
+        Update: {
+          audiobook_global_style?: string | null
+          audiobook_global_voice?: string | null
+          audiodesc_global_style?: string | null
+          audiodesc_global_voice?: string | null
+          book_title?: string | null
+          book_type?: string
+          created_at?: string
+          id?: string
+          name?: string
+          pdf_url?: string | null
+          processing_status?: string
+          total_pages?: number
+          updated_at?: string
+          user_id?: string
+          videobook_global_transition?: string | null
+          videobook_global_visual_style?: string | null
+          videobook_output_format?: string | null
+          videobook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
