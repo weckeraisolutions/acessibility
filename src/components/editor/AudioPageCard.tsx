@@ -6,18 +6,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCw, Play, Download, Check, RefreshCw } from "lucide-react";
+import { RotateCw, Play, Download, Check, RefreshCw, Loader2 } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { VOICES } from "@/constants/voices";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
+import { useTextExtractor } from "@/hooks/useTextExtractor";
 
 type Page = Tables<"pages">;
+type Project = Tables<"projects">;
 
 interface AudioPageCardProps {
   page: Page;
   mode: "audiobook" | "audiodesc";
   globalVoice: string;
+  project: Project;
+  apiKey: string;
   onUpdate: (pageId: string, fields: Partial<Page>) => void;
 }
 
@@ -26,21 +30,24 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audio = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   if (status === "approved") return { label: "✅ Aprovado", color: "bg-green-500" };
+  if (status === "no_content") return { label: "⬜ Sem conteúdo", color: "bg-muted-foreground/40" };
   if (audio) return { label: "🔊 Áudio gerado", color: "bg-orange-500" };
   if (text) return { label: "📝 Texto extraído", color: "bg-blue-500" };
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
   const pageStyle = mode === "audiobook" ? page.audiobook_style : page.audiodesc_style;
   const status = getStatus(page, mode);
   const { toast } = useToast();
+  const extractor = useTextExtractor();
 
   const [localText, setLocalText] = useState(text || "");
   const [localStyle, setLocalStyle] = useState(pageStyle || "");
+  const [extracting, setExtracting] = useState(false);
 
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
@@ -68,6 +75,21 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
     debouncedSaveStyle(val);
   };
 
+  const handleExtractSingle = async () => {
+    if (!apiKey) {
+      toast({ title: "Chave necessária", description: "Insira a chave da API Gemini no painel global primeiro.", variant: "destructive" });
+      return;
+    }
+    setExtracting(true);
+    const ok = await extractor.extractSingle(page, mode, project, apiKey, onUpdate);
+    setExtracting(false);
+    if (ok) {
+      toast({ title: "Texto extraído", description: `Página ${page.page_number} processada.` });
+    } else {
+      toast({ title: "Erro", description: "Falha ao extrair texto desta página.", variant: "destructive" });
+    }
+  };
+
   const placeholderAction = () => toast({ title: "Em breve", description: "Funcionalidade será implementada." });
 
   const currentVoice = pageVoice || globalVoice;
@@ -75,7 +97,6 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
 
   return (
     <Card className="overflow-hidden">
-      {/* Image + status */}
       <div className="relative bg-muted aspect-[3/4] flex items-center justify-center">
         {(page.thumbnail_url || page.image_url) ? (
           <img src={page.thumbnail_url || page.image_url || ""} alt={`Página ${page.page_number}`} className="w-full h-full object-contain" />
@@ -91,7 +112,6 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
       </div>
 
       <CardContent className="p-3 space-y-3">
-        {/* Text */}
         <div>
           <Textarea
             rows={8}
@@ -99,12 +119,21 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
             onChange={(e) => handleTextChange(e.target.value)}
             placeholder="Texto ainda não extraído. Clique em Extrair para processar."
           />
-          <Button variant="outline" size="sm" className="mt-1 w-full" onClick={placeholderAction}>
-            <RotateCw className="h-3 w-3 mr-1" /> Extrair esta página
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-1 w-full"
+            onClick={handleExtractSingle}
+            disabled={extracting}
+          >
+            {extracting ? (
+              <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Extraindo...</>
+            ) : (
+              <><RotateCw className="h-3 w-3 mr-1" /> Extrair esta página</>
+            )}
           </Button>
         </div>
 
-        {/* Voice */}
         <div>
           <div className="flex items-center gap-2">
             <Label className="text-xs">Voz:</Label>
@@ -125,7 +154,6 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
           </Select>
         </div>
 
-        {/* Style */}
         <div>
           <Label className="text-xs">Estilo:</Label>
           <Input
@@ -136,7 +164,6 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
           />
         </div>
 
-        {/* Audio actions */}
         <div className="space-y-2">
           <Button
             size="sm"
