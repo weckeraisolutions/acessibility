@@ -77,8 +77,8 @@ const AudioPageCard = ({ page, mode, globalVoice, onUpdate }: AudioPageCardProps
     <Card className="overflow-hidden">
       {/* Image + status */}
       <div className="relative bg-muted aspect-[3/4] flex items-center justify-center">
-        {page.image_url ? (
-          <img src={page.image_url} alt={`Página ${page.page_number}`} className="w-full h-full object-contain" />
+        {(page.thumbnail_url || page.image_url) ? (
+          <img src={page.thumbnail_url || page.image_url || ""} alt={`Página ${page.page_number}`} className="w-full h-full object-contain" />
         ) : (
           <span className="text-muted-foreground text-sm">Sem imagem</span>
         )}
