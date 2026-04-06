@@ -32,6 +32,8 @@ interface GlobalConfigPanelProps {
   pages: Page[];
   project: Project;
   onPageUpdate: (pageId: string, fields: Partial<Page>) => void;
+  apiKey: string;
+  onApiKeyChange: (key: string) => void;
 }
 
 const placeholders: Record<string, string> = {
@@ -48,20 +50,23 @@ const GlobalConfigPanel = ({
   pages,
   project,
   onPageUpdate,
+  apiKey,
+  onApiKeyChange,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const [apiKeyDialog, setApiKeyDialog] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [localApiKey, setLocalApiKey] = useState(apiKey);
   const { toast } = useToast();
   const extractor = useTextExtractor();
 
   const handleStartExtraction = async () => {
-    if (!apiKey.trim()) {
+    if (!localApiKey.trim()) {
       toast({ title: "Erro", description: "Insira a chave da API Gemini.", variant: "destructive" });
       return;
     }
+    onApiKeyChange(localApiKey);
     setApiKeyDialog(false);
-    const results = await extractor.extractAll(pages, mode, project, apiKey, onPageUpdate);
+    const results = await extractor.extractAll(pages, mode, project, localApiKey, onPageUpdate);
     toast({
       title: "Extração concluída",
       description: `${results.extracted} extraídas, ${results.noContent} sem conteúdo, ${results.errors} com erro`,
@@ -139,8 +144,8 @@ const GlobalConfigPanel = ({
           <Input
             type="password"
             placeholder="AIza..."
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
+            value={localApiKey}
+            onChange={(e) => setLocalApiKey(e.target.value)}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setApiKeyDialog(false)}>Cancelar</Button>
