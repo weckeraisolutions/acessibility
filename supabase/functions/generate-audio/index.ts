@@ -30,8 +30,148 @@ function respond(body: Record<string, unknown>, status = 200) {
   });
 }
 
-async function generateWithGemini(
-  text: string, voice: string, styleApplied: string, geminiApiKey: string
+const GEMINI_REQUEST_TIMEOUT_MS = 70000;
+const GEMINI_CHUNK_CHAR_LIMIT = 1300;
+const GEMINI_PCM_SAMPLE_RATE = 24000;
+const GEMINI_PCM_CHANNELS = 1;
+const GEMINI_PCM_BITS_PER_SAMPLE = 16;
+
+function splitTextForTts(text: string, maxChars = GEMINI_CHUNK_CHAR_LIMIT): string[] {
+  const normalized = text.trim();
+  if (!normalized) return [];
+
+  const paragraphs = normalized.split(/\n+/).map((part) => part.trim()).filter(Boolean);
+  const chunks: string[] = [];
+  let current = "";
+
+  const pushCurrent = () => {
+    if (current.trim()) {
+      chunks.push(current.trim());
+      current = "";
+    }
+  };
+
+  const appendPiece = (piece: string) => {
+    const trimmed = piece.trim();
+    if (!trimmed) return;
+
+    if (!current) {
+      current = trimmed;
+      return;
+    }
+
+    const candidate = `${current}\n${trimmed}`;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+      return;
+    }
+
+    pushCurrent();
+    current = trimmed;
+  };
+
+  for (const paragraph of paragraphs) {
+    if (paragraph.length <= maxChars) {
+      appendPiece(paragraph);
+      continue;
+    }
+
+    const sentences = paragraph.split(/(?<=[.!?])\s+/).map((part) => part.trim()).filter(Boolean);
+    const parts = sentences.length ? sentences : [paragraph];
+    let local = "";
+
+    for (const part of parts) {
+      if (part.length > maxChars) {
+        const words = part.split(/\s+/).filter(Boolean);
+        let wordChunk = "";
+
+        for (const word of words) {
+          const candidate = wordChunk ? `${wordChunk} ${word}` : word;
+          if (candidate.length > maxChars && wordChunk) {
+            appendPiece(wordChunk);
+            wordChunk = word;
+          } else {
+            wordChunk = candidate;
+          }
+        }
+
+        if (wordChunk) appendPiece(wordChunk);
+        continue;
+      }
+
+      const candidate = local ? `${local} ${part}` : part;
+      if (candidate.length <= maxChars) {
+        local = candidate;
+      } else {
+        if (local) appendPiece(local);
+        local = part;
+      }
+    }
+
+    if (local) appendPiece(local);
+  }
+
+  pushCurrent();
+  return chunks.length ? chunks : [normalized];
+}
+
+function wrapPcmAsWav(pcmBytes: Uint8Array): Uint8Array {
+  const byteRate = GEMINI_PCM_SAMPLE_RATE * GEMINI_PCM_CHANNELS * (GEMINI_PCM_BITS_PER_SAMPLE / 8);
+  const blockAlign = GEMINI_PCM_CHANNELS * (GEMINI_PCM_BITS_PER_SAMPLE / 8);
+  const dataSize = pcmBytes.length;
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+
+  view.setUint32(0, 0x52494646, false); // RIFF
+  view.setUint32(4, 36 + dataSize, true);
+  view.setUint32(8, 0x57415645, false); // WAVE
+  view.setUint32(12, 0x666d7420, false); // fmt 
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, GEMINI_PCM_CHANNELS, true);
+  view.setUint32(24, GEMINI_PCM_SAMPLE_RATE, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, GEMINI_PCM_BITS_PER_SAMPLE, true);
+  view.setUint32(36, 0x64617461, false); // data
+  view.setUint32(40, dataSize, true);
+
+  const wavBytes = new Uint8Array(44 + dataSize);
+  wavBytes.set(new Uint8Array(header), 0);
+  wavBytes.set(pcmBytes, 44);
+  return wavBytes;
+}
+
+function extractWavData(wavBytes: Uint8Array): Uint8Array {
+  if (wavBytes.length < 44) return wavBytes;
+
+  const view = new DataView(wavBytes.buffer, wavBytes.byteOffset, wavBytes.byteLength);
+  if (view.getUint32(0, false) !== 0x52494646 || view.getUint32(8, false) !== 0x57415645) {
+    return wavBytes;
+  }
+
+  let offset = 12;
+  while (offset + 8 <= wavBytes.length) {
+    const chunkId = view.getUint32(offset, false);
+    const chunkSize = view.getUint32(offset + 4, true);
+
+    if (chunkId === 0x64617461) {
+      const dataStart = offset + 8;
+      const dataEnd = Math.min(dataStart + chunkSize, wavBytes.length);
+      return wavBytes.slice(dataStart, dataEnd);
+    }
+
+    offset += 8 + chunkSize + (chunkSize % 2);
+  }
+
+  return wavBytes.slice(44);
+}
+
+async function requestGeminiChunk(
+  chunkText: string,
+  voice: string,
+  styleApplied: string,
+  geminiApiKey: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const ttsPrompt = `Você é narrador profissional de audiobooks em português do Brasil.
 
@@ -43,13 +183,12 @@ REGRAS: narrar 100% do texto sem omitir nenhuma palavra. Pronúncia completament
 
 TEXTO:
 
-${prepareText(text)}`;
+${chunkText}`;
 
   const model = "gemini-2.5-pro-preview-tts";
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
-
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 140000);
+  const timeoutId = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
 
   let geminiResponse: Response;
   try {
@@ -88,43 +227,50 @@ ${prepareText(text)}`;
   const audioPart = geminiData?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
   if (!audioPart?.data) throw { status: 500, error: "api_error", message: "Nenhum áudio retornado pela API" };
 
-  const rawMime = audioPart.mimeType || "audio/wav";
-  const pcmBytes = base64Decode(audioPart.data);
+  return {
+    audioBytes: base64Decode(audioPart.data),
+    mimeType: audioPart.mimeType || "audio/wav",
+  };
+}
 
-  // If Gemini returns raw PCM (L16), wrap with WAV header so browsers can play it
-  if (rawMime.includes("L16") || rawMime.includes("pcm")) {
-    const sampleRate = 24000;
-    const numChannels = 1;
-    const bitsPerSample = 16;
-    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-    const blockAlign = numChannels * (bitsPerSample / 8);
-    const dataSize = pcmBytes.length;
-    const header = new ArrayBuffer(44);
-    const view = new DataView(header);
-    // RIFF header
-    view.setUint32(0, 0x52494646, false); // "RIFF"
-    view.setUint32(4, 36 + dataSize, true);
-    view.setUint32(8, 0x57415645, false); // "WAVE"
-    // fmt chunk
-    view.setUint32(12, 0x666d7420, false); // "fmt "
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true); // PCM
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, byteRate, true);
-    view.setUint16(32, blockAlign, true);
-    view.setUint16(34, bitsPerSample, true);
-    // data chunk
-    view.setUint32(36, 0x64617461, false); // "data"
-    view.setUint32(40, dataSize, true);
+async function generateWithGemini(
+  text: string, voice: string, styleApplied: string, geminiApiKey: string
+): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
+  const prepared = prepareText(text);
+  const chunks = splitTextForTts(prepared);
 
-    const wavBytes = new Uint8Array(44 + dataSize);
-    wavBytes.set(new Uint8Array(header), 0);
-    wavBytes.set(pcmBytes, 44);
-    return { audioBytes: wavBytes, mimeType: "audio/wav" };
+  const results: Array<{ audioBytes: Uint8Array; mimeType: string }> = [];
+  for (let i = 0; i < chunks.length; i += 2) {
+    const batch = chunks.slice(i, i + 2);
+    const batchResults = await Promise.all(
+      batch.map((chunkText) => requestGeminiChunk(chunkText, voice, styleApplied, geminiApiKey)),
+    );
+    results.push(...batchResults);
   }
 
-  return { audioBytes: pcmBytes, mimeType: rawMime };
+  if (results.length === 1) {
+    const only = results[0];
+    if (only.mimeType.includes("L16") || only.mimeType.includes("pcm")) {
+      return { audioBytes: wrapPcmAsWav(only.audioBytes), mimeType: "audio/wav" };
+    }
+    return only;
+  }
+
+  const pcmParts = results.map(({ audioBytes, mimeType }) => {
+    if (mimeType.includes("L16") || mimeType.includes("pcm")) return audioBytes;
+    if (mimeType.includes("wav")) return extractWavData(audioBytes);
+    throw { status: 500, error: "api_error", message: "Formato de áudio Gemini não suportado para montagem em múltiplas partes" };
+  });
+
+  const totalLength = pcmParts.reduce((sum, part) => sum + part.length, 0);
+  const mergedPcm = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of pcmParts) {
+    mergedPcm.set(part, offset);
+    offset += part.length;
+  }
+
+  return { audioBytes: wrapPcmAsWav(mergedPcm), mimeType: "audio/wav" };
 }
 
 async function generateWithElevenLabs(
