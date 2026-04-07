@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { RotateCw, Play, Download, Check, RefreshCw, Loader2 } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +24,6 @@ interface AudioPageCardProps {
   mode: "audiobook" | "audiodesc";
   globalVoice: string;
   project: Project;
-  apiKey: string;
   onUpdate: (pageId: string, fields: Partial<Page>) => void;
   useElevenlabs?: boolean;
   elevenlabsVoiceId?: string;
@@ -42,11 +42,12 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, useElevenlabs, elevenlabsVoiceId, elevenlabsModel, plan }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenlabs, elevenlabsVoiceId, elevenlabsModel, plan }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
   const pageStyle = mode === "audiobook" ? page.audiobook_style : page.audiodesc_style;
+  const currentStatus = mode === "audiobook" ? page.audiobook_status : page.audiodesc_status;
   const status = getStatus(page, mode);
   const { toast } = useToast();
   const extractor = useTextExtractor();
@@ -87,12 +88,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
   };
 
   const handleExtractSingle = async () => {
-    if (!apiKey) {
-      toast({ title: "Chave necessária", description: "Insira a chave da API Gemini no painel global primeiro.", variant: "destructive" });
-      return;
-    }
     setExtracting(true);
-    const ok = await extractor.extractSingle(page, mode, project, apiKey, onUpdate);
+    const ok = await extractor.extractSingle(page, mode, project, onUpdate);
     setExtracting(false);
     if (ok) {
       toast({ title: "Texto extraído", description: `Página ${page.page_number} processada.` });
@@ -107,11 +104,10 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
   const globalStyle = mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style;
 
   const handleGenerateAudio = async (extraStyle?: string) => {
-    if (!apiKey) {
-      toast({ title: "Chave necessária", description: "Insira a chave da API Gemini no painel global primeiro.", variant: "destructive" });
+    if (!localText.trim()) {
+      toast({ title: "Texto necessário", description: "Extraia o texto desta página primeiro.", variant: "destructive" });
       return;
     }
-    if (!localText.trim()) return;
 
     setGenerating(true);
     try {
@@ -126,7 +122,6 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
           page_style: extraStyle || localStyle || "",
           mode,
           plan: plan || "free",
-          gemini_api_key: apiKey,
           use_elevenlabs: useElevenlabs || false,
           elevenlabs_voice_id: elevenlabsVoiceId || "",
           elevenlabs_model: elevenlabsModel || "eleven_multilingual_v2",
@@ -181,9 +176,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
     toast({ title: "Aprovado", description: `Página ${page.page_number} aprovada.` });
   };
 
-  const handleRegen = () => {
+  const handleRegenConfirmed = () => {
     handleGenerateAudio(regenStyle);
   };
+
+  const isApproved = currentStatus === "approved";
 
   return (
     <Card className="overflow-hidden">
@@ -231,10 +228,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
             {!useElevenlabs && isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
           </div>
           {useElevenlabs ? (
-            <Select
-              value={elevenlabsVoiceId || ""}
-              disabled
-            >
+            <Select value={elevenlabsVoiceId || ""} disabled>
               <SelectTrigger className="mt-1 h-8 text-xs">
                 <SelectValue placeholder={ELEVENLABS_VOICES.find(v => v.voice_id === elevenlabsVoiceId)?.name || "Voz ElevenLabs"} />
               </SelectTrigger>
@@ -292,12 +286,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
                 <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
                   <Download className="h-3 w-3 mr-1" /> MP3
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleApprove}
-                >
+                <Button variant="outline" size="sm" className="flex-1" onClick={handleApprove}>
                   <Check className="h-3 w-3 mr-1" /> Aprovar
                 </Button>
               </div>
@@ -314,10 +303,33 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, use
                     className="h-8 text-xs"
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" onClick={handleRegen} disabled={generating || !regenStyle.trim()}>
-                      {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                      Regerar
-                    </Button>
+                    {isApproved ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" className="flex-1" disabled={generating || !regenStyle.trim()}>
+                            {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                            Regerar
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Regerar áudio aprovado?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta página já está aprovada. Deseja regerar o áudio e remover a aprovação?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleRegenConfirmed}>Sim, regerar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : (
+                      <Button size="sm" className="flex-1" onClick={handleRegenConfirmed} disabled={generating || !regenStyle.trim()}>
+                        {generating ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                        Regerar
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => { setShowRegen(false); setRegenStyle(""); }}>
                       Cancelar
                     </Button>

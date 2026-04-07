@@ -20,14 +20,12 @@ interface UseTextExtractorReturn {
     pages: Page[],
     mode: "audiobook" | "audiodesc",
     project: Project,
-    apiKey: string,
     onPageUpdate: (pageId: string, fields: Partial<Page>) => void
   ) => Promise<ExtractionResults>;
   extractSingle: (
     page: Page,
     mode: "audiobook" | "audiodesc",
     project: Project,
-    apiKey: string,
     onPageUpdate: (pageId: string, fields: Partial<Page>) => void
   ) => Promise<boolean>;
 }
@@ -37,8 +35,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function callExtractText(
   page: Page,
   mode: "audiobook" | "audiodesc",
-  project: Project,
-  apiKey: string
+  project: Project
 ) {
   const { data, error } = await supabase.functions.invoke("extract-text", {
     body: {
@@ -52,7 +49,6 @@ async function callExtractText(
           : project.audiodesc_global_style,
       page_style:
         mode === "audiobook" ? page.audiobook_style : page.audiodesc_style,
-      gemini_api_key: apiKey,
     },
   });
 
@@ -75,14 +71,13 @@ export function useTextExtractor(): UseTextExtractorReturn {
       page: Page,
       mode: "audiobook" | "audiodesc",
       project: Project,
-      apiKey: string,
       onPageUpdate: (pageId: string, fields: Partial<Page>) => void
     ): Promise<boolean> => {
       const textField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
       const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
 
       try {
-        const result = await callExtractText(page, mode, project, apiKey);
+        const result = await callExtractText(page, mode, project);
         if (result.success) {
           onPageUpdate(page.id, {
             [textField]: result.text,
@@ -103,7 +98,6 @@ export function useTextExtractor(): UseTextExtractorReturn {
       pages: Page[],
       mode: "audiobook" | "audiodesc",
       project: Project,
-      apiKey: string,
       onPageUpdate: (pageId: string, fields: Partial<Page>) => void
     ): Promise<ExtractionResults> => {
       setExtracting(true);
@@ -120,7 +114,7 @@ export function useTextExtractor(): UseTextExtractorReturn {
         let success = false;
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            const result = await callExtractText(page, mode, project, apiKey);
+            const result = await callExtractText(page, mode, project);
             if (result.success) {
               onPageUpdate(page.id, {
                 [textField]: result.text,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Chapter {
   id: string;
@@ -12,15 +13,33 @@ export function useChapters(projectId: string | undefined) {
 
   useEffect(() => {
     if (!projectId) return;
-    const stored = localStorage.getItem(`chapters_${projectId}`);
-    if (stored) {
-      try { setChapters(JSON.parse(stored)); } catch { setChapters([]); }
-    }
+    // Load from Supabase
+    supabase
+      .from("projects")
+      .select("chapters_config")
+      .eq("id", projectId)
+      .single()
+      .then(({ data }) => {
+        if (data?.chapters_config) {
+          try {
+            const parsed = typeof data.chapters_config === "string"
+              ? JSON.parse(data.chapters_config)
+              : data.chapters_config;
+            if (Array.isArray(parsed)) setChapters(parsed);
+          } catch { setChapters([]); }
+        }
+      });
   }, [projectId]);
 
   const persist = useCallback((updated: Chapter[]) => {
     setChapters(updated);
-    if (projectId) localStorage.setItem(`chapters_${projectId}`, JSON.stringify(updated));
+    if (projectId) {
+      supabase
+        .from("projects")
+        .update({ chapters_config: updated as any })
+        .eq("id", projectId)
+        .then();
+    }
   }, [projectId]);
 
   const addChapter = useCallback((name: string, startPage: number, endPage: number) => {
