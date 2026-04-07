@@ -52,8 +52,20 @@ async function callExtractText(
     },
   });
 
-  if (error) throw error;
-  return data as { success: boolean; text: string; no_content: boolean; page_id: string; error?: string };
+  if (error) {
+    // Try to extract structured error
+    try {
+      const parsed = typeof error === "string" ? JSON.parse(error) : error;
+      if (parsed?.context?.message) {
+        const innerParsed = JSON.parse(parsed.context.message);
+        throw innerParsed;
+      }
+    } catch (e) {
+      if ((e as any)?.error) throw e;
+    }
+    throw error;
+  }
+  return data as { success: boolean; text: string; no_content: boolean; page_id: string; error?: string; message?: string };
 }
 
 export function useTextExtractor(): UseTextExtractorReturn {
@@ -125,12 +137,17 @@ export function useTextExtractor(): UseTextExtractorReturn {
               success = true;
               break;
             }
-            if (result.error === "rate_limit") {
+            if (result.error === "rate_limit" || result.error === "timeout") {
               await sleep(Math.pow(2, attempt + 1) * 1000);
               continue;
             }
             break;
-          } catch {
+          } catch (e: any) {
+            const errorType = e?.error;
+            if (errorType === "rate_limit" || errorType === "timeout") {
+              await sleep(Math.pow(2, attempt + 1) * 1000);
+              continue;
+            }
             if (attempt < 2) {
               await sleep(Math.pow(2, attempt + 1) * 1000);
             }

@@ -7,6 +7,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function respond(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 function cleanText(text: string): string {
   return text
     .replace(/\[.*?\]/g, "")
@@ -17,27 +24,13 @@ function cleanText(text: string): string {
     .replace(/\bMEC\b/g, "M-E-C")
     .replace(/\bUSA\b/g, "U-S-A")
     .replace(/\bEUA\b/g, "E-U-A")
-    .replace(
-      /\b10\.639\/2003\b/g,
-      "Lei dez mil seiscentos e trinta e nove de dois mil e três"
-    )
-    .replace(
-      /\b11\.645\/2008\b/g,
-      "Lei onze mil seiscentos e quarenta e cinco de dois mil e oito"
-    )
+    .replace(/\b10\.639\/2003\b/g, "Lei dez mil seiscentos e trinta e nove de dois mil e três")
+    .replace(/\b11\.645\/2008\b/g, "Lei onze mil seiscentos e quarenta e cinco de dois mil e oito")
     .trim();
 }
 
-function getPrompt(
-  mode: string,
-  bookType: string,
-  globalStyle: string,
-  pageStyle: string
-): string {
-  const styleNote =
-    pageStyle || globalStyle
-      ? `\n\nESTILO ADICIONAL: ${pageStyle || globalStyle}`
-      : "";
+function getPrompt(mode: string, bookType: string, globalStyle: string, pageStyle: string): string {
+  const styleNote = pageStyle || globalStyle ? `\n\nESTILO ADICIONAL: ${pageStyle || globalStyle}` : "";
 
   if (mode === "audiobook") {
     return `Você é especialista em acessibilidade editorial brasileira com domínio das normas NBR 15599, Lei 13.146/2015 e Decreto 5.296/2004. Analise esta imagem de página de livro e extraia o texto para narração em audiobook.
@@ -108,76 +101,59 @@ serve(async (req) => {
   }
 
   try {
-    const {
-      page_id,
-      image_url,
-      mode,
-      book_type,
-      global_style,
-      page_style,
-    } = await req.json();
+    const { page_id, image_url, mode, book_type, global_style, page_style } = await req.json();
 
     const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
 
-    // Validate required fields
     if (!page_id || !image_url || !mode) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "missing_fields",
-          message: "Campos obrigatórios: page_id, image_url, mode",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios: page_id, image_url, mode" }, 400);
     }
 
     if (!gemini_api_key) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "api_key_missing",
-          message: "GEMINI_API_KEY não configurada no servidor",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({ success: false, error: "api_key_missing", message: "GEMINI_API_KEY não configurada no servidor" }, 500);
     }
 
     // Download image and convert to base64
     const imgResponse = await fetch(image_url);
     if (!imgResponse.ok) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "image_download_failed",
-          message: "Não foi possível baixar a imagem da página",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({ success: false, error: "image_download_failed", message: "Não foi possível baixar a imagem da página" }, 400);
     }
     const imgBuffer = await imgResponse.arrayBuffer();
     const imgBase64 = btoa(
       new Uint8Array(imgBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
     );
 
-    // Build prompt
     const prompt = getPrompt(mode, book_type || "general", global_style || "", page_style || "");
 
-    // Call Gemini Vision API
+    // Call Gemini Vision API with 55s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gemini_api_key}`;
-    const geminiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
+    let geminiResponse: Response;
+    try {
+      geminiResponse = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{
             parts: [
               { inlineData: { mimeType: "image/png", data: imgBase64 } },
               { text: prompt },
             ],
-          },
-        ],
-      }),
-    });
+          }],
+        }),
+      });
+    } catch (e) {
+      clearTimeout(timeoutId);
+      if (e instanceof DOMException && e.name === "AbortError") {
+        return respond({ success: false, error: "timeout", message: "A extração demorou demais. Tente novamente — páginas complexas podem precisar de mais de uma tentativa." }, 504);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!geminiResponse.ok) {
       const status = geminiResponse.status;
@@ -185,29 +161,19 @@ serve(async (req) => {
       console.error("Gemini error:", status, errText);
 
       if (status === 400 || status === 403) {
-        return new Response(
-          JSON.stringify({ success: false, error: "invalid_api_key", message: "Chave da API Gemini inválida" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return respond({ success: false, error: "invalid_api_key", message: "Chave da API Gemini inválida" }, 400);
       }
       if (status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: "rate_limit", message: "Limite de requisições atingido" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return respond({ success: false, error: "rate_limit", message: "Limite de requisições do Gemini atingido. Aguarde alguns segundos." }, 429);
       }
-      return new Response(
-        JSON.stringify({ success: false, error: "api_error", message: errText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({ success: false, error: "api_error", message: `Erro da API Gemini: ${status}` }, 500);
     }
 
     const geminiData = await geminiResponse.json();
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const cleanedText = cleanText(rawText);
 
-    const noContent =
-      cleanedText === "PÁGINA_SEM_NARRAÇÃO" || cleanedText === "PÁGINA_SEM_AUDIODESCRIÇÃO";
+    const noContent = cleanedText === "PÁGINA_SEM_NARRAÇÃO" || cleanedText === "PÁGINA_SEM_AUDIODESCRIÇÃO";
 
     // Update pages table
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -230,15 +196,9 @@ serve(async (req) => {
       console.error("DB update error:", updateError);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, text: cleanedText, no_content: noContent, page_id }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return respond({ success: true, text: cleanedText, no_content: noContent, page_id });
   } catch (e) {
     console.error("extract-text error:", e);
-    return new Response(
-      JSON.stringify({ success: false, error: "api_error", message: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return respond({ success: false, error: "api_error", message: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });

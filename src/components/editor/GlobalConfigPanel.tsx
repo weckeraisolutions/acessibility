@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ChevronDown, Zap, Sparkles } from "lucide-react";
 import { VOICES } from "@/constants/voices";
-import { ELEVENLABS_VOICES } from "@/constants/elevenlabs-voices";
+import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { useToast } from "@/hooks/use-toast";
 import { useTextExtractor } from "@/hooks/useTextExtractor";
 import { Tables } from "@/integrations/supabase/types";
@@ -27,11 +27,12 @@ interface GlobalConfigPanelProps {
   pages: Page[];
   project: Project;
   onPageUpdate: (pageId: string, fields: Partial<Page>) => void;
-  useElevenlabs?: boolean;
-  elevenlabsVoiceId?: string;
   ttsEngine: TtsEngine;
   onTtsEngineChange: (engine: TtsEngine) => void;
   canUseElevenlabs: boolean;
+  elevenlabsVoices: ElevenLabsVoice[];
+  selectedElevenlabsVoice: string;
+  onElevenlabsVoiceChange: (voiceId: string) => void;
 }
 
 const placeholders: Record<string, string> = {
@@ -42,8 +43,8 @@ const placeholders: Record<string, string> = {
 const GlobalConfigPanel = ({
   mode, style, voice, onStyleChange, onVoiceChange,
   pages, project, onPageUpdate,
-  useElevenlabs, elevenlabsVoiceId,
   ttsEngine, onTtsEngineChange, canUseElevenlabs,
+  elevenlabsVoices, selectedElevenlabsVoice, onElevenlabsVoiceChange,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
@@ -77,7 +78,7 @@ const GlobalConfigPanel = ({
             <SelectContent>
               <SelectItem value="gemini">🤖 Google Gemini TTS</SelectItem>
               <SelectItem value="elevenlabs" disabled={!canUseElevenlabs}>
-                ✨ ElevenLabs {!canUseElevenlabs && "(configure a API Key)"}
+                ✨ ElevenLabs {!canUseElevenlabs && "(API Key não configurada)"}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -96,10 +97,10 @@ const GlobalConfigPanel = ({
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Voz Padrão Global</Label>
           {isElevenlabs ? (
-            <Select value={elevenlabsVoiceId || ""} disabled>
-              <SelectTrigger className="mt-1"><SelectValue placeholder={ELEVENLABS_VOICES.find(v => v.voice_id === elevenlabsVoiceId)?.name || "Voz ElevenLabs"} /></SelectTrigger>
+            <Select value={selectedElevenlabsVoice} onValueChange={onElevenlabsVoiceChange}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione uma voz ElevenLabs" /></SelectTrigger>
               <SelectContent>
-                {ELEVENLABS_VOICES.map((v) => (
+                {elevenlabsVoices.map((v) => (
                   <SelectItem key={v.voice_id} value={v.voice_id}>{v.name} — {v.description}</SelectItem>
                 ))}
               </SelectContent>

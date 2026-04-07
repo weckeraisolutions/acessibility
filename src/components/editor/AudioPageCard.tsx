@@ -11,10 +11,11 @@ import { RotateCw, Play, Download, Check, RefreshCw, Loader2 } from "lucide-reac
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
-import { ELEVENLABS_VOICES } from "@/constants/elevenlabs-voices";
+import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 import { useTextExtractor } from "@/hooks/useTextExtractor";
+import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
 
 type Page = Tables<"pages">;
 type Project = Tables<"projects">;
@@ -25,9 +26,9 @@ interface AudioPageCardProps {
   globalVoice: string;
   project: Project;
   onUpdate: (pageId: string, fields: Partial<Page>) => void;
-  useElevenlabs?: boolean;
-  elevenlabsVoiceId?: string;
-  elevenlabsModel?: string;
+  ttsEngine: TtsEngine;
+  elevenlabsVoices: ElevenLabsVoice[];
+  selectedElevenlabsVoice: string;
   plan?: string;
 }
 
@@ -42,7 +43,7 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenlabs, elevenlabsVoiceId, elevenlabsModel, plan }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
@@ -51,6 +52,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
   const status = getStatus(page, mode);
   const { toast } = useToast();
   const extractor = useTextExtractor();
+
+  const isElevenlabs = ttsEngine === "elevenlabs";
 
   const [localText, setLocalText] = useState(text || "");
   const [localStyle, setLocalStyle] = useState(pageStyle || "");
@@ -65,7 +68,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
 
-  // Fetch audio as blob for playback (avoids COEP issues with signed URLs)
+  // Fetch audio as blob for playback
   useEffect(() => {
     if (!audioUrl || audioUrl === prevAudioUrlRef.current) return;
     prevAudioUrlRef.current = audioUrl;
@@ -80,7 +83,6 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
       })
       .then((blob) => {
         if (cancelled) return;
-        // Revoke previous blob URL
         setBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return URL.createObjectURL(blob);
@@ -97,7 +99,6 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
     return () => { cancelled = true; };
   }, [audioUrl]);
 
-  // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
@@ -164,19 +165,36 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
           page_style: extraStyle || localStyle || "",
           mode,
           plan: plan || "free",
-          use_elevenlabs: useElevenlabs || false,
-          elevenlabs_voice_id: elevenlabsVoiceId || "",
-          elevenlabs_model: elevenlabsModel || "eleven_multilingual_v2",
+          use_elevenlabs: isElevenlabs,
+          elevenlabs_voice_id: selectedElevenlabsVoice,
+          elevenlabs_model: "eleven_multilingual_v2",
         },
       });
 
-      if (error || !data?.success) {
-        const msg = data?.message || error?.message || "Erro ao gerar áudio";
+      if (error) {
+        // Try to parse structured error from edge function
+        let msg = "Falha na geração de áudio.";
+        try {
+          const parsed = typeof error === "string" ? JSON.parse(error) : error;
+          msg = parsed?.message || parsed?.context?.message || msg;
+        } catch { msg = error.message || msg; }
         toast({ title: "Erro", description: msg, variant: "destructive" });
         return;
       }
 
-      // Force re-fetch of new audio blob
+      if (!data?.success) {
+        const errorMap: Record<string, string> = {
+          timeout: "A geração excedeu o tempo limite. Tente novamente.",
+          rate_limit: "Limite de requisições atingido. Aguarde alguns segundos.",
+          invalid_api_key: "Chave da API inválida. Verifique os Secrets.",
+          elevenlabs_credits: "Créditos do ElevenLabs esgotados. Atualize a API Key.",
+          empty_text: "Texto vazio ou sem conteúdo narrável.",
+        };
+        const msg = errorMap[data?.error] || data?.message || "Erro desconhecido na geração.";
+        toast({ title: "Erro", description: msg, variant: "destructive" });
+        return;
+      }
+
       prevAudioUrlRef.current = null;
 
       onUpdate(page.id, {
@@ -187,11 +205,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
         [styleField]: extraStyle || localStyle || null,
       });
 
-      toast({ title: "Áudio gerado", description: `Página ${page.page_number} — ${data.duration_seconds}s` });
+      toast({ title: "Áudio gerado", description: `Página ${page.page_number} — ${data.duration_seconds}s (${data.engine})` });
       setShowRegen(false);
       setRegenStyle("");
     } catch (e) {
-      toast({ title: "Erro", description: "Falha na geração de áudio.", variant: "destructive" });
+      toast({ title: "Erro", description: "Falha na comunicação com o servidor.", variant: "destructive" });
     } finally {
       setGenerating(false);
     }
@@ -252,13 +270,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
             onChange={(e) => handleTextChange(e.target.value)}
             placeholder="Texto ainda não extraído. Clique em Extrair para processar."
           />
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-1 w-full"
-            onClick={handleExtractSingle}
-            disabled={extracting}
-          >
+          <Button variant="outline" size="sm" className="mt-1 w-full" onClick={handleExtractSingle} disabled={extracting}>
             {extracting ? (
               <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Extraindo...</>
             ) : (
@@ -270,16 +282,16 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
         <div>
           <div className="flex items-center gap-2">
             <Label className="text-xs">Voz:</Label>
-            {useElevenlabs && <Badge variant="secondary" className="text-[10px]">✨ ElevenLabs</Badge>}
-            {!useElevenlabs && isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
+            {isElevenlabs && <Badge variant="secondary" className="text-[10px]">✨ ElevenLabs</Badge>}
+            {!isElevenlabs && isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
           </div>
-          {useElevenlabs ? (
-            <Select value={elevenlabsVoiceId || ""} disabled>
+          {isElevenlabs ? (
+            <Select value={selectedElevenlabsVoice} disabled>
               <SelectTrigger className="mt-1 h-8 text-xs">
-                <SelectValue placeholder={ELEVENLABS_VOICES.find(v => v.voice_id === elevenlabsVoiceId)?.name || "Voz ElevenLabs"} />
+                <SelectValue placeholder={elevenlabsVoices.find(v => v.voice_id === selectedElevenlabsVoice)?.name || "Voz ElevenLabs"} />
               </SelectTrigger>
               <SelectContent>
-                {ELEVENLABS_VOICES.map((v) => (
+                {elevenlabsVoices.map((v) => (
                   <SelectItem key={v.voice_id} value={v.voice_id}>{v.name} — {v.description}</SelectItem>
                 ))}
               </SelectContent>
@@ -312,12 +324,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
         </div>
 
         <div className="space-y-2">
-          <Button
-            size="sm"
-            className="w-full"
-            disabled={!localText.trim() || generating}
-            onClick={() => handleGenerateAudio()}
-          >
+          <Button size="sm" className="w-full" disabled={!localText.trim() || generating} onClick={() => handleGenerateAudio()}>
             {generating ? (
               <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Gerando...</>
             ) : (
