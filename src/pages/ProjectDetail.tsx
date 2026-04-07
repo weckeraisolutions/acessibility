@@ -21,6 +21,7 @@ const ProjectDetail = () => {
   const { profile } = useAuth();
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
+  const videoDetector = useVideoRegionDetector();
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -178,6 +179,11 @@ const ProjectDetail = () => {
               onVisualStyleChange={(v) => updateProject({ videobook_global_visual_style: v || null })}
               onTransitionChange={(v) => updateProject({ videobook_global_transition: v })}
               onOutputFormatChange={(v) => updateProject({ videobook_output_format: v })}
+              detecting={videoDetector.detecting}
+              detectCurrentPage={videoDetector.currentPage}
+              detectTotalPages={videoDetector.totalPages}
+              onDetectAll={() => videoDetector.detectAll(pages, project.book_type, updatePage)}
+              onCancelDetect={videoDetector.cancel}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -187,7 +193,7 @@ const ProjectDetail = () => {
             />
             <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
               {currentPages.map((page) => (
-                <VideoPageCard key={page.id} page={page} onUpdate={updatePage} />
+                <VideoPageCard key={page.id} page={page} bookType={project.book_type} onUpdate={updatePage} onDetectSingle={videoDetector.detectSingle} />
               ))}
             </div>
           </TabsContent>
