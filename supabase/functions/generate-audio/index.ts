@@ -158,7 +158,7 @@ serve(async (req) => {
   try {
     const {
       page_id, project_id, page_number, text, voice,
-      global_style, page_style, mode, plan, gemini_api_key,
+      global_style, page_style, mode, plan,
       use_elevenlabs, elevenlabs_voice_id, elevenlabs_model,
     } = await req.json();
 
@@ -186,8 +186,9 @@ serve(async (req) => {
       audioBytes = result.audioBytes;
       engine = "elevenlabs";
     } else {
+      const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
       if (!voice || !gemini_api_key) {
-        return respond({ success: false, error: "missing_fields", message: "Voice e API key são obrigatórios para Gemini" }, 400);
+        return respond({ success: false, error: "missing_fields", message: "Voice e GEMINI_API_KEY são obrigatórios" }, 400);
       }
       const model = plan === "enterprise" ? "gemini-2.5-pro-preview-tts" : "gemini-2.5-flash-preview-tts";
       const result = await generateWithGemini(text, voice, styleApplied, model, gemini_api_key);

@@ -115,18 +115,30 @@ serve(async (req) => {
       book_type,
       global_style,
       page_style,
-      gemini_api_key,
     } = await req.json();
 
+    const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
+
     // Validate required fields
-    if (!page_id || !image_url || !mode || !gemini_api_key) {
+    if (!page_id || !image_url || !mode) {
       return new Response(
         JSON.stringify({
           success: false,
           error: "missing_fields",
-          message: "Campos obrigatórios: page_id, image_url, mode, gemini_api_key",
+          message: "Campos obrigatórios: page_id, image_url, mode",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!gemini_api_key) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "api_key_missing",
+          message: "GEMINI_API_KEY não configurada no servidor",
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
