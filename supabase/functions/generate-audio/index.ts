@@ -88,10 +88,43 @@ ${prepareText(text)}`;
   const audioPart = geminiData?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
   if (!audioPart?.data) throw { status: 500, error: "api_error", message: "Nenhum áudio retornado pela API" };
 
-  const mimeType = audioPart.mimeType || "audio/wav";
-  // Use Deno's base64 decode instead of atob for binary safety
-  const audioBytes = base64Decode(audioPart.data);
-  return { audioBytes, mimeType };
+  const rawMime = audioPart.mimeType || "audio/wav";
+  const pcmBytes = base64Decode(audioPart.data);
+
+  // If Gemini returns raw PCM (L16), wrap with WAV header so browsers can play it
+  if (rawMime.includes("L16") || rawMime.includes("pcm")) {
+    const sampleRate = 24000;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const dataSize = pcmBytes.length;
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+    // RIFF header
+    view.setUint32(0, 0x52494646, false); // "RIFF"
+    view.setUint32(4, 36 + dataSize, true);
+    view.setUint32(8, 0x57415645, false); // "WAVE"
+    // fmt chunk
+    view.setUint32(12, 0x666d7420, false); // "fmt "
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    // data chunk
+    view.setUint32(36, 0x64617461, false); // "data"
+    view.setUint32(40, dataSize, true);
+
+    const wavBytes = new Uint8Array(44 + dataSize);
+    wavBytes.set(new Uint8Array(header), 0);
+    wavBytes.set(pcmBytes, 44);
+    return { audioBytes: wavBytes, mimeType: "audio/wav" };
+  }
+
+  return { audioBytes: pcmBytes, mimeType: rawMime };
 }
 
 async function generateWithElevenLabs(
