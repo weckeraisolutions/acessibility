@@ -314,6 +314,7 @@ async function generateWithElevenLabs(
             body: JSON.stringify({
               text: chunk,
               model_id: "eleven_multilingual_v2",
+              language_code: "pt",
               voice_settings: { stability: 0.75, similarity_boost: 0.85, style: 0.5, use_speaker_boost: true },
             }),
           }
