@@ -99,6 +99,8 @@ const ProjectDetail = () => {
               onPageUpdate={updatePage}
               apiKey={geminiApiKey}
               onApiKeyChange={setGeminiApiKey}
+              useElevenlabs={useElevenlabs}
+              elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -138,6 +140,8 @@ const ProjectDetail = () => {
               onPageUpdate={updatePage}
               apiKey={geminiApiKey}
               onApiKeyChange={setGeminiApiKey}
+              useElevenlabs={useElevenlabs}
+              elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
             />
             <PageNavigator
               currentPair={pairIndex}
