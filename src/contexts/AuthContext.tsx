@@ -7,6 +7,11 @@ interface Profile {
   name: string;
   email: string;
   plan: string;
+  pages_used_month: number;
+  month_reset_at: string;
+  use_elevenlabs: boolean;
+  elevenlabs_default_voice_id: string | null;
+  elevenlabs_default_model: string;
 }
 
 interface AuthContextType {
@@ -36,10 +41,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, name, email, plan")
+      .select("id, name, email, plan, pages_used_month, month_reset_at")
       .eq("id", userId)
       .single();
-    setProfile(data);
+    if (data) {
+      // Fetch extended fields separately since they're not in generated types yet
+      const { data: ext } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      setProfile({
+        ...data,
+        use_elevenlabs: (ext as any)?.use_elevenlabs || false,
+        elevenlabs_default_voice_id: (ext as any)?.elevenlabs_default_voice_id || null,
+        elevenlabs_default_model: (ext as any)?.elevenlabs_default_model || "eleven_multilingual_v2",
+      } as Profile);
+    } else {
+      setProfile(null);
+    }
   };
 
   useEffect(() => {

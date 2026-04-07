@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, MoreVertical, FolderOpen, BookOpen } from "lucide-react";
+import { Plus, MoreVertical, FolderOpen, BookOpen, Settings } from "lucide-react";
 
 interface Project {
   id: string;
@@ -88,6 +88,9 @@ const Dashboard = () => {
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">{profile?.name}</span>
             <Badge variant="secondary">{planLabel}</Badge>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/configuracoes")}>
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>Sair</Button>
           </div>
         </div>
