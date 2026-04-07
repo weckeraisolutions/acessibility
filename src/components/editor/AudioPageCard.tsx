@@ -281,7 +281,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
 
           {audioUrl && (
             <>
-              <audio controls src={audioUrl} className="w-full h-8" />
+              <audio controls src={audioUrl} crossOrigin="anonymous" className="w-full h-8" />
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
                   <Download className="h-3 w-3 mr-1" /> MP3
