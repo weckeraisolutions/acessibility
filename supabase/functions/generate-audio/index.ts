@@ -49,7 +49,7 @@ ${prepareText(text)}`;
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 55000);
+  const timeoutId = setTimeout(() => controller.abort(), 140000);
 
   let geminiResponse: Response;
   try {
@@ -155,7 +155,7 @@ async function generateWithElevenLabs(
     let lastError: string | null = null;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 55000);
+    const timeoutId = setTimeout(() => controller.abort(), 140000);
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
