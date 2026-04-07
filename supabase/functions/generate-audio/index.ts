@@ -151,9 +151,16 @@ async function generateWithElevenLabs(
         const errText = await res.text();
         lastError = errText;
 
-        if (status === 401 || status === 403) {
+      if (status === 401 || status === 403 || status === 402) {
           clearTimeout(timeoutId);
-          throw { status: 402, error: "elevenlabs_credits", message: "Créditos do ElevenLabs esgotados ou chave inválida. Atualize a API Key nos Secrets." };
+          const isPaymentRequired = errText.includes("payment_required") || errText.includes("paid_plan_required");
+          throw {
+            status: 402,
+            error: "elevenlabs_credits",
+            message: isPaymentRequired
+              ? "O plano gratuito do ElevenLabs não permite uso de vozes via API. Atualize para um plano pago do ElevenLabs e substitua a API Key nos Secrets."
+              : "Créditos do ElevenLabs esgotados ou chave inválida. Atualize a API Key nos Secrets.",
+          };
         }
         if (status === 429) {
           await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
