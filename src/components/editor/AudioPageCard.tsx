@@ -10,6 +10,7 @@ import { RotateCw, Play, Download, Check, RefreshCw, Loader2 } from "lucide-reac
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
+import { ELEVENLABS_VOICES } from "@/constants/elevenlabs-voices";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 import { useTextExtractor } from "@/hooks/useTextExtractor";
@@ -24,6 +25,10 @@ interface AudioPageCardProps {
   project: Project;
   apiKey: string;
   onUpdate: (pageId: string, fields: Partial<Page>) => void;
+  useElevenlabs?: boolean;
+  elevenlabsVoiceId?: string;
+  elevenlabsModel?: string;
+  plan?: string;
 }
 
 function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
@@ -37,7 +42,7 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate, useElevenlabs, elevenlabsVoiceId, elevenlabsModel, plan }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
@@ -120,8 +125,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: A
           global_style: globalStyle || "",
           page_style: extraStyle || localStyle || "",
           mode,
-          plan: "free",
+          plan: plan || "free",
           gemini_api_key: apiKey,
+          use_elevenlabs: useElevenlabs || false,
+          elevenlabs_voice_id: elevenlabsVoiceId || "",
+          elevenlabs_model: elevenlabsModel || "eleven_multilingual_v2",
         },
       });
 
@@ -219,21 +227,38 @@ const AudioPageCard = ({ page, mode, globalVoice, project, apiKey, onUpdate }: A
         <div>
           <div className="flex items-center gap-2">
             <Label className="text-xs">Voz:</Label>
-            {isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
+            {useElevenlabs && <Badge variant="secondary" className="text-[10px]">✨ ElevenLabs</Badge>}
+            {!useElevenlabs && isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
           </div>
-          <Select
-            value={currentVoice}
-            onValueChange={(v) => onUpdate(page.id, { [voiceField]: v === globalVoice ? null : v })}
-          >
-            <SelectTrigger className="mt-1 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VOICES.map((v) => (
-                <SelectItem key={v.value} value={v.value}>{v.label} — {v.description}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {useElevenlabs ? (
+            <Select
+              value={elevenlabsVoiceId || ""}
+              disabled
+            >
+              <SelectTrigger className="mt-1 h-8 text-xs">
+                <SelectValue placeholder={ELEVENLABS_VOICES.find(v => v.voice_id === elevenlabsVoiceId)?.name || "Voz ElevenLabs"} />
+              </SelectTrigger>
+              <SelectContent>
+                {ELEVENLABS_VOICES.map((v) => (
+                  <SelectItem key={v.voice_id} value={v.voice_id}>{v.name} — {v.description}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Select
+              value={currentVoice}
+              onValueChange={(v) => onUpdate(page.id, { [voiceField]: v === globalVoice ? null : v })}
+            >
+              <SelectTrigger className="mt-1 h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICES.map((v) => (
+                  <SelectItem key={v.value} value={v.value}>{v.label} — {v.description}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div>
