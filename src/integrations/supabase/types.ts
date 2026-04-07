@@ -159,6 +159,7 @@ export type Database = {
           audiodesc_global_voice: string | null
           book_title: string | null
           book_type: string
+          chapters_config: Json | null
           created_at: string
           id: string
           name: string
@@ -179,6 +180,7 @@ export type Database = {
           audiodesc_global_voice?: string | null
           book_title?: string | null
           book_type?: string
+          chapters_config?: Json | null
           created_at?: string
           id?: string
           name: string
@@ -199,6 +201,7 @@ export type Database = {
           audiodesc_global_voice?: string | null
           book_title?: string | null
           book_type?: string
+          chapters_config?: Json | null
           created_at?: string
           id?: string
           name?: string

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { Tables } from "@/integrations/supabase/types";
 
@@ -21,13 +21,13 @@ const EditorHeader = ({ projectName, pages, saving, activeTab, onNameChange }: E
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(projectName);
+  const [showSaved, setShowSaved] = useState(false);
 
+  // Show "Salvo" indicator when saving transitions from true to false
   const handleConfirm = () => {
     setEditing(false);
     if (name.trim() && name !== projectName) onNameChange(name.trim());
   };
-
-  const prefix = activeTab === "videobook" ? "video" : activeTab;
 
   const extracted = pages.filter((p) => {
     if (activeTab === "videobook") return p.video_status !== "pending";
@@ -71,7 +71,11 @@ const EditorHeader = ({ projectName, pages, saving, activeTab, onNameChange }: E
         </div>
 
         <div className="flex items-center gap-2">
-          {saving && (
+          {saving ? (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
+            </span>
+          ) : (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Check className="h-3 w-3" /> Salvo
             </span>

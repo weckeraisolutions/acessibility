@@ -25,8 +25,6 @@ interface GlobalConfigPanelProps {
   pages: Page[];
   project: Project;
   onPageUpdate: (pageId: string, fields: Partial<Page>) => void;
-  apiKey: string;
-  onApiKeyChange: (key: string) => void;
   useElevenlabs?: boolean;
   elevenlabsVoiceId?: string;
 }
@@ -38,7 +36,7 @@ const placeholders: Record<string, string> = {
 
 const GlobalConfigPanel = ({
   mode, style, voice, onStyleChange, onVoiceChange,
-  pages, project, onPageUpdate, apiKey, onApiKeyChange,
+  pages, project, onPageUpdate,
   useElevenlabs, elevenlabsVoiceId,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
@@ -46,7 +44,7 @@ const GlobalConfigPanel = ({
   const extractor = useTextExtractor();
 
   const handleStartExtraction = async () => {
-    const results = await extractor.extractAll(pages, mode, project, apiKey, onPageUpdate);
+    const results = await extractor.extractAll(pages, mode, project, onPageUpdate);
     toast({
       title: "Extração concluída",
       description: `${results.extracted} extraídas, ${results.noContent} sem conteúdo, ${results.errors} com erro`,

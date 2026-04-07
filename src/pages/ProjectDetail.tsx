@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { useProjectEditor } from "@/hooks/useProjectEditor";
 import { usePdfProcessor } from "@/hooks/usePdfProcessor";
 import { useVideoRegionDetector } from "@/hooks/useVideoRegionDetector";
@@ -18,13 +19,13 @@ import ProcessingScreen from "@/components/editor/ProcessingScreen";
 
 const ProjectDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
   const videoDetector = useVideoRegionDetector();
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
-  const [geminiApiKey, setGeminiApiKey] = useState("");
   const isMobile = useIsMobile();
 
   const isPremium = profile?.plan === "premium" || profile?.plan === "enterprise";
@@ -42,6 +43,30 @@ const ProjectDetail = () => {
   const totalPairs = pairs.length;
   const currentPages = pairs[Math.min(pairIndex, totalPairs - 1)] || [];
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setPairIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setPairIndex((i) => Math.min(totalPairs - 1, i + 1));
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        // Autosave is already handled by debounce, this just prevents browser save dialog
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [totalPairs]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -52,8 +77,11 @@ const ProjectDetail = () => {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Projeto não encontrado.</p>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground text-lg">Projeto não encontrado ou sem permissão de acesso.</p>
+        <Button onClick={() => navigate("/dashboard")}>
+          <ArrowLeft className="h-4 w-4 mr-1" /> Voltar ao Dashboard
+        </Button>
       </div>
     );
   }
@@ -99,8 +127,6 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
-              apiKey={geminiApiKey}
-              onApiKeyChange={setGeminiApiKey}
               useElevenlabs={useElevenlabs}
               elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
             />
@@ -118,7 +144,6 @@ const ProjectDetail = () => {
                   mode="audiobook"
                   globalVoice={project.audiobook_global_voice || "Zephyr"}
                   project={project}
-                  apiKey={geminiApiKey}
                   onUpdate={updatePage}
                   useElevenlabs={useElevenlabs}
                   elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
@@ -140,8 +165,6 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
-              apiKey={geminiApiKey}
-              onApiKeyChange={setGeminiApiKey}
               useElevenlabs={useElevenlabs}
               elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
             />
@@ -159,7 +182,6 @@ const ProjectDetail = () => {
                   mode="audiodesc"
                   globalVoice={project.audiodesc_global_voice || "Kore"}
                   project={project}
-                  apiKey={geminiApiKey}
                   onUpdate={updatePage}
                   useElevenlabs={useElevenlabs}
                   elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
