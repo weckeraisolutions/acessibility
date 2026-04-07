@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Download, Plus, X, Loader2 } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
 import { useZipDownload } from "@/hooks/useZipDownload";
+import VideobookExportDialog from "./VideobookExportDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ interface ExportFooterProps {
 const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: ExportFooterProps) => {
   const { chapters, addChapter, removeChapter } = useChapters(projectId);
   const zip = useZipDownload();
+  const [videobookExportOpen, setVideobookExportOpen] = useState(false);
 
   const [selectedChapter, setSelectedChapter] = useState("all");
   const [newName, setNewName] = useState("");
