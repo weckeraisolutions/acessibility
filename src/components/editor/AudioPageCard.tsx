@@ -64,11 +64,12 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const prevAudioUrlRef = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
 
-  // Fetch audio as blob for playback
+  // Fetch audio as blob for playback — with correct MIME type
   useEffect(() => {
     if (!audioUrl || audioUrl === prevAudioUrlRef.current) return;
     prevAudioUrlRef.current = audioUrl;
@@ -79,10 +80,15 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
     fetch(audioUrl)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch audio");
-        return res.blob();
+        return res.arrayBuffer();
       })
-      .then((blob) => {
+      .then((buffer) => {
         if (cancelled) return;
+        // Determine correct MIME type from URL extension
+        const mime = audioUrl.includes(".mp3") ? "audio/mpeg"
+          : audioUrl.includes(".ogg") ? "audio/ogg"
+          : "audio/wav";
+        const blob = new Blob([buffer], { type: mime });
         setBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return URL.createObjectURL(blob);
@@ -99,6 +105,14 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
     return () => { cancelled = true; };
   }, [audioUrl]);
 
+  // Force audio element to load when blobUrl changes
+  useEffect(() => {
+    if (blobUrl && audioRef.current) {
+      audioRef.current.load();
+    }
+  }, [blobUrl]);
+
+  // Cleanup blob URL on unmount
   useEffect(() => {
     return () => {
       if (blobUrl) URL.revokeObjectURL(blobUrl);
@@ -172,7 +186,6 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
       });
 
       if (error) {
-        // Try to parse structured error from edge function
         let msg = "Falha na geração de áudio.";
         try {
           const parsed = typeof error === "string" ? JSON.parse(error) : error;
@@ -195,6 +208,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         return;
       }
 
+      // Reset ref to force re-fetch of new audio
       prevAudioUrlRef.current = null;
 
       onUpdate(page.id, {
@@ -339,7 +353,9 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Carregando áudio...
                 </div>
               ) : (
-                <audio controls src={blobUrl!} className="w-full h-8" />
+                <audio ref={audioRef} controls className="w-full h-8">
+                  <source src={blobUrl!} type={audioUrl?.includes(".mp3") ? "audio/mpeg" : "audio/wav"} />
+                </audio>
               )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
