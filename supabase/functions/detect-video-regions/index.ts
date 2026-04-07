@@ -133,7 +133,7 @@ Retornar APENAS JSON válido sem texto adicional, markdown ou explicações:
 
 Coordenadas x, y, width, height são valores de 0.0 a 1.0 em proporção das dimensões da imagem (0,0 = canto superior esquerdo, 1,1 = canto inferior direito).`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiApiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
     const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
