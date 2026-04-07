@@ -1,99 +1,53 @@
 
 
-# Editor Visual de Animações — Videobook
+# Correção Completa — Audiobook & Audiodescrição
 
-## Visao Geral
+## Problemas Identificados
 
-Criar um editor visual fullscreen (Dialog) para ajustar regioes detectadas pelo Gemini Vision. Inclui canvas interativo com retangulos arrastáveis/redimensionaveis, painel de controles, timeline de sincronizacao com audio, e preview em tempo real.
+### Problema 1: Timeout em páginas com muito conteúdo
+- **Causa**: `extract-text` edge function uses `btoa()` with string concatenation for large images — can be slow but main issue is no timeout on the Gemini API call. The Supabase edge function has a ~60s limit; large images + long prompts can exceed this.
+- **Fix**: Add `AbortController` with 55s timeout to the Gemini fetch call. Also add a `signal` parameter. The current approach (edge function downloads image by URL) is already correct — no base64 from frontend.
 
-## Arquitetura de Componentes
+### Problema 2: Geração de áudio não funciona
+- **Causa**: Looking at `generate-audio`, the implementation looks correct — reads `GEMINI_API_KEY` from env, uses service role for upload. The issue is likely that `supabase.functions.invoke` returns errors in a way that's swallowed. Need to check error handling and ensure the function is deployed. Also, the `btoa()`-based base64 decoding of audio on line 76 (`Uint8Array.from(atob(audioPart.data), (c) => c.charCodeAt(0))`) can fail for large audio — should use proper base64 decoding.
+- **Fix**: Use `decode` from Deno's base64 module instead of `atob()` for binary data. Add timeout to Gemini TTS call. Improve frontend error messages.
 
-```text
-src/components/editor/
-  AnimationEditorDialog.tsx    -- Dialog fullscreen (orquestrador)
-  AnimationCanvas.tsx          -- Canvas 2D overlay sobre imagem com regioes interativas
-  AnimationRegionPanel.tsx     -- Painel direito: controles da regiao selecionada + lista
-  AnimationTimeline.tsx        -- Timeline horizontal com marcadores + player de audio
-```
+### Problema 3: ElevenLabs bloqueado
+- **Causa**: `ProjectDetail.tsx` line 32: `canUseElevenlabs = !!(profile?.elevenlabs_default_voice_id)` — requires user to have configured a default voice in Settings. Should instead check if the ElevenLabs service is available (API key exists on server).
+- **Fix**: Change availability check to call `get-elevenlabs-voices` on mount and use result to determine availability. Remove plan-based restriction. Make voice selector work for ElevenLabs in both global panel and per-page cards.
 
-## Tipos e Constantes
+## Implementation Plan
 
-Definir interface `Region` com campos: `id`, `label`, `type`, `x`, `y`, `width`, `height`, `animation_suggestion`, `priority`, `text_trigger`, `timestamp_start`, `timestamp_end`.
+### 1. Fix `extract-text` Edge Function
+- Add `AbortController` with 55s timeout to Gemini API call
+- Use Deno's `encode`/base64 properly for large images
+- Improve error responses with distinct error codes
 
-Cores por tipo de regiao:
-- character: azul (#3B82F6)
-- highlight_box: laranja (#F97316)
-- title: verde (#22C55E)
-- illustration: roxo (#A855F7)
-- map: ciano (#06B6D4)
-- diagram: amarelo (#EAB308)
-- decorative: cinza (#6B7280)
+### 2. Fix `generate-audio` Edge Function  
+- Replace `atob()` with Deno's `decode` from `std/encoding/base64.ts` for audio binary
+- Add 55s timeout to Gemini TTS call
+- Add 55s timeout to ElevenLabs call
+- Handle `403` from ElevenLabs as "credits exhausted" with specific message
 
-## AnimationEditorDialog
+### 3. Fix ElevenLabs Availability in Frontend
+- **`ProjectDetail.tsx`**: Remove `canUseElevenlabs = !!(profile?.elevenlabs_default_voice_id)`. Instead, add a `useEffect` that calls `get-elevenlabs-voices` on mount. If it returns voices successfully, set `canUseElevenlabs = true`.
+- **`GlobalConfigPanel.tsx`**: Accept `elevenlabsVoices` prop. When ElevenLabs is selected, show these voices in the voice selector (not disabled). Allow changing the voice.
+- **`AudioPageCard.tsx`**: Accept `ttsEngine` prop. When `elevenlabs`, show ElevenLabs voices and pass `use_elevenlabs: true` to generate-audio. Allow per-page voice override for ElevenLabs voices too.
+- Remove dependency on `profile.elevenlabs_default_voice_id` for availability — the key is on the server.
 
-- Recebe `page`, `onUpdate`, `open`, `onOpenChange`
-- Carrega `video_regions` do page em estado local (deep clone)
-- Layout: `grid grid-cols-[3fr_2fr]` dentro de DialogContent fullscreen
-- Estado: `regions[]`, `selectedRegionId`, `pageBaseAnimation`, `suggestedTransition`, `drawingMode`
-- "Salvar" → chama `onUpdate(page.id, { video_regions: JSON.stringify({regions, page_base_animation, suggested_transition}), video_status: 'configured' })`
+### 4. Better Frontend Error Handling
+- In `useTextExtractor.ts`: Parse error response from edge function and show specific toast messages
+- In `AudioPageCard.tsx`: Show specific error messages for each failure type (invalid key, rate limit, credits exhausted, timeout)
 
-## AnimationCanvas
+## Files to Modify
+- `supabase/functions/extract-text/index.ts` — add timeout
+- `supabase/functions/generate-audio/index.ts` — fix base64 decoding, add timeout, improve ElevenLabs error handling
+- `src/pages/ProjectDetail.tsx` — fix ElevenLabs availability check, pass voices/engine down
+- `src/components/editor/GlobalConfigPanel.tsx` — accept ElevenLabs voices, enable voice selection
+- `src/components/editor/AudioPageCard.tsx` — accept ttsEngine, show correct voices per engine
+- `src/hooks/useTextExtractor.ts` — better error messages in toasts
 
-- Container `relative` com `<img>` + overlay `<canvas>` posicionado absolute
-- `useRef` para canvas e container
-- `useEffect` para desenhar retangulos semitransparentes com cores por tipo + rotulo
-- Mouse events para:
-  - **Mover**: mousedown no interior → arrastar (delta x/y em proporcao)
-  - **Redimensionar**: mousedown nas bordas/cantos (8 handles) → resize
-  - **Selecionar**: click simples → `onSelect(regionId)`
-  - **Criar**: se `drawingMode=true`, mousedown define ponto inicial, mousemove desenha, mouseup cria regiao
-- Coordenadas normalizadas 0-1, convertidas para pixels do canvas
-
-## AnimationRegionPanel
-
-- Props: `regions`, `selectedId`, `onSelect`, `onUpdateRegion`, `onRemoveRegion`, `onAddRegion`, `pageBaseAnimation`, `suggestedTransition`, `onBaseAnimChange`, `onTransitionChange`
-- Regiao selecionada: inputs para label, tipo (Select), animacao (Select), timestamp start/end (Input type=number step=0.1)
-- Botao "Remover regiao" variant=destructive/outline
-- Lista de todas regioes ordenadas por timestamp_start, clicaveis
-- Selects para animacao de fundo e transicao de saida
-
-## AnimationTimeline
-
-- Props: `regions`, `selectedId`, `totalDuration`, `audioUrl`, `onSelect`, `onTimestampChange`
-- Barra horizontal 100% width, height ~60px
-- Para cada regiao: marcador arrastavel (div absolute posicionado por `(timestamp_start/totalDuration)*100%`)
-- Arrastar marcador → recalcula timestamp_start
-- `<audio ref>` com src=audioUrl
-- Botoes play/pause, display do currentTime
-- Linha vertical animada mostrando posicao do audio durante reproducao (requestAnimationFrame)
-
-## Preview em Tempo Real
-
-- Botao "Preview desta pagina" no painel
-- Ao clicar: play audio + requestAnimationFrame loop
-- Para cada frame: verificar quais regioes estao ativas (currentTime entre start/end)
-- Aplicar animacao CSS/canvas correspondente (zoom, pan, spotlight = escurecer tudo menos a regiao, pulse border, fade in)
-- Implementacao simplificada: highlight da regiao ativa com borda animada + leve zoom no canvas
-
-## Integracao
-
-- `VideoPageCard.tsx`: substituir `placeholderAction` do botao "Editar animacoes" por `setEditorOpen(true)`
-- Renderizar `<AnimationEditorDialog>` no card
-
-## Detalhes Tecnicos
-
-- Canvas 2D puro (sem libs externas) para desenho de retangulos
-- Hit-testing com coordenadas do mouse vs bounds de cada regiao
-- Cursor dinamico: `move` no interior, `nwse-resize`/`nesw-resize`/`ew-resize`/`ns-resize` nas bordas
-- Throttle de mousemove para performance
-- Audio duration lido de `page.audiobook_audio_duration_seconds` ou do elemento `<audio>` `loadedmetadata`
-
-## Ordem de Implementacao
-
-1. Tipos/constantes + AnimationEditorDialog (shell com layout)
-2. AnimationCanvas (desenho + interacao drag/resize/create)
-3. AnimationRegionPanel (controles + lista)
-4. AnimationTimeline (marcadores + player)
-5. Preview simplificado
-6. Integracao no VideoPageCard
+## Files NOT Modified
+- Edge functions `get-elevenlabs-voices` and `preview-elevenlabs-voice` — already correct
+- Videobook components — explicitly excluded
 
