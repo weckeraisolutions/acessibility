@@ -109,6 +109,8 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          elevenlabs_default_model: string | null
+          elevenlabs_default_voice_id: string | null
           email: string
           id: string
           month_reset_at: string
@@ -117,9 +119,12 @@ export type Database = {
           plan: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          use_elevenlabs: boolean | null
         }
         Insert: {
           created_at?: string
+          elevenlabs_default_model?: string | null
+          elevenlabs_default_voice_id?: string | null
           email: string
           id: string
           month_reset_at?: string
@@ -128,9 +133,12 @@ export type Database = {
           plan?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          use_elevenlabs?: boolean | null
         }
         Update: {
           created_at?: string
+          elevenlabs_default_model?: string | null
+          elevenlabs_default_voice_id?: string | null
           email?: string
           id?: string
           month_reset_at?: string
@@ -139,6 +147,7 @@ export type Database = {
           plan?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          use_elevenlabs?: boolean | null
         }
         Relationships: []
       }
