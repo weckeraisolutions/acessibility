@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useProjectEditor } from "@/hooks/useProjectEditor";
 import { usePdfProcessor } from "@/hooks/usePdfProcessor";
+import { useVideoRegionDetector } from "@/hooks/useVideoRegionDetector";
 import { useIsMobile } from "@/hooks/use-mobile";
 import EditorHeader from "@/components/editor/EditorHeader";
 import GlobalConfigPanel from "@/components/editor/GlobalConfigPanel";
