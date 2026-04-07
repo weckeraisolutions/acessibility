@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ChevronDown, Zap, Sparkles } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChevronDown, Zap, Sparkles, Play, Square } from "lucide-react";
 import { VOICES } from "@/constants/voices";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,27 @@ const GlobalConfigPanel = ({
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
   const extractor = useTextExtractor();
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+
+  const handlePreviewVoice = useCallback((voiceId: string, previewUrl?: string) => {
+    if (!previewUrl) return;
+    if (playingVoiceId === voiceId && previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+      setPlayingVoiceId(null);
+      return;
+    }
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+    const audio = new Audio(previewUrl);
+    audio.onended = () => { setPlayingVoiceId(null); previewAudioRef.current = null; };
+    audio.play().catch(() => {});
+    previewAudioRef.current = audio;
+    setPlayingVoiceId(voiceId);
+  }, [playingVoiceId]);
 
   const handleStartExtraction = async () => {
     const results = await extractor.extractAll(pages, mode, project, onPageUpdate);
@@ -97,14 +119,29 @@ const GlobalConfigPanel = ({
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Voz Padrão Global</Label>
           {isElevenlabs ? (
-            <Select value={selectedElevenlabsVoice} onValueChange={onElevenlabsVoiceChange}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione uma voz ElevenLabs" /></SelectTrigger>
-              <SelectContent>
+            <ScrollArea className="mt-1 max-h-48 border rounded-md">
+              <div className="p-1 space-y-0.5">
                 {elevenlabsVoices.map((v) => (
-                  <SelectItem key={v.voice_id} value={v.voice_id}>{v.name} — {v.description}</SelectItem>
+                  <div
+                    key={v.voice_id}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm transition-colors ${selectedElevenlabsVoice === v.voice_id ? "bg-primary/10 font-medium" : "hover:bg-accent"}`}
+                    onClick={() => onElevenlabsVoiceChange(v.voice_id)}
+                  >
+                    {v.preview_url && (
+                      <button
+                        type="button"
+                        className="shrink-0 h-6 w-6 flex items-center justify-center rounded-full border hover:bg-accent"
+                        onClick={(e) => { e.stopPropagation(); handlePreviewVoice(v.voice_id, v.preview_url); }}
+                      >
+                        {playingVoiceId === v.voice_id ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                      </button>
+                    )}
+                    <span className="truncate">{v.name} — {v.description}</span>
+                    {selectedElevenlabsVoice === v.voice_id && <Badge variant="secondary" className="ml-auto text-[9px] shrink-0">selecionada</Badge>}
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </ScrollArea>
           ) : (
             <Select value={voice} onValueChange={onVoiceChange}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>

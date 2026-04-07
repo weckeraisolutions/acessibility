@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { RotateCw, Play, Download, Check, RefreshCw, Loader2 } from "lucide-react";
+import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
@@ -65,6 +65,27 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const [loadingAudio, setLoadingAudio] = useState(false);
   const prevAudioUrlRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+
+  const handlePreviewVoice = useCallback((voiceId: string, previewUrl?: string) => {
+    if (!previewUrl) return;
+    if (playingVoiceId === voiceId && previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+      setPlayingVoiceId(null);
+      return;
+    }
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+    const audio = new Audio(previewUrl);
+    audio.onended = () => { setPlayingVoiceId(null); previewAudioRef.current = null; };
+    audio.play().catch(() => {});
+    previewAudioRef.current = audio;
+    setPlayingVoiceId(voiceId);
+  }, [playingVoiceId]);
 
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
@@ -300,16 +321,26 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
             {!isElevenlabs && isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
           </div>
           {isElevenlabs ? (
-            <Select value={selectedElevenlabsVoice} disabled>
-              <SelectTrigger className="mt-1 h-8 text-xs">
-                <SelectValue placeholder={elevenlabsVoices.find(v => v.voice_id === selectedElevenlabsVoice)?.name || "Voz ElevenLabs"} />
-              </SelectTrigger>
-              <SelectContent>
-                {elevenlabsVoices.map((v) => (
-                  <SelectItem key={v.voice_id} value={v.voice_id}>{v.name} — {v.description}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="mt-1 border rounded-md p-1 space-y-0.5 max-h-32 overflow-y-auto">
+              {elevenlabsVoices.map((v) => (
+                <div
+                  key={v.voice_id}
+                  className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-xs ${selectedElevenlabsVoice === v.voice_id ? "bg-primary/10 font-medium" : "bg-transparent"}`}
+                >
+                  {v.preview_url && (
+                    <button
+                      type="button"
+                      className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full border hover:bg-accent"
+                      onClick={() => handlePreviewVoice(v.voice_id, v.preview_url)}
+                    >
+                      {playingVoiceId === v.voice_id ? <Square className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
+                    </button>
+                  )}
+                  <span className="truncate">{v.name}</span>
+                  {selectedElevenlabsVoice === v.voice_id && <Badge variant="secondary" className="ml-auto text-[8px] shrink-0">✓</Badge>}
+                </div>
+              ))}
+            </div>
           ) : (
             <Select
               value={currentVoice}
