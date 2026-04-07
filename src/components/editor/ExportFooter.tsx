@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Download, Plus, X, Loader2 } from "lucide-react";
 import { useChapters } from "@/hooks/useChapters";
 import { useZipDownload } from "@/hooks/useZipDownload";
+import VideobookExportDialog from "./VideobookExportDialog";
 import type { Tables } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ interface ExportFooterProps {
 const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: ExportFooterProps) => {
   const { chapters, addChapter, removeChapter } = useChapters(projectId);
   const zip = useZipDownload();
+  const [videobookExportOpen, setVideobookExportOpen] = useState(false);
 
   const [selectedChapter, setSelectedChapter] = useState("all");
   const [newName, setNewName] = useState("");
@@ -85,7 +87,7 @@ const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: 
             <Download className="h-3 w-3 mr-1" /> Baixar livro inteiro (ZIP)
           </Button>
           {activeTab === "videobook" && (
-            <Button size="sm" onClick={() => toast("Em breve", { description: "Exportação de videobook será implementada." })}>
+            <Button size="sm" onClick={() => setVideobookExportOpen(true)}>
               <Download className="h-3 w-3 mr-1" /> Baixar Videobook Completo (MP4)
             </Button>
           )}
@@ -144,6 +146,13 @@ const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: 
           </div>
         </DialogContent>
       </Dialog>
+      <VideobookExportDialog
+        open={videobookExportOpen}
+        onOpenChange={setVideobookExportOpen}
+        pages={pages}
+        projectId={projectId}
+        projectName={projectName}
+      />
     </>
   );
 };
