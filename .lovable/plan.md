@@ -1,45 +1,56 @@
 
 
-# Generate Audio — Edge Function + Frontend Integration
+# ZIP Downloads with JSZip
 
 ## Overview
-Create `generate-audio` edge function that uses Gemini TTS API to convert page text to speech, upload to Storage, and update the database. Wire up the "Gerar Áudio" button in `AudioPageCard` with loading states, player, download, approve, and regenerate functionality.
+Install `jszip` and `file-saver`, then implement chapter-based and full-book ZIP downloads in `ExportFooter`, plus a progress overlay dialog.
 
-## 1. Edge Function: `supabase/functions/generate-audio/index.ts`
+## Dependencies
+- `npm install jszip file-saver @types/file-saver`
 
-- POST endpoint accepting `{ page_id, project_id, page_number, text, voice, global_style, page_style, mode, plan, gemini_api_key }`
-- Validation: reject empty text, `PÁGINA_SEM_NARRAÇÃO`, `PÁGINA_SEM_AUDIODESCRIÇÃO`, and text >8000 chars
-- Model selection: `gemini-2.5-pro-preview-tts` for enterprise, `gemini-2.5-flash-preview-tts` otherwise
-- `prepareText()` — same cleaning as extract-text (acronyms, law numbers, brackets)
-- Build TTS prompt with voice style instructions in Portuguese
-- Call Gemini TTS API with `responseModalities: ["AUDIO"]` and `speechConfig.voiceConfig`
-- Decode base64 audio response to `Uint8Array`
-- Estimate duration: `(wordCount / 130) * 60`
-- Upload to `audiobook-audios` or `audiodesc-audios` bucket at `{project_id}/pag_XXX.mp3` with `upsert: true`
-- Create signed URL (private buckets) for the audio file
-- Update `pages` table with audio URL, status `audio_generated`, duration, voice, and style
-- Return `{ success, audio_url, duration_seconds, page_id }`
-- Error handling: `empty_text`, `text_too_long`, `invalid_api_key`, `rate_limit`, `api_error`
-- CORS headers on all responses
+## New Files
 
-## 2. Frontend: Update `AudioPageCard.tsx`
+### `src/hooks/useZipDownload.ts`
+Hook encapsulating ZIP creation logic:
+- State: `downloading`, `progress` (0-100), `currentFile`, `totalFiles`, `cancelled`
+- `downloadChapter(pages, projectName, chapterName, mode)`: filters pages with audio URLs for the given mode, fetches each audio blob, adds to JSZip, triggers `saveAs`
+- `downloadFullBook(pages, projectName, mode, chapters?)`: all pages with audio, optionally organized in subfolders by chapter
+- `cancel()`: sets cancelled flag to abort loop
+- Progress updated after each file fetch
+- Toast on empty selection ("Nenhum audio gerado neste capitulo")
 
-- Wire "Gerar Áudio" button to call `generate-audio` edge function via `supabase.functions.invoke()`
-- Pass voice (page override or global), style, mode, project_id, page_number, plan (from project or default "free"), and gemini_api_key
-- Show `Loader2` spinner during generation
-- On success: update local state with audio URL, show `<audio controls>` player
-- Show "⬇ Download MP3" button: fetch audio URL → create blob → trigger download as `pagina_XXX_audiobook.mp3`
-- Show "✅ Aprovar" button: update status to `approved` via `onUpdate`
-- Show "🔁 Regerar com ajuste" button: expand an input for additional style instructions, call generate-audio again with the new `page_style`
-- All three buttons already have placeholders — just wire them up
+### `src/hooks/useChapters.ts`
+Hook for chapter management with localStorage persistence:
+- State: `chapters` array of `{ id, name, startPage, endPage }`
+- `addChapter(name, start, end)`, `removeChapter(id)`
+- Load/save from `localStorage` keyed by `chapters_{projectId}`
+- Always includes implicit "Livro inteiro" option (not stored)
 
-## 3. Files to Create
-- `supabase/functions/generate-audio/index.ts`
+## Modified Files
 
-## 4. Files to Modify
-- `src/components/editor/AudioPageCard.tsx` — wire generate/download/approve/regenerate logic
+### `src/components/editor/ExportFooter.tsx`
+Complete rewrite:
+- Props: add `pages`, `projectName`, `projectId` (in addition to existing `activeTab`, `totalPages`)
+- Use `useChapters(projectId)` for chapter config
+- Use `useZipDownload()` for download actions
+- UI sections:
+  1. **Chapter config**: input for name + start/end page numbers + "Adicionar" button, list of chapters with remove buttons
+  2. **Chapter select**: dropdown with "Livro inteiro" + configured chapters
+  3. **"Baixar selecao (ZIP)"**: downloads audio for selected chapter range in current mode (audiobook/audiodesc based on `activeTab`)
+  4. **"Baixar livro inteiro (ZIP)"**: downloads all audio for current mode
+  5. **Videobook button**: placeholder (kept as-is)
+- Progress overlay: Dialog with progress bar, "Preparando download... X de Y arquivos", Cancel button
 
-## 5. Deploy & Test
-- Deploy edge function
-- Test with curl
+### `src/pages/ProjectDetail.tsx`
+- Pass `pages`, `project.name`, `project.id` to `ExportFooter`
+
+### `src/components/editor/AudioPageCard.tsx`
+- Download button already works (uses fetch + blob + createElement approach) — no changes needed
+
+## Technical Details
+- JSZip: `const zip = new JSZip(); zip.file(name, blob); zip.generateAsync({type: 'blob'})` 
+- file-saver: `saveAs(blob, filename)`
+- Audio URL field: `audiobook_audio_url` or `audiodesc_audio_url` based on active tab mode
+- ZIP filenames: `{projectName}_{chapterName}.zip` or `{projectName}_audiobook_completo.zip`
+- Cancel: check `cancelledRef.current` before each fetch in loop
 
