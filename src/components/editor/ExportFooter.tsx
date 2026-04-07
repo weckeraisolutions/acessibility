@@ -146,6 +146,13 @@ const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: 
           </div>
         </DialogContent>
       </Dialog>
+      <VideobookExportDialog
+        open={videobookExportOpen}
+        onOpenChange={setVideobookExportOpen}
+        pages={pages}
+        projectId={projectId}
+        projectName={projectName}
+      />
     </>
   );
 };
