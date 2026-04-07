@@ -12,6 +12,7 @@ interface Profile {
   use_elevenlabs: boolean;
   elevenlabs_default_voice_id: string | null;
   elevenlabs_default_model: string;
+  is_admin: boolean;
 }
 
 interface AuthContextType {
@@ -39,24 +40,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, name, email, plan, pages_used_month, month_reset_at")
-      .eq("id", userId)
-      .single();
+    const [{ data }, { data: roles }] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).single(),
+      supabase.from("user_roles").select("role").eq("user_id", userId),
+    ]);
     if (data) {
-      // Fetch extended fields separately since they're not in generated types yet
-      const { data: ext } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
+      const isAdmin = roles?.some((r: any) => r.role === "admin") || false;
       setProfile({
-        ...data,
-        use_elevenlabs: (ext as any)?.use_elevenlabs || false,
-        elevenlabs_default_voice_id: (ext as any)?.elevenlabs_default_voice_id || null,
-        elevenlabs_default_model: (ext as any)?.elevenlabs_default_model || "eleven_multilingual_v2",
-      } as Profile);
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        plan: data.plan,
+        pages_used_month: data.pages_used_month,
+        month_reset_at: data.month_reset_at,
+        use_elevenlabs: data.use_elevenlabs || false,
+        elevenlabs_default_voice_id: data.elevenlabs_default_voice_id || null,
+        elevenlabs_default_model: data.elevenlabs_default_model || "eleven_multilingual_v2",
+        is_admin: isAdmin,
+      });
     } else {
       setProfile(null);
     }
