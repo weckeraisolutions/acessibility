@@ -37,12 +37,13 @@ const ProjectDetail = () => {
   // Check ElevenLabs availability on mount by calling the edge function
   useEffect(() => {
     supabase.functions.invoke("get-elevenlabs-voices").then(({ data }) => {
+      console.log("[ElevenLabs] Vozes recebidas do backend:", JSON.stringify(data?.voices?.slice(0, 3), null, 2));
       if (data?.success && data.voices?.length > 0) {
         setCanUseElevenlabs(true);
         setElevenlabsVoices(data.voices);
         setSelectedElevenlabsVoice(data.voices[0].voice_id);
       }
-    }).catch(() => {});
+    }).catch((err) => { console.error("[ElevenLabs] Erro ao buscar vozes:", err); });
   }, []);
 
   const isElevenlabs = ttsEngine === "elevenlabs" && canUseElevenlabs;

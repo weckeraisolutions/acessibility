@@ -29,24 +29,15 @@ serve(async (req) => {
       );
     }
 
-    const collectionId = Deno.env.get("ELEVENLABS_COLLECTION_ID");
-    if (!collectionId) {
-      console.error("ELEVENLABS_COLLECTION_ID not set, using fallback voices");
-      return new Response(
-        JSON.stringify({ success: true, voices: FALLBACK_VOICES }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const collectionId = Deno.env.get("ELEVENLABS_COLLECTION_ID") ?? "EeX6rO9BE2F5Evmmr9sB";
 
-    const url = new URL("https://api.elevenlabs.io/v2/voices");
-    url.searchParams.set("collection_id", collectionId);
-    url.searchParams.set("page_size", "100");
-    url.searchParams.set("sort", "name");
-    url.searchParams.set("sort_direction", "asc");
+    const url = `https://api.elevenlabs.io/v2/voices?collection_id=${collectionId}&page_size=100`;
 
-    const res = await fetch(url.toString(), {
+    const res = await fetch(url, {
       headers: { "xi-api-key": apiKey },
     });
+
+    console.log("ElevenLabs v2 request URL:", url);
 
     if (!res.ok) {
       console.error("ElevenLabs v2 voices error:", res.status, await res.text());
