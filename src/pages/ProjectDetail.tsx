@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +9,7 @@ import { usePdfProcessor } from "@/hooks/usePdfProcessor";
 import { useVideoRegionDetector } from "@/hooks/useVideoRegionDetector";
 import { useIsMobile } from "@/hooks/use-mobile";
 import EditorHeader from "@/components/editor/EditorHeader";
-import GlobalConfigPanel from "@/components/editor/GlobalConfigPanel";
+import GlobalConfigPanel, { type TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import VideoGlobalPanel from "@/components/editor/VideoGlobalPanel";
 import PageNavigator from "@/components/editor/PageNavigator";
 import AudioPageCard from "@/components/editor/AudioPageCard";
@@ -26,10 +26,11 @@ const ProjectDetail = () => {
   const videoDetector = useVideoRegionDetector();
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
+  const [ttsEngine, setTtsEngine] = useState<TtsEngine>("gemini");
   const isMobile = useIsMobile();
 
-  const isPremium = profile?.plan === "premium" || profile?.plan === "enterprise";
-  const useElevenlabs = isPremium && profile?.use_elevenlabs;
+  const canUseElevenlabs = !!(profile?.elevenlabs_default_voice_id);
+  const isElevenlabs = ttsEngine === "elevenlabs" && canUseElevenlabs;
 
   const perPage = isMobile ? 1 : 2;
   const pairs = useMemo(() => {
@@ -43,25 +44,13 @@ const ProjectDetail = () => {
   const totalPairs = pairs.length;
   const currentPages = pairs[Math.min(pairIndex, totalPairs - 1)] || [];
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore when typing in inputs
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        setPairIndex((i) => Math.max(0, i - 1));
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        setPairIndex((i) => Math.min(totalPairs - 1, i + 1));
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        // Autosave is already handled by debounce, this just prevents browser save dialog
-      }
+      if (e.key === "ArrowLeft") { e.preventDefault(); setPairIndex((i) => Math.max(0, i - 1)); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); setPairIndex((i) => Math.min(totalPairs - 1, i + 1)); }
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") e.preventDefault();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -116,7 +105,6 @@ const ProjectDetail = () => {
             <TabsTrigger value="videobook">🎬 Videobook</TabsTrigger>
           </TabsList>
 
-          {/* Audiobook */}
           <TabsContent value="audiobook">
             <GlobalConfigPanel
               mode="audiobook"
@@ -127,8 +115,11 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
-              useElevenlabs={useElevenlabs}
+              useElevenlabs={isElevenlabs}
               elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
+              ttsEngine={ttsEngine}
+              onTtsEngineChange={setTtsEngine}
+              canUseElevenlabs={canUseElevenlabs}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -145,7 +136,7 @@ const ProjectDetail = () => {
                   globalVoice={project.audiobook_global_voice || "Zephyr"}
                   project={project}
                   onUpdate={updatePage}
-                  useElevenlabs={useElevenlabs}
+                  useElevenlabs={isElevenlabs}
                   elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
                   elevenlabsModel={profile?.elevenlabs_default_model}
                   plan={profile?.plan}
@@ -154,7 +145,6 @@ const ProjectDetail = () => {
             </div>
           </TabsContent>
 
-          {/* Audiodescrição */}
           <TabsContent value="audiodesc">
             <GlobalConfigPanel
               mode="audiodesc"
@@ -165,8 +155,11 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
-              useElevenlabs={useElevenlabs}
+              useElevenlabs={isElevenlabs}
               elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
+              ttsEngine={ttsEngine}
+              onTtsEngineChange={setTtsEngine}
+              canUseElevenlabs={canUseElevenlabs}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -183,7 +176,7 @@ const ProjectDetail = () => {
                   globalVoice={project.audiodesc_global_voice || "Kore"}
                   project={project}
                   onUpdate={updatePage}
-                  useElevenlabs={useElevenlabs}
+                  useElevenlabs={isElevenlabs}
                   elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
                   elevenlabsModel={profile?.elevenlabs_default_model}
                   plan={profile?.plan}
@@ -192,7 +185,6 @@ const ProjectDetail = () => {
             </div>
           </TabsContent>
 
-          {/* Videobook */}
           <TabsContent value="videobook">
             <VideoGlobalPanel
               visualStyle={project.videobook_global_visual_style || ""}
