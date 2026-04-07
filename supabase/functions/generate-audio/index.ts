@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,8 +31,7 @@ function respond(body: Record<string, unknown>, status = 200) {
 }
 
 async function generateWithGemini(
-  text: string, voice: string, styleApplied: string,
-  geminiApiKey: string
+  text: string, voice: string, styleApplied: string, geminiApiKey: string
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const ttsPrompt = `Você é narrador profissional de audiobooks em português do Brasil.
 
@@ -47,17 +47,33 @@ ${prepareText(text)}`;
 
   const model = "gemini-2.5-pro-preview-tts";
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
-  const geminiResponse = await fetch(geminiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: ttsPrompt }] }],
-      generationConfig: {
-        responseModalities: ["AUDIO"],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-      },
-    }),
-  });
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 55000);
+
+  let geminiResponse: Response;
+  try {
+    geminiResponse = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: ttsPrompt }] }],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+        },
+      }),
+    });
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw { status: 504, error: "timeout", message: "A geração de áudio excedeu o tempo limite. Tente novamente." };
+    }
+    throw e;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!geminiResponse.ok) {
     const status = geminiResponse.status;
@@ -73,7 +89,8 @@ ${prepareText(text)}`;
   if (!audioPart?.data) throw { status: 500, error: "api_error", message: "Nenhum áudio retornado pela API" };
 
   const mimeType = audioPart.mimeType || "audio/wav";
-  const audioBytes = Uint8Array.from(atob(audioPart.data), (c) => c.charCodeAt(0));
+  // Use Deno's base64 decode instead of atob for binary safety
+  const audioBytes = base64Decode(audioPart.data);
   return { audioBytes, mimeType };
 }
 
@@ -103,38 +120,57 @@ async function generateWithElevenLabs(
 
   for (const chunk of chunks) {
     let lastError: string | null = null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
+
     for (let attempt = 0; attempt < 3; attempt++) {
-      const res = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
-        {
-          method: "POST",
-          headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: chunk,
-            model_id: modelId || "eleven_multilingual_v2",
-            voice_settings: { stability: 0.75, similarity_boost: 0.85, style: 0.5, use_speaker_boost: true },
-          }),
+      try {
+        const res = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+          {
+            method: "POST",
+            headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              text: chunk,
+              model_id: modelId || "eleven_multilingual_v2",
+              voice_settings: { stability: 0.75, similarity_boost: 0.85, style: 0.5, use_speaker_boost: true },
+            }),
+          }
+        );
+
+        if (res.ok) {
+          const buf = new Uint8Array(await res.arrayBuffer());
+          audioBuffers.push(buf);
+          lastError = null;
+          break;
         }
-      );
 
-      if (res.ok) {
-        const buf = new Uint8Array(await res.arrayBuffer());
-        audioBuffers.push(buf);
-        lastError = null;
-        break;
+        const status = res.status;
+        const errText = await res.text();
+        lastError = errText;
+
+        if (status === 401 || status === 403) {
+          clearTimeout(timeoutId);
+          throw { status: 402, error: "elevenlabs_credits", message: "Créditos do ElevenLabs esgotados ou chave inválida. Atualize a API Key nos Secrets." };
+        }
+        if (status === 429) {
+          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
+          continue;
+        }
+        clearTimeout(timeoutId);
+        throw { status: 500, error: "elevenlabs_error", message: errText };
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") {
+          clearTimeout(timeoutId);
+          throw { status: 504, error: "timeout", message: "Timeout na geração ElevenLabs" };
+        }
+        if ((e as any)?.error) throw e;
+        lastError = e instanceof Error ? e.message : "Unknown error";
       }
-
-      const status = res.status;
-      const errText = await res.text();
-      lastError = errText;
-
-      if (status === 401) throw { status: 400, error: "invalid_elevenlabs_key", message: "Chave ElevenLabs inválida" };
-      if (status === 429) {
-        await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 1000));
-        continue;
-      }
-      throw { status: 500, error: "elevenlabs_error", message: errText };
     }
+    clearTimeout(timeoutId);
     if (lastError) throw { status: 500, error: "elevenlabs_error", message: lastError };
   }
 
@@ -185,7 +221,7 @@ serve(async (req) => {
 
     if (use_elevenlabs) {
       const elApiKey = Deno.env.get("ELEVENLABS_API_KEY");
-      if (!elApiKey) return respond({ success: false, error: "invalid_elevenlabs_key", message: "ELEVENLABS_API_KEY não configurada" }, 500);
+      if (!elApiKey) return respond({ success: false, error: "elevenlabs_credits", message: "ELEVENLABS_API_KEY não configurada no servidor" }, 500);
       const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
@@ -227,7 +263,7 @@ serve(async (req) => {
 
     const audioUrl = signedUrlData?.signedUrl || "";
 
-    const textField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
+    const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
     const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
     const durationField = mode === "audiobook" ? "audiobook_audio_duration_seconds" : "audiodesc_audio_duration_seconds";
     const voiceDbField = mode === "audiobook" ? "audiobook_voice" : "audiodesc_voice";
@@ -236,7 +272,7 @@ serve(async (req) => {
     await supabase
       .from("pages")
       .update({
-        [textField]: audioUrl,
+        [audioUrlField]: audioUrl,
         [statusField]: "audio_generated",
         [durationField]: estimatedDurationSeconds,
         [voiceDbField]: engine === "elevenlabs" ? elevenlabs_voice_id : voice,

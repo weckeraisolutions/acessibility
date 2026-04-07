@@ -8,6 +8,7 @@ import { useProjectEditor } from "@/hooks/useProjectEditor";
 import { usePdfProcessor } from "@/hooks/usePdfProcessor";
 import { useVideoRegionDetector } from "@/hooks/useVideoRegionDetector";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
 import EditorHeader from "@/components/editor/EditorHeader";
 import GlobalConfigPanel, { type TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import VideoGlobalPanel from "@/components/editor/VideoGlobalPanel";
@@ -16,6 +17,7 @@ import AudioPageCard from "@/components/editor/AudioPageCard";
 import VideoPageCard from "@/components/editor/VideoPageCard";
 import ExportFooter from "@/components/editor/ExportFooter";
 import ProcessingScreen from "@/components/editor/ProcessingScreen";
+import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -27,9 +29,22 @@ const ProjectDetail = () => {
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
   const [ttsEngine, setTtsEngine] = useState<TtsEngine>("gemini");
+  const [canUseElevenlabs, setCanUseElevenlabs] = useState(false);
+  const [elevenlabsVoices, setElevenlabsVoices] = useState<ElevenLabsVoice[]>([]);
+  const [selectedElevenlabsVoice, setSelectedElevenlabsVoice] = useState("");
   const isMobile = useIsMobile();
 
-  const canUseElevenlabs = !!(profile?.elevenlabs_default_voice_id);
+  // Check ElevenLabs availability on mount by calling the edge function
+  useEffect(() => {
+    supabase.functions.invoke("get-elevenlabs-voices").then(({ data }) => {
+      if (data?.success && data.voices?.length > 0) {
+        setCanUseElevenlabs(true);
+        setElevenlabsVoices(data.voices);
+        setSelectedElevenlabsVoice(data.voices[0].voice_id);
+      }
+    }).catch(() => {});
+  }, []);
+
   const isElevenlabs = ttsEngine === "elevenlabs" && canUseElevenlabs;
 
   const perPage = isMobile ? 1 : 2;
@@ -115,11 +130,12 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
-              useElevenlabs={isElevenlabs}
-              elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
               ttsEngine={ttsEngine}
               onTtsEngineChange={setTtsEngine}
               canUseElevenlabs={canUseElevenlabs}
+              elevenlabsVoices={elevenlabsVoices}
+              selectedElevenlabsVoice={selectedElevenlabsVoice}
+              onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -136,9 +152,9 @@ const ProjectDetail = () => {
                   globalVoice={project.audiobook_global_voice || "Zephyr"}
                   project={project}
                   onUpdate={updatePage}
-                  useElevenlabs={isElevenlabs}
-                  elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
-                  elevenlabsModel={profile?.elevenlabs_default_model}
+                  ttsEngine={ttsEngine}
+                  elevenlabsVoices={elevenlabsVoices}
+                  selectedElevenlabsVoice={selectedElevenlabsVoice}
                   plan={profile?.plan}
                 />
               ))}
@@ -155,11 +171,12 @@ const ProjectDetail = () => {
               pages={pages}
               project={project}
               onPageUpdate={updatePage}
-              useElevenlabs={isElevenlabs}
-              elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
               ttsEngine={ttsEngine}
               onTtsEngineChange={setTtsEngine}
               canUseElevenlabs={canUseElevenlabs}
+              elevenlabsVoices={elevenlabsVoices}
+              selectedElevenlabsVoice={selectedElevenlabsVoice}
+              onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -176,9 +193,9 @@ const ProjectDetail = () => {
                   globalVoice={project.audiodesc_global_voice || "Kore"}
                   project={project}
                   onUpdate={updatePage}
-                  useElevenlabs={isElevenlabs}
-                  elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
-                  elevenlabsModel={profile?.elevenlabs_default_model}
+                  ttsEngine={ttsEngine}
+                  elevenlabsVoices={elevenlabsVoices}
+                  selectedElevenlabsVoice={selectedElevenlabsVoice}
                   plan={profile?.plan}
                 />
               ))}
