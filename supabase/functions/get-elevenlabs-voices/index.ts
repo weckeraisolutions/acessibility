@@ -29,11 +29,27 @@ serve(async (req) => {
       );
     }
 
-    const res = await fetch("https://api.elevenlabs.io/v1/voices", {
+    const collectionId = Deno.env.get("ELEVENLABS_COLLECTION_ID");
+    if (!collectionId) {
+      console.error("ELEVENLABS_COLLECTION_ID not set, using fallback voices");
+      return new Response(
+        JSON.stringify({ success: true, voices: FALLBACK_VOICES }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const url = new URL("https://api.elevenlabs.io/v2/voices");
+    url.searchParams.set("collection_id", collectionId);
+    url.searchParams.set("page_size", "100");
+    url.searchParams.set("sort", "name");
+    url.searchParams.set("sort_direction", "asc");
+
+    const res = await fetch(url.toString(), {
       headers: { "xi-api-key": apiKey },
     });
 
     if (!res.ok) {
+      console.error("ElevenLabs v2 voices error:", res.status, await res.text());
       return new Response(
         JSON.stringify({ success: true, voices: FALLBACK_VOICES }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -43,29 +59,22 @@ serve(async (req) => {
     const data = await res.json();
     const allVoices = data.voices || [];
 
-    // Filter Portuguese voices
-    const ptVoices = allVoices
-      .filter((v: any) => {
-        const lang = v.labels?.language || "";
-        const desc = (v.description || "").toLowerCase();
-        return lang === "pt" || lang === "pt-BR" || lang === "portuguese" || desc.includes("portuguese") || desc.includes("português");
-      })
-      .slice(0, 15)
-      .map((v: any) => ({
-        voice_id: v.voice_id,
-        name: v.name,
-        description: `${v.labels?.age || ""} ${v.labels?.gender || ""} — ${v.labels?.use_case || v.labels?.description || ""}`.trim(),
-        group: "Português BR Nativo",
-        preview_url: v.preview_url || null,
-      }));
-
-    const voices = ptVoices.length > 0 ? ptVoices : FALLBACK_VOICES;
+    const voices = allVoices.length > 0
+      ? allVoices.map((v: any) => ({
+          voice_id: v.voice_id,
+          name: v.name,
+          description: `${v.labels?.age || ""} ${v.labels?.gender || ""} — ${v.labels?.use_case || v.labels?.description || ""}`.trim(),
+          group: "Coleção ElevenLabs",
+          preview_url: v.preview_url || null,
+        }))
+      : FALLBACK_VOICES;
 
     return new Response(
       JSON.stringify({ success: true, voices }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
+    console.error("get-elevenlabs-voices error:", e);
     return new Response(
       JSON.stringify({ success: true, voices: FALLBACK_VOICES }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
