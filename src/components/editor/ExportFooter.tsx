@@ -87,7 +87,7 @@ const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: 
             <Download className="h-3 w-3 mr-1" /> Baixar livro inteiro (ZIP)
           </Button>
           {activeTab === "videobook" && (
-            <Button size="sm" onClick={() => toast("Em breve", { description: "Exportação de videobook será implementada." })}>
+            <Button size="sm" onClick={() => setVideobookExportOpen(true)}>
               <Download className="h-3 w-3 mr-1" /> Baixar Videobook Completo (MP4)
             </Button>
           )}
