@@ -37,8 +37,19 @@ const ProjectDetail = () => {
   // Check ElevenLabs availability on mount by calling the edge function
   useEffect(() => {
     supabase.functions.invoke("get-elevenlabs-voices").then(({ data }) => {
-      console.log("[ElevenLabs] Vozes recebidas do backend:", JSON.stringify(data?.voices?.slice(0, 3), null, 2));
-      if (data?.success && data.voices?.length > 0) {
+      console.log("[ElevenLabs] Resposta do backend:", JSON.stringify({
+        success: data?.success,
+        error: data?.error,
+        message: data?.message,
+        voiceCount: data?.voices?.length,
+        sample: data?.voices?.slice(0, 3),
+      }, null, 2));
+
+      if (data?.error) {
+        console.warn("[ElevenLabs] Erro da API:", data.message);
+      }
+
+      if (data?.voices?.length > 0) {
         setCanUseElevenlabs(true);
         setElevenlabsVoices(data.voices);
         setSelectedElevenlabsVoice(data.voices[0].voice_id);
