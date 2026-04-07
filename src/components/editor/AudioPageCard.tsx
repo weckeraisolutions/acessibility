@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,9 +58,51 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
   const [generating, setGenerating] = useState(false);
   const [showRegen, setShowRegen] = useState(false);
   const [regenStyle, setRegenStyle] = useState("");
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loadingAudio, setLoadingAudio] = useState(false);
+  const prevAudioUrlRef = useRef<string | null>(null);
 
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
+
+  // Fetch audio as blob for playback (avoids COEP issues with signed URLs)
+  useEffect(() => {
+    if (!audioUrl || audioUrl === prevAudioUrlRef.current) return;
+    prevAudioUrlRef.current = audioUrl;
+
+    let cancelled = false;
+    setLoadingAudio(true);
+
+    fetch(audioUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch audio");
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        // Revoke previous blob URL
+        setBlobUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
+      })
+      .catch((err) => {
+        console.error("Audio fetch error:", err);
+        if (!cancelled) setBlobUrl(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAudio(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [audioUrl]);
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, []);
 
   const textField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
   const styleField = mode === "audiobook" ? "audiobook_style" : "audiodesc_style";
@@ -134,6 +176,9 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
         return;
       }
 
+      // Force re-fetch of new audio blob
+      prevAudioUrlRef.current = null;
+
       onUpdate(page.id, {
         [audioUrlField]: data.audio_url,
         [statusField]: "audio_generated",
@@ -161,7 +206,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
       const a = document.createElement("a");
       a.href = url;
       const pageNum = String(page.page_number).padStart(3, "0");
-      a.download = `pagina_${pageNum}_${mode}.mp3`;
+      const ext = audioUrl.includes(".wav") ? "wav" : "mp3";
+      a.download = `pagina_${pageNum}_${mode}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -279,12 +325,18 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, useElevenla
             )}
           </Button>
 
-          {audioUrl && (
+          {(blobUrl || loadingAudio) && (
             <>
-              <audio controls src={audioUrl} crossOrigin="anonymous" className="w-full h-8" />
+              {loadingAudio ? (
+                <div className="flex items-center justify-center h-8 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Carregando áudio...
+                </div>
+              ) : (
+                <audio controls src={blobUrl!} className="w-full h-8" />
+              )}
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={handleDownload}>
-                  <Download className="h-3 w-3 mr-1" /> MP3
+                  <Download className="h-3 w-3 mr-1" /> Download
                 </Button>
                 <Button variant="outline" size="sm" className="flex-1" onClick={handleApprove}>
                   <Check className="h-3 w-3 mr-1" /> Aprovar
