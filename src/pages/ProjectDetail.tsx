@@ -176,7 +176,7 @@ const ProjectDetail = () => {
         </Tabs>
       </div>
 
-      <ExportFooter activeTab={activeTab} totalPages={pages.length} />
+      <ExportFooter activeTab={activeTab} totalPages={pages.length} pages={pages} projectName={project.name} projectId={project.id} />
     </div>
   );
 };
