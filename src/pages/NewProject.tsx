@@ -2,11 +2,9 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import Logo from "@/components/Logo";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Upload, FileText, X } from "lucide-react";
@@ -19,12 +17,18 @@ const bookTypes = [
   { value: "children", label: "Infantil" },
 ];
 
+function deriveProjectName(fileName: string): string {
+  return fileName
+    .replace(/\.pdf$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const NewProject = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [name, setName] = useState("");
-  const [bookTitle, setBookTitle] = useState("");
   const [bookType, setBookType] = useState("general");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -51,18 +55,19 @@ const NewProject = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !file || !name.trim()) return;
+    if (!user || !file) return;
+
+    const projectName = deriveProjectName(file.name);
 
     setUploading(true);
     setUploadProgress(10);
 
-    // Create project first to get ID
     const { data: project, error: projectError } = await supabase
       .from("projects")
       .insert({
         user_id: user.id,
-        name: name.trim(),
-        book_title: bookTitle.trim() || null,
+        name: projectName,
+        book_title: projectName,
         book_type: bookType,
       })
       .select("id")
@@ -76,7 +81,6 @@ const NewProject = () => {
 
     setUploadProgress(40);
 
-    // Upload PDF
     const filePath = `${user.id}/${project.id}/original.pdf`;
     const { error: uploadError } = await supabase.storage
       .from("pdfs")
@@ -90,7 +94,6 @@ const NewProject = () => {
 
     setUploadProgress(80);
 
-    // Update project with pdf_url
     await supabase
       .from("projects")
       .update({ pdf_url: filePath })
@@ -101,7 +104,7 @@ const NewProject = () => {
     navigate(`/projeto/${project.id}`);
   };
 
-  const canSubmit = name.trim() && file && !uploading;
+  const canSubmit = !!file && !uploading;
 
   return (
     <div className="min-h-screen bg-background">
@@ -116,16 +119,6 @@ const NewProject = () => {
 
       <main className="container py-8">
         <form onSubmit={handleSubmit} className="mx-auto max-w-[600px] space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome do projeto *</Label>
-            <Input id="name" placeholder="Ex: Raízes do Saber 5º Ano" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bookTitle">Título do livro</Label>
-            <Input id="bookTitle" placeholder="Ex: Raízes do Saber — Conhecendo Nossas Histórias" value={bookTitle} onChange={(e) => setBookTitle(e.target.value)} />
-          </div>
-
           <div className="space-y-2">
             <Label>Tipo do livro</Label>
             <Select value={bookType} onValueChange={setBookType}>
@@ -178,7 +171,7 @@ const NewProject = () => {
                 <div className="space-y-2">
                   <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
                   <p className="text-sm text-muted-foreground">Arraste seu PDF aqui ou clique para selecionar</p>
-                  <p className="text-xs text-muted-foreground">Máximo 100MB</p>
+                  <p className="text-xs text-muted-foreground">Máximo 100MB • O nome do projeto será extraído do arquivo</p>
                 </div>
               )}
             </div>
