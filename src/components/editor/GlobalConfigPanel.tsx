@@ -16,6 +16,8 @@ import { Tables } from "@/integrations/supabase/types";
 type Page = Tables<"pages">;
 type Project = Tables<"projects">;
 
+export type TtsEngine = "gemini" | "elevenlabs";
+
 interface GlobalConfigPanelProps {
   mode: "audiobook" | "audiodesc";
   style: string;
@@ -27,6 +29,9 @@ interface GlobalConfigPanelProps {
   onPageUpdate: (pageId: string, fields: Partial<Page>) => void;
   useElevenlabs?: boolean;
   elevenlabsVoiceId?: string;
+  ttsEngine: TtsEngine;
+  onTtsEngineChange: (engine: TtsEngine) => void;
+  canUseElevenlabs: boolean;
 }
 
 const placeholders: Record<string, string> = {
@@ -38,6 +43,7 @@ const GlobalConfigPanel = ({
   mode, style, voice, onStyleChange, onVoiceChange,
   pages, project, onPageUpdate,
   useElevenlabs, elevenlabsVoiceId,
+  ttsEngine, onTtsEngineChange, canUseElevenlabs,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
@@ -51,16 +57,32 @@ const GlobalConfigPanel = ({
     });
   };
 
+  const isElevenlabs = ttsEngine === "elevenlabs";
+
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border rounded-lg bg-card mb-4">
       <CollapsibleTrigger className="flex items-center justify-between w-full p-4 hover:bg-accent/50 rounded-t-lg">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">⚙️ Configuração Global — {mode === "audiobook" ? "Audiobook" : "Audiodescrição"}</span>
-          {useElevenlabs && <Badge className="bg-amber-500 text-white border-0 text-[10px]"><Sparkles className="h-3 w-3 mr-1" /> ElevenLabs</Badge>}
+          {isElevenlabs && <Badge className="bg-amber-500 text-white border-0 text-[10px]"><Sparkles className="h-3 w-3 mr-1" /> ElevenLabs</Badge>}
         </div>
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
       </CollapsibleTrigger>
       <CollapsibleContent className="p-4 pt-0 space-y-4">
+        {/* TTS Engine Selector */}
+        <div>
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">Motor de Voz (TTS)</Label>
+          <Select value={ttsEngine} onValueChange={(v) => onTtsEngineChange(v as TtsEngine)}>
+            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="gemini">🤖 Google Gemini TTS</SelectItem>
+              <SelectItem value="elevenlabs" disabled={!canUseElevenlabs}>
+                ✨ ElevenLabs {!canUseElevenlabs && "(configure a API Key)"}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Estilo de Narração Global</Label>
           <Textarea
@@ -73,11 +95,15 @@ const GlobalConfigPanel = ({
         </div>
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Voz Padrão Global</Label>
-          {useElevenlabs ? (
-            <div className="mt-1 p-2 border rounded-md bg-muted/50 text-sm">
-              {ELEVENLABS_VOICES.find(v => v.voice_id === elevenlabsVoiceId)?.name || "Voz ElevenLabs"}{" "}
-              <span className="text-xs text-muted-foreground">(configurada em Configurações)</span>
-            </div>
+          {isElevenlabs ? (
+            <Select value={elevenlabsVoiceId || ""} disabled>
+              <SelectTrigger className="mt-1"><SelectValue placeholder={ELEVENLABS_VOICES.find(v => v.voice_id === elevenlabsVoiceId)?.name || "Voz ElevenLabs"} /></SelectTrigger>
+              <SelectContent>
+                {ELEVENLABS_VOICES.map((v) => (
+                  <SelectItem key={v.voice_id} value={v.voice_id}>{v.name} — {v.description}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <Select value={voice} onValueChange={onVoiceChange}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>

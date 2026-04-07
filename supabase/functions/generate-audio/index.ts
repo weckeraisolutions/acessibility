@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +31,8 @@ function respond(body: Record<string, unknown>, status = 200) {
 
 async function generateWithGemini(
   text: string, voice: string, styleApplied: string,
-  model: string, geminiApiKey: string
-): Promise<{ audioBytes: Uint8Array }> {
+  geminiApiKey: string
+): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const ttsPrompt = `Você é narrador profissional de audiobooks em português do Brasil.
 
 IDIOMA: português do Brasil nativo em pronúncia, entonação e ritmo.
@@ -46,6 +45,7 @@ TEXTO:
 
 ${prepareText(text)}`;
 
+  const model = "gemini-2.5-pro-preview-tts";
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
   const geminiResponse = await fetch(geminiUrl, {
     method: "POST",
@@ -72,16 +72,16 @@ ${prepareText(text)}`;
   const audioPart = geminiData?.candidates?.[0]?.content?.parts?.[0]?.inlineData;
   if (!audioPart?.data) throw { status: 500, error: "api_error", message: "Nenhum áudio retornado pela API" };
 
+  const mimeType = audioPart.mimeType || "audio/wav";
   const audioBytes = Uint8Array.from(atob(audioPart.data), (c) => c.charCodeAt(0));
-  return { audioBytes };
+  return { audioBytes, mimeType };
 }
 
 async function generateWithElevenLabs(
   text: string, voiceId: string, modelId: string, apiKey: string
-): Promise<{ audioBytes: Uint8Array }> {
+): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const prepared = prepareText(text);
 
-  // Split text if > 9500 chars
   const chunks: string[] = [];
   if (prepared.length > 9500) {
     const paragraphs = prepared.split(/\n+/);
@@ -138,7 +138,6 @@ async function generateWithElevenLabs(
     if (lastError) throw { status: 500, error: "elevenlabs_error", message: lastError };
   }
 
-  // Concatenate buffers
   const totalLength = audioBuffers.reduce((sum, b) => sum + b.length, 0);
   const result = new Uint8Array(totalLength);
   let offset = 0;
@@ -147,7 +146,15 @@ async function generateWithElevenLabs(
     offset += buf.length;
   }
 
-  return { audioBytes: result };
+  return { audioBytes: result, mimeType: "audio/mpeg" };
+}
+
+function getExtension(mimeType: string): string {
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
+  if (mimeType.includes("ogg")) return "ogg";
+  if (mimeType.includes("L16") || mimeType.includes("pcm")) return "wav";
+  return "wav";
 }
 
 serve(async (req) => {
@@ -170,29 +177,27 @@ serve(async (req) => {
       return respond({ success: false, error: "empty_text", message: "Texto vazio ou sem conteúdo narrável" }, 400);
     }
 
-    if (text.length > 8000 && !use_elevenlabs) {
-      return respond({ success: false, error: "text_too_long", message: "Texto muito longo." }, 400);
-    }
-
     const styleApplied = page_style?.trim() || global_style?.trim() || "Ritmo fluido e contínuo, dicção clara e precisa em português brasileiro";
 
     let audioBytes: Uint8Array;
+    let mimeType: string;
     let engine = "gemini";
 
-    if (use_elevenlabs && (plan === "premium" || plan === "enterprise")) {
+    if (use_elevenlabs) {
       const elApiKey = Deno.env.get("ELEVENLABS_API_KEY");
       if (!elApiKey) return respond({ success: false, error: "invalid_elevenlabs_key", message: "ELEVENLABS_API_KEY não configurada" }, 500);
       const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey);
       audioBytes = result.audioBytes;
+      mimeType = result.mimeType;
       engine = "elevenlabs";
     } else {
       const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
       if (!voice || !gemini_api_key) {
         return respond({ success: false, error: "missing_fields", message: "Voice e GEMINI_API_KEY são obrigatórios" }, 400);
       }
-      const model = plan === "enterprise" ? "gemini-2.5-pro-preview-tts" : "gemini-2.5-flash-preview-tts";
-      const result = await generateWithGemini(text, voice, styleApplied, model, gemini_api_key);
+      const result = await generateWithGemini(text, voice, styleApplied, gemini_api_key);
       audioBytes = result.audioBytes;
+      mimeType = result.mimeType;
     }
 
     const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -204,11 +209,12 @@ serve(async (req) => {
 
     const bucket = mode === "audiobook" ? "audiobook-audios" : "audiodesc-audios";
     const pageNum = String(page_number || 1).padStart(3, "0");
-    const filePath = `${project_id}/pag_${pageNum}.mp3`;
+    const ext = getExtension(mimeType);
+    const filePath = `${project_id}/pag_${pageNum}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(filePath, audioBytes, { contentType: "audio/mpeg", upsert: true });
+      .upload(filePath, audioBytes, { contentType: mimeType, upsert: true });
 
     if (uploadError) {
       console.error("Storage upload error:", uploadError);
