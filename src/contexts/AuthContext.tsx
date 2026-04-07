@@ -12,6 +12,7 @@ interface Profile {
   use_elevenlabs: boolean;
   elevenlabs_default_voice_id: string | null;
   elevenlabs_default_model: string;
+  is_admin: boolean;
 }
 
 interface AuthContextType {
