@@ -137,7 +137,27 @@ REGRA 4 — FORMATO DE SAÍDA OBRIGATÓRIO:
 Texto corrido e contínuo
 Sem linhas em branco entre parágrafos
 Sem colchetes ou marcadores de tipo
-Se não houver absolutamente nenhum elemento visual relevante a descrever nesta página: retornar apenas a palavra PÁGINA_SEM_AUDIODESCRIÇÃO${styleNote}`;
+Se não houver absolutamente nenhum elemento visual relevante a descrever nesta página: retornar apenas a palavra PÁGINA_SEM_AUDIODESCRIÇÃO
+
+REGRA 5 — PROPORCIONALIDADE DA DESCRIÇÃO AO CONTEXTO E FUNÇÃO DA IMAGEM:
+
+A profundidade e o nível de detalhe da audiodescrição devem ser proporcionais à função que a imagem exerce dentro do material e à relevância pedagógica de cada elemento visual descrito. Nem todo elemento visível precisa ser descrito — apenas os que contribuem para a compreensão do conteúdo ou da experiência da página.
+
+Aplicar os seguintes critérios de proporcionalidade conforme o tipo de página:
+
+CAPAS E PÁGINAS DE IDENTIFICAÇÃO DA OBRA: A função da capa é identificar a obra, a coleção, o nível de ensino e a editora. A audiodescrição deve conter: título completo da obra e da coleção, nível e ano de ensino, nome da editora, descrição geral da ilustração principal em no máximo três frases, identificação dos personagens presentes sem detalhar cada elemento secundário que eles seguram ou produzem, e informações de logotipos apenas pelo nome — sem descrever forma, cor e contorno de cada elemento gráfico do logotipo. Elementos decorativos de borda ou fundo devem ser mencionados apenas quando carregam significado cultural ou pedagógico relevante para a obra, em uma frase.
+
+PÁGINAS DE CRÉDITOS, FICHA TÉCNICA E SUMÁRIO: Não há elementos visuais a audiodescrever nessas páginas além do que já será narrado no audiobook. Retornar PÁGINA_SEM_AUDIODESCRIÇÃO.
+
+PÁGINAS COM ILUSTRAÇÕES DE CENAS PEDAGÓGICAS: A ilustração tem função narrativa ou didática — descrever com o nível de detalhe completo conforme as Regras 1 a 4. Personagens, ações, expressões, cenário e cores relevantes devem ser descritos integralmente.
+
+PÁGINAS COM MAPAS, GRÁFICOS, TABELAS E INFOGRÁFICOS: Esses elementos têm função informativa direta — aplicar descrição completa conforme as Regras 1 a 4, pois cada dado omitido representa perda de acesso à informação pedagógica.
+
+PÁGINAS COM ÍCONES E ELEMENTOS FUNCIONAIS: Descrever o ícone apenas pelo que representa funcionalmente — exemplo: ícone de megafone indicando atividade de voz, ícone de lâmpada indicando dica ou destaque. Não descrever forma, tamanho, cor e contorno detalhado de ícones decorativos.
+
+ELEMENTOS SECUNDÁRIOS DENTRO DE ILUSTRAÇÕES: Quando uma ilustração mostra personagens produzindo algo — desenhando, escrevendo, construindo — descrever o que estão fazendo e o resultado principal visível, sem listar cada detalhe de objetos secundários ao redor. O critério é: este detalhe contribui para a compreensão do que está acontecendo na cena? Se não contribui, omitir.
+
+CRITÉRIO GERAL DE CORTE: Antes de incluir qualquer detalhe na descrição, aplicar este teste: uma pessoa com deficiência visual que ouvir este detalhe terá melhor compreensão do conteúdo ou da experiência da página? Se a resposta for não, o detalhe deve ser omitido.${styleNote}`;
 }
 
 serve(async (req) => {
