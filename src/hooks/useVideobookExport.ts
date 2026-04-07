@@ -356,7 +356,7 @@ export function useVideobookExport() {
       updateProgress(3, "Montando vídeo final", 80, 0, 0);
 
       const outputData = await ffmpeg.readFile("videobook_final.mp4");
-      const videoBlob = new Blob([new Uint8Array(outputData as ArrayBuffer)], { type: "video/mp4" });
+      const videoBlob = new Blob([outputData as unknown as BlobPart], { type: "video/mp4" });
       setResultBlob(videoBlob);
 
       // Upload to storage
