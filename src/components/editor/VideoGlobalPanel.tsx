@@ -5,8 +5,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ChevronDown, Crosshair, Play, Download, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { ChevronDown, Crosshair, Play, Download, AlertTriangle, Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Tables } from "@/integrations/supabase/types";
+
+type Page = Tables<"pages">;
 
 interface VideoGlobalPanelProps {
   visualStyle: string;
@@ -15,6 +19,11 @@ interface VideoGlobalPanelProps {
   onVisualStyleChange: (v: string) => void;
   onTransitionChange: (v: string) => void;
   onOutputFormatChange: (v: string) => void;
+  detecting: boolean;
+  detectCurrentPage: number;
+  detectTotalPages: number;
+  onDetectAll: () => void;
+  onCancelDetect: () => void;
 }
 
 const TRANSITIONS = [
@@ -31,7 +40,11 @@ const FORMATS = [
   { value: "centered", label: "Página centralizada com bordas" },
 ];
 
-const VideoGlobalPanel = ({ visualStyle, transition, outputFormat, onVisualStyleChange, onTransitionChange, onOutputFormatChange }: VideoGlobalPanelProps) => {
+const VideoGlobalPanel = ({
+  visualStyle, transition, outputFormat,
+  onVisualStyleChange, onTransitionChange, onOutputFormatChange,
+  detecting, detectCurrentPage, detectTotalPages, onDetectAll, onCancelDetect,
+}: VideoGlobalPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
   const placeholder = () => toast({ title: "Em breve", description: "Funcionalidade será implementada." });
@@ -73,11 +86,35 @@ const VideoGlobalPanel = ({ visualStyle, transition, outputFormat, onVisualStyle
             </Select>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={placeholder}><Crosshair className="h-4 w-4 mr-1" /> Detectar regiões em todas</Button>
-          <Button variant="outline" onClick={placeholder}><Play className="h-4 w-4 mr-1" /> Preview do Videobook</Button>
-          <Button onClick={placeholder}><Download className="h-4 w-4 mr-1" /> Exportar Videobook MP4</Button>
-        </div>
+
+        {detecting ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Detectando regiões: página {detectCurrentPage} de {detectTotalPages}
+              </span>
+              <span>{Math.round((detectCurrentPage / detectTotalPages) * 100)}%</span>
+            </div>
+            <Progress value={(detectCurrentPage / detectTotalPages) * 100} />
+            <Button variant="outline" size="sm" onClick={onCancelDetect}>
+              <X className="h-3 w-3 mr-1" /> Cancelar
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={onDetectAll}>
+              <Crosshair className="h-4 w-4 mr-1" /> Detectar regiões em todas
+            </Button>
+            <Button variant="outline" onClick={placeholder}>
+              <Play className="h-4 w-4 mr-1" /> Preview do Videobook
+            </Button>
+            <Button onClick={placeholder}>
+              <Download className="h-4 w-4 mr-1" /> Exportar Videobook MP4
+            </Button>
+          </div>
+        )}
+
         <Alert className="bg-accent/50 border-accent">
           <AlertTriangle className="h-4 w-4 text-accent-foreground" />
           <AlertDescription className="text-accent-foreground text-xs">
