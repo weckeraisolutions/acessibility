@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { useProjectEditor } from "@/hooks/useProjectEditor";
@@ -16,12 +17,16 @@ import ProcessingScreen from "@/components/editor/ProcessingScreen";
 
 const ProjectDetail = () => {
   const { id } = useParams();
+  const { profile } = useAuth();
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
   const [activeTab, setActiveTab] = useState("audiobook");
   const [pairIndex, setPairIndex] = useState(0);
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const isMobile = useIsMobile();
+
+  const isPremium = profile?.plan === "premium" || profile?.plan === "enterprise";
+  const useElevenlabs = isPremium && profile?.use_elevenlabs;
 
   const perPage = isMobile ? 1 : 2;
   const pairs = useMemo(() => {
@@ -111,6 +116,10 @@ const ProjectDetail = () => {
                   project={project}
                   apiKey={geminiApiKey}
                   onUpdate={updatePage}
+                  useElevenlabs={useElevenlabs}
+                  elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
+                  elevenlabsModel={profile?.elevenlabs_default_model}
+                  plan={profile?.plan}
                 />
               ))}
             </div>
@@ -146,6 +155,10 @@ const ProjectDetail = () => {
                   project={project}
                   apiKey={geminiApiKey}
                   onUpdate={updatePage}
+                  useElevenlabs={useElevenlabs}
+                  elevenlabsVoiceId={profile?.elevenlabs_default_voice_id || undefined}
+                  elevenlabsModel={profile?.elevenlabs_default_model}
+                  plan={profile?.plan}
                 />
               ))}
             </div>
