@@ -471,7 +471,7 @@ serve(async (req) => {
     if (use_elevenlabs) {
       const elApiKey = Deno.env.get("ELEVENLABS_API_KEY");
       if (!elApiKey) return respond({ success: false, error: "elevenlabs_credits", message: "ELEVENLABS_API_KEY não configurada no servidor" }, 500);
-      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey);
+      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
       engine = "elevenlabs";
