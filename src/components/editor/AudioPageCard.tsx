@@ -176,12 +176,17 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
     }
   };
 
-  const currentVoice = pageVoice || globalVoice;
-  const isCustomVoice = !!pageVoice && pageVoice !== globalVoice;
+  // Valid Gemini voice names
+  const GEMINI_VOICES = VOICES.map(v => v.value);
+  const isGeminiVoice = (v: string | null) => v && GEMINI_VOICES.includes(v);
+
+  // For Gemini: only use pageVoice if it's a valid Gemini voice name
+  const currentVoice = (pageVoice && isGeminiVoice(pageVoice)) ? pageVoice : globalVoice;
+  const isCustomVoice = !!pageVoice && isGeminiVoice(pageVoice) && pageVoice !== globalVoice;
 
   // For ElevenLabs: per-page voice or fallback to global
-  const currentElevenlabsVoice = pageVoice || selectedElevenlabsVoice;
-  const isCustomElevenlabsVoice = !!pageVoice && pageVoice !== selectedElevenlabsVoice;
+  const currentElevenlabsVoice = (pageVoice && !isGeminiVoice(pageVoice)) ? pageVoice : selectedElevenlabsVoice;
+  const isCustomElevenlabsVoice = !!pageVoice && !isGeminiVoice(pageVoice) && pageVoice !== selectedElevenlabsVoice;
 
   const handleElevenlabsVoiceSelect = (voiceId: string) => {
     // If selecting the same as global, clear per-page override
@@ -242,11 +247,13 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
       // Reset ref to force re-fetch of new audio
       prevAudioUrlRef.current = null;
 
+      // Save the correct voice based on engine used
+      const savedVoice = isElevenlabs ? currentElevenlabsVoice : currentVoice;
       onUpdate(page.id, {
         [audioUrlField]: data.audio_url,
         [statusField]: "audio_generated",
         [durationField]: data.duration_seconds,
-        [voiceField]: currentVoice,
+        [voiceField]: savedVoice,
         [styleField]: extraStyle || localStyle || null,
       });
 
