@@ -277,10 +277,24 @@ async function generateWithGemini(
   return { audioBytes: wrapPcmAsWav(mergedPcm), mimeType: "audio/wav" };
 }
 
+function preprocessTextForPTBR(text: string): string {
+  return text
+    .replace(/(\d+(?:,\d+)?)\s*%/g, (_, n) => `${n} por cento`)
+    .replace(/R\$\s*([\d.,]+)/g, (_, n) => `${n} reais`)
+    .replace(/\.\.\./g, '…')
+    .replace(/\s—\s/g, ', ')
+    .trim();
+}
+
+function deriveProjectSeed(projectId: string): number {
+  return Math.abs(projectId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 4294967295;
+}
+
 async function generateWithElevenLabs(
-  text: string, voiceId: string, modelId: string, apiKey: string
+  text: string, voiceId: string, modelId: string, apiKey: string,
+  projectId?: string, pageNumber?: number, mode?: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
-  const prepared = prepareText(text);
+  const prepared = preprocessTextForPTBR(prepareText(text));
 
   const chunks: string[] = [];
   if (prepared.length > 9500) {
@@ -299,13 +313,62 @@ async function generateWithElevenLabs(
     chunks.push(prepared);
   }
 
+  // Fetch previous page text for prosodic continuity
+  let previousText: string | undefined;
+  if (projectId && pageNumber && pageNumber > 1) {
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const textField = mode === "audiodesc" ? "audiodesc_text" : "audiobook_text";
+      const { data: prevPage } = await supabase
+        .from("pages")
+        .select(textField)
+        .eq("project_id", projectId)
+        .eq("page_number", pageNumber - 1)
+        .single();
+      const prevText = prevPage?.[textField];
+      if (prevText && typeof prevText === "string" && prevText.length > 0) {
+        previousText = prevText.slice(-200);
+      }
+    } catch { /* ignore - just omit previous_text */ }
+  }
+
+  const seed = projectId ? deriveProjectSeed(projectId) : undefined;
+
   const audioBuffers: Uint8Array[] = [];
 
-  for (const chunk of chunks) {
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const chunk = chunks[ci];
     let lastError: string | null = null;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 140000);
+
+    const bodyObj: Record<string, unknown> = {
+      text: chunk,
+      model_id: "eleven_multilingual_v2",
+      language_code: "pt",
+      voice_settings: {
+        stability: 0.85,
+        similarity_boost: 0.90,
+        style: 0.20,
+        use_speaker_boost: true,
+        speed: 0.95,
+      },
+    };
+    if (seed !== undefined) bodyObj.seed = seed;
+
+    // For first chunk, use previous page context; for subsequent chunks, use previous chunk text
+    if (ci === 0 && previousText) {
+      bodyObj.previous_text = previousText;
+    } else if (ci > 0) {
+      bodyObj.previous_text = chunks[ci - 1].slice(-200);
+    }
+    // For non-last chunks, provide next chunk context
+    if (ci < chunks.length - 1) {
+      bodyObj.next_text = chunks[ci + 1].slice(0, 200);
+    }
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -315,12 +378,7 @@ async function generateWithElevenLabs(
             method: "POST",
             headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
             signal: controller.signal,
-            body: JSON.stringify({
-              text: chunk,
-              model_id: "eleven_multilingual_v2",
-              language_code: "pt",
-              voice_settings: { stability: 0.75, similarity_boost: 0.85, style: 0.5, use_speaker_boost: true },
-            }),
+            body: JSON.stringify(bodyObj),
           }
         );
 
@@ -335,7 +393,7 @@ async function generateWithElevenLabs(
         const errText = await res.text();
         lastError = errText;
 
-      if (status === 401 || status === 403 || status === 402) {
+        if (status === 401 || status === 403 || status === 402) {
           clearTimeout(timeoutId);
           const isPaymentRequired = errText.includes("payment_required") || errText.includes("paid_plan_required");
           throw {
