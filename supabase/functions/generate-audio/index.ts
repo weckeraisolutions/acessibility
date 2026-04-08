@@ -30,8 +30,8 @@ function respond(body: Record<string, unknown>, status = 200) {
   });
 }
 
-const GEMINI_REQUEST_TIMEOUT_MS = 70000;
-const GEMINI_CHUNK_CHAR_LIMIT = 4500;
+const GEMINI_REQUEST_TIMEOUT_MS = 55000;
+const GEMINI_CHUNK_CHAR_LIMIT = 800;
 const GEMINI_PCM_SAMPLE_RATE = 24000;
 const GEMINI_PCM_CHANNELS = 1;
 const GEMINI_PCM_BITS_PER_SAMPLE = 16;
@@ -244,8 +244,8 @@ async function generateWithGemini(
   const chunks = splitTextForTts(prepared);
 
   const results: Array<{ audioBytes: Uint8Array; mimeType: string }> = [];
-  for (let i = 0; i < chunks.length; i += 2) {
-    const batch = chunks.slice(i, i + 2);
+  for (let i = 0; i < chunks.length; i += 3) {
+    const batch = chunks.slice(i, i + 3);
     const batchResults = await Promise.all(
       batch.map((chunkText) => requestGeminiChunk(chunkText, voice, styleApplied, geminiApiKey)),
     );
