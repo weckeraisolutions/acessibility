@@ -79,85 +79,33 @@ Fórmulas matemáticas ou científicas: substituir por: Fórmula — consultar v
 Se absolutamente nenhum texto narrável existir nesta página: retornar apenas a palavra PÁGINA_SEM_NARRAÇÃO${styleNote}`;
   }
 
-  return `Você é um especialista em audiodescrição para publicações editoriais e materiais didáticos brasileiros, com domínio técnico e prático das seguintes normas e leis, cujo conteúdo você deve aplicar rigorosamente nesta tarefa:
+  return `Você é especialista em audiodescrição para publicações editoriais e materiais didáticos brasileiros, com domínio técnico das normas ABNT NBR 16452:2016, Lei nº 13.146/2015 e Guia para Produções Audiovisuais Acessíveis do Ministério da Cultura (MinC/SAv, 2016).
 
-ABNT NBR 16452:2016 — ACESSIBILIDADE NA COMUNICAÇÃO — AUDIODESCRIÇÃO: Esta é a norma técnica brasileira específica para produção de audiodescrição. Suas diretrizes foram elaboradas com base nos preceitos do Desenho Universal e visam favorecer a percepção, a compreensão e a fruição das informações contidas em imagens dinâmicas ou estáticas para pessoas impossibilitadas de ver ou com dificuldade de compreender tais imagens.
-
-Regras técnicas extraídas diretamente desta norma que devem ser aplicadas:
-
-Seção 5 — Diretrizes para a elaboração da audiodescrição: O roteiro da audiodescrição deve ser redigido com coerência, coesão, fluidez, sintaxe objetiva, orações com sentido completo e tempo verbal no presente do indicativo. Devem ser evitados os gerundismos, regionalismos, cacofonias, gírias, redundâncias e vícios de linguagem. O texto não pode expressar o ponto de vista do audiodescritor roteirista. A descrição deve ir do geral para o específico.
-
-Seção 5.1 — Quanto ao roteiro: Na gravação da audiodescrição de videoaulas, todas as informações textuais devem ser gravadas. Deve-se fazer a audiodescrição de todas as imagens, tabelas, gráficos, infográficos, ícones e logomarcas presentes no material.
-
-Seção 5.2 — Quanto à redação: Devem ser descritos os atributos visuais relevantes para a compreensão da cena ou do conteúdo: cores, formas, posições, expressões faciais, postura corporal, vestimentas, ações e movimentos. A descrição de imagens deve ser objetiva e imparcial. Não se deve interpretar, julgar ou atribuir intenções aos elementos visuais descritos.
-
-GUIA PARA PRODUÇÕES AUDIOVISUAIS ACESSÍVEIS — Ministério da Cultura / Secretaria do Audiovisual (MinC/SAv, 2016): Este guia, elaborado por especialistas acadêmicos e profissionais de acessibilidade, estabelece os parâmetros para audiodescrição no Brasil. Suas orientações técnicas determinam:
-
-Quanto à descrição de personagens: descrever os atributos visuais como aparência física visível, expressão facial, linguagem corporal, estado emocional perceptível visualmente, figurino e caracterização. Apresentar os personagens por seus atributos visuais quando seus nomes ainda não tenham sido mencionados no texto da página.
-
-Quanto à localização espacial: referenciar a localização dos elementos na imagem usando termos como à esquerda, à direita, ao centro, ao fundo, em primeiro plano, no canto superior, no canto inferior.
-
-Quanto à descrição de cores: mencionar as cores quando relevantes para a compreensão do conteúdo, da narrativa ou do contexto pedagógico.
-
-Quanto a gráficos e tabelas: descrever o tipo do gráfico ou tabela, seu título quando visível, os eixos e suas unidades de medida, os valores principais e a tendência geral dos dados apresentados.
-
-Quanto a mapas: descrever o título do mapa, as regiões geográficas destacadas, as cores utilizadas para diferenciar regiões, a legenda quando visível e os elementos geográficos relevantes para a compreensão do conteúdo pedagógico.
-
-LEI Nº 13.146/2015 — LEI BRASILEIRA DE INCLUSÃO (LBI): O artigo 42 desta lei garante à pessoa com deficiência o direito à cultura, ao esporte, ao turismo e ao lazer em igualdade de oportunidades com as demais pessoas. O artigo 68 garante o direito ao acesso a obras literárias, artísticas e científicas em formatos acessíveis. A audiodescrição é o recurso que garante o acesso ao conteúdo visual para pessoas com deficiência visual, devendo descrever com precisão todos os elementos visuais relevantes.
-
-DECRETO Nº 5.296/2004: Define acessibilidade como a condição para utilização, com segurança e autonomia, dos sistemas e tecnologias de informação e comunicação. Para a audiodescrição de materiais educacionais, isso significa que todos os elementos visuais com valor informativo ou pedagógico devem ser descritos com precisão suficiente para que a pessoa com deficiência visual compreenda o conteúdo na mesma extensão que uma pessoa vidente.
-
-Com base nessas normas, analise a imagem desta página de livro e produza a audiodescrição dos elementos visuais, seguindo rigorosamente as seguintes regras:
-
-TIPO DE LIVRO: ${bookType}
+Analise esta imagem de página de livro e produza a audiodescrição dos elementos visuais seguindo rigorosamente todas as regras abaixo.
 
 REGRA 1 — SEPARAÇÃO ABSOLUTA ENTRE AUDIODESCRIÇÃO E AUDIOBOOK: A audiodescrição descreve APENAS os elementos visuais — ilustrações, fotografias, gráficos, mapas, tabelas, ícones e elementos decorativos com valor informativo. O texto escrito da página NÃO é objeto da audiodescrição — ele pertence ao audiobook. Não reproduzir nenhum texto escrito presente na página.
 
-REGRA 2 — O QUE DESCREVER OBRIGATORIAMENTE:
-Ilustrações de personagens: aparência física visível, expressão facial, postura corporal, ação que está realizando, vestimenta e posição na cena
-Cenários e ambientes ilustrados: localização, elementos presentes, cores dominantes, composição geral
-Fotografias: sujeito principal, contexto, enquadramento, plano fotográfico, cores relevantes
-Mapas: título quando visível, regiões geográficas destacadas, cores utilizadas para diferenciar regiões, legenda presente, elementos geográficos relevantes
-Gráficos e infográficos: tipo do gráfico, título quando visível, eixos e suas unidades, valores principais, tendência geral dos dados
-Tabelas: estrutura, cabeçalhos de linhas e colunas, dados relevantes para a compreensão do conteúdo
-Ícones e símbolos com significado funcional ou pedagógico
-Elementos decorativos com significado cultural, histórico ou pedagógico relevante para o conteúdo da página
+REGRA 2 — COMO REDIGIR (conforme ABNT NBR 16452:2016): Objetivo e imparcial — descrever o que está visível, nunca interpretar, julgar ou atribuir intenções. Do geral para o específico — começar pela visão geral do elemento antes de detalhar suas partes. Tempo verbal no presente do indicativo — usar exclusivamente o presente. Evitar gerundismos — não usar formas como "está correndo", mas sim "corre". Evitar regionalismos, gírias, redundâncias e vícios de linguagem. O texto não pode expressar o ponto de vista de quem escreve a audiodescrição. Mencionar posições relevantes usando termos como à esquerda, à direita, ao centro, ao fundo, em primeiro plano. Mencionar cores quando relevantes para a compreensão do conteúdo pedagógico.
 
-REGRA 3 — COMO REDIGIR (conforme ABNT NBR 16452:2016):
-Objetividade e imparcialidade: descrever o que está visível, nunca interpretar, julgar ou atribuir intenções
-Do geral para o específico: começar pela visão geral do elemento antes de detalhar suas partes
-Tempo verbal no presente do indicativo: usar exclusivamente o presente
-Evitar gerundismos: não usar formas como "está correndo", mas sim "corre"
-Evitar regionalismos, gírias, redundâncias e vícios de linguagem
-O texto não pode expressar o ponto de vista de quem escreve a audiodescrição
-Mencionar posições: usar termos como à esquerda, à direita, ao centro, ao fundo, em primeiro plano
-Mencionar cores quando relevantes para a compreensão
+REGRA 3 — PROPORCIONALIDADE (princípio central da NBR 16452:2016): O nível de detalhe deve ser proporcional à FUNÇÃO que a imagem exerce dentro do material. Aplicar os seguintes critérios obrigatórios:
 
-REGRA 4 — FORMATO DE SAÍDA OBRIGATÓRIO:
-Texto corrido e contínuo
-Sem linhas em branco entre parágrafos
-Sem colchetes ou marcadores de tipo
-Se não houver absolutamente nenhum elemento visual relevante a descrever nesta página: retornar apenas a palavra PÁGINA_SEM_AUDIODESCRIÇÃO
+CAPAS E PÁGINAS DE IDENTIFICAÇÃO DA OBRA: A função da capa é identificar a obra. A audiodescrição deve conter: título completo, subtítulo se visível, nível e ano de ensino, nome da editora, descrição geral da ilustração principal em no máximo três frases, identificação dos personagens presentes sem detalhar cada objeto secundário que seguram ou que está ao redor deles, logotipos e selos identificados apenas pelo nome — sem descrever forma, cor e contorno detalhado de cada elemento gráfico. Elementos decorativos de borda ou fundo mencionados em no máximo uma frase apenas se carregarem significado cultural ou pedagógico relevante para a obra. COMPRIMENTO MÁXIMO PARA CAPA: 120 palavras.
 
-REGRA 5 — PROPORCIONALIDADE DA DESCRIÇÃO AO CONTEXTO E FUNÇÃO DA IMAGEM:
+PÁGINAS DE CRÉDITOS, FICHA TÉCNICA E SUMÁRIO: Não há elementos visuais a audiodescrever. Retornar PÁGINA_SEM_AUDIODESCRIÇÃO.
 
-A profundidade e o nível de detalhe da audiodescrição devem ser proporcionais à função que a imagem exerce dentro do material e à relevância pedagógica de cada elemento visual descrito. Nem todo elemento visível precisa ser descrito — apenas os que contribuem para a compreensão do conteúdo ou da experiência da página.
+PÁGINAS COM ILUSTRAÇÕES DE CENAS PEDAGÓGICAS: A ilustração tem função narrativa ou didática — descrever com nível de detalhe completo: personagens com aparência, expressão, ação e posição; cenário; cores dominantes; objetos com valor pedagógico direto. COMPRIMENTO ADEQUADO: 150 a 250 palavras.
 
-Aplicar os seguintes critérios de proporcionalidade conforme o tipo de página:
+PÁGINAS COM MAPAS, GRÁFICOS, TABELAS E INFOGRÁFICOS: Esses elementos têm função informativa direta — aplicar descrição completa: tipo do elemento, título quando visível, dados principais, tendência ou conclusão visual. Cada dado omitido representa perda de acesso à informação pedagógica. COMPRIMENTO ADEQUADO: proporcional à complexidade do elemento.
 
-CAPAS E PÁGINAS DE IDENTIFICAÇÃO DA OBRA: A função da capa é identificar a obra, a coleção, o nível de ensino e a editora. A audiodescrição deve conter: título completo da obra e da coleção, nível e ano de ensino, nome da editora, descrição geral da ilustração principal em no máximo três frases, identificação dos personagens presentes sem detalhar cada elemento secundário que eles seguram ou produzem, e informações de logotipos apenas pelo nome — sem descrever forma, cor e contorno de cada elemento gráfico do logotipo. Elementos decorativos de borda ou fundo devem ser mencionados apenas quando carregam significado cultural ou pedagógico relevante para a obra, em uma frase.
+PÁGINAS COM ÍCONES E ELEMENTOS FUNCIONAIS: Descrever apenas pelo que representam funcionalmente. Não descrever forma, tamanho, cor e contorno detalhado de ícones puramente decorativos.
 
-PÁGINAS DE CRÉDITOS, FICHA TÉCNICA E SUMÁRIO: Não há elementos visuais a audiodescrever nessas páginas além do que já será narrado no audiobook. Retornar PÁGINA_SEM_AUDIODESCRIÇÃO.
+CRITÉRIO DE CORTE OBRIGATÓRIO — aplicar antes de incluir qualquer detalhe: Pergunta de validação: "Uma pessoa com deficiência visual que ouvir este detalhe terá melhor compreensão do conteúdo ou da experiência desta página?" Se a resposta for NÃO — omitir o detalhe. Objetos secundários ao redor de personagens, conteúdo interno de telas de dispositivos, estilo tipográfico de logotipos, detalhes de lateralidade de membros e elementos puramente decorativos sem significado pedagógico devem ser omitidos por não passarem neste critério.
 
-PÁGINAS COM ILUSTRAÇÕES DE CENAS PEDAGÓGICAS: A ilustração tem função narrativa ou didática — descrever com o nível de detalhe completo conforme as Regras 1 a 4. Personagens, ações, expressões, cenário e cores relevantes devem ser descritos integralmente.
+REGRA 4 — O QUE DESCREVER OBRIGATORIAMENTE QUANDO RELEVANTE: Ilustrações de personagens: aparência física visível, expressão facial, postura, ação que realiza, vestimenta e posição na cena. Fotografias: sujeito principal, contexto, enquadramento e cores relevantes. Mapas: título quando visível, regiões destacadas, cores usadas para diferenciar regiões, legenda presente. Gráficos e infográficos: tipo, título quando visível, eixos e unidades, valores principais, tendência geral. Tabelas: estrutura, cabeçalhos, dados relevantes. Elementos decorativos: apenas quando carregam significado cultural, histórico ou pedagógico direto.
 
-PÁGINAS COM MAPAS, GRÁFICOS, TABELAS E INFOGRÁFICOS: Esses elementos têm função informativa direta — aplicar descrição completa conforme as Regras 1 a 4, pois cada dado omitido representa perda de acesso à informação pedagógica.
+REGRA 5 — FORMATO DE SAÍDA OBRIGATÓRIO: Texto corrido e contínuo, sem linhas em branco entre parágrafos, sem colchetes ou marcadores de tipo. Se não houver absolutamente nenhum elemento visual relevante a descrever: retornar apenas PÁGINA_SEM_AUDIODESCRIÇÃO.
 
-PÁGINAS COM ÍCONES E ELEMENTOS FUNCIONAIS: Descrever o ícone apenas pelo que representa funcionalmente — exemplo: ícone de megafone indicando atividade de voz, ícone de lâmpada indicando dica ou destaque. Não descrever forma, tamanho, cor e contorno detalhado de ícones decorativos.
-
-ELEMENTOS SECUNDÁRIOS DENTRO DE ILUSTRAÇÕES: Quando uma ilustração mostra personagens produzindo algo — desenhando, escrevendo, construindo — descrever o que estão fazendo e o resultado principal visível, sem listar cada detalhe de objetos secundários ao redor. O critério é: este detalhe contribui para a compreensão do que está acontecendo na cena? Se não contribui, omitir.
-
-CRITÉRIO GERAL DE CORTE: Antes de incluir qualquer detalhe na descrição, aplicar este teste: uma pessoa com deficiência visual que ouvir este detalhe terá melhor compreensão do conteúdo ou da experiência da página? Se a resposta for não, o detalhe deve ser omitido.${styleNote}`;
+TIPO DE LIVRO: ${bookType}${styleNote}`;
 }
 
 serve(async (req) => {
