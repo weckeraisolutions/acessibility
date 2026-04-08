@@ -179,6 +179,16 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const currentVoice = pageVoice || globalVoice;
   const isCustomVoice = !!pageVoice && pageVoice !== globalVoice;
 
+  // For ElevenLabs: per-page voice or fallback to global
+  const currentElevenlabsVoice = pageVoice || selectedElevenlabsVoice;
+  const isCustomElevenlabsVoice = !!pageVoice && pageVoice !== selectedElevenlabsVoice;
+
+  const handleElevenlabsVoiceSelect = (voiceId: string) => {
+    // If selecting the same as global, clear per-page override
+    const value = voiceId === selectedElevenlabsVoice ? null : voiceId;
+    onUpdate(page.id, { [voiceField]: value });
+  };
+
   const globalStyle = mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style;
 
   const handleGenerateAudio = async (extraStyle?: string) => {
@@ -201,7 +211,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           mode,
           plan: plan || "free",
           use_elevenlabs: isElevenlabs,
-          elevenlabs_voice_id: selectedElevenlabsVoice,
+          elevenlabs_voice_id: currentElevenlabsVoice,
           elevenlabs_model: "eleven_multilingual_v2",
         },
       });
@@ -317,7 +327,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         <div>
           <div className="flex items-center gap-2">
             <Label className="text-xs">Voz:</Label>
-            {isElevenlabs && <Badge variant="secondary" className="text-[10px]">✨ ElevenLabs</Badge>}
+            {isElevenlabs && isCustomElevenlabsVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
+            {isElevenlabs && !isCustomElevenlabsVoice && <Badge variant="secondary" className="text-[10px]">✨ ElevenLabs</Badge>}
             {!isElevenlabs && isCustomVoice && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
           </div>
           {isElevenlabs ? (
@@ -325,19 +336,20 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
               {elevenlabsVoices.map((v) => (
                 <div
                   key={v.voice_id}
-                  className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-xs ${selectedElevenlabsVoice === v.voice_id ? "bg-primary/10 font-medium" : "bg-transparent"}`}
+                  className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-xs cursor-pointer transition-colors ${currentElevenlabsVoice === v.voice_id ? "bg-primary/10 font-medium" : "hover:bg-accent"}`}
+                  onClick={() => handleElevenlabsVoiceSelect(v.voice_id)}
                 >
                   {v.preview_url && (
                     <button
                       type="button"
                       className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full border hover:bg-accent"
-                      onClick={() => handlePreviewVoice(v.voice_id, v.preview_url)}
+                      onClick={(e) => { e.stopPropagation(); handlePreviewVoice(v.voice_id, v.preview_url); }}
                     >
                       {playingVoiceId === v.voice_id ? <Square className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
                     </button>
                   )}
                   <span className="truncate">{v.name}</span>
-                  {selectedElevenlabsVoice === v.voice_id && <Badge variant="secondary" className="ml-auto text-[8px] shrink-0">✓</Badge>}
+                  {currentElevenlabsVoice === v.voice_id && <Badge variant="secondary" className="ml-auto text-[8px] shrink-0">✓</Badge>}
                 </div>
               ))}
             </div>
