@@ -244,8 +244,8 @@ async function generateWithGemini(
   const chunks = splitTextForTts(prepared);
 
   const results: Array<{ audioBytes: Uint8Array; mimeType: string }> = [];
-  for (let i = 0; i < chunks.length; i += 2) {
-    const batch = chunks.slice(i, i + 2);
+  for (let i = 0; i < chunks.length; i += 3) {
+    const batch = chunks.slice(i, i + 3);
     const batchResults = await Promise.all(
       batch.map((chunkText) => requestGeminiChunk(chunkText, voice, styleApplied, geminiApiKey)),
     );
