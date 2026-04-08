@@ -31,7 +31,7 @@ function respond(body: Record<string, unknown>, status = 200) {
 }
 
 const GEMINI_REQUEST_TIMEOUT_MS = 70000;
-const GEMINI_CHUNK_CHAR_LIMIT = 1300;
+const GEMINI_CHUNK_CHAR_LIMIT = 4500;
 const GEMINI_PCM_SAMPLE_RATE = 24000;
 const GEMINI_PCM_CHANNELS = 1;
 const GEMINI_PCM_BITS_PER_SAMPLE = 16;
