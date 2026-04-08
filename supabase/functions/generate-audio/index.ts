@@ -477,10 +477,14 @@ serve(async (req) => {
       engine = "elevenlabs";
     } else {
       const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
-      if (!voice || !gemini_api_key) {
-        return respond({ success: false, error: "missing_fields", message: "Voice e GEMINI_API_KEY são obrigatórios" }, 400);
+      if (!gemini_api_key) {
+        return respond({ success: false, error: "missing_fields", message: "GEMINI_API_KEY não configurada" }, 400);
       }
-      const result = await generateWithGemini(text, voice, styleApplied, gemini_api_key);
+      // Validate voice is a valid Gemini voice name
+      const validGeminiVoices = ["achernar","achird","algenib","algieba","alnilam","aoede","autonoe","callirrhoe","charon","despina","enceladus","erinome","fenrir","gacrux","iapetus","kore","laomedeia","leda","orus","puck","pulcherrima","rasalgethi","sadachbia","sadaltager","schedar","sulafat","umbriel","vindemiatrix","zephyr","zubenelgenubi"];
+      const geminiVoice = (voice && validGeminiVoices.includes(voice.toLowerCase())) ? voice : "Zephyr";
+      console.log(`[Gemini] Using voice: ${geminiVoice} (requested: ${voice})`);
+      const result = await generateWithGemini(text, geminiVoice, styleApplied, gemini_api_key);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
     }
