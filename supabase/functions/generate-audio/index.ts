@@ -173,15 +173,19 @@ async function requestGeminiChunk(
   styleApplied: string,
   geminiApiKey: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
-  const ttsPrompt = `Você é narrador profissional de audiobooks em português do Brasil.
+  const ttsPrompt = `Você é um narrador profissional de audiobooks educativos brasileiros.
+Mantenha exatamente estas características em toda a narração, sem variação:
+- Tom de voz: ${styleApplied}
+- Ritmo: constante e uniforme do início ao fim, sem acelerar ou desacelerar
+- Entonação: neutra e estável, sem dramatizar
+- Volume: uniforme durante toda a narração
+- Sotaque: português do Brasil nativo, sem variação regional
+- Pausas: apenas nas pontuações do texto, sem pausas adicionais
+- Este é um trecho de um audiobook maior — manter o mesmo timbre e cadência que seria usado em todo o livro
 
-IDIOMA: português do Brasil nativo em pronúncia, entonação e ritmo.
+Narrar 100% do texto sem omitir nenhuma palavra. Siglas pronunciadas letra por letra conforme indicado no texto. Nomes indígenas e africanos com clareza e respeito.
 
-ESTILO: ${styleApplied}
-
-REGRAS: narrar 100% do texto sem omitir nenhuma palavra. Pronúncia completamente nativa brasileira. Nomes indígenas e africanos com clareza e respeito. Siglas pronunciadas letra por letra conforme indicado no texto. Ritmo constante conforme estilo definido.
-
-TEXTO:
+TEXTO PARA NARRAR:
 
 ${chunkText}`;
 
