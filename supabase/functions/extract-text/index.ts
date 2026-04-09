@@ -79,24 +79,23 @@ Fórmulas matemáticas ou científicas: substituir por: Fórmula — consultar v
 Se absolutamente nenhum texto narrável existir nesta página: retornar apenas a palavra PÁGINA_SEM_NARRAÇÃO${styleNote}`;
   }
 
-  return `Você é especialista em audiodescrição para publicações editoriais brasileiras, com domínio das normas ABNT NBR 16452:2016, Lei 13.146/2015 e Guia do MinC/SAv 2016.
+  return `Você é especialista em audiodescrição editorial brasileira (ABNT NBR 16452:2016, Lei 13.146/2015). Sua tarefa é produzir audiodescrições ULTRA-CONCISAS — o menor texto possível que preserve a compreensão pedagógica.
 
-Analise esta imagem de página de livro e produza a audiodescrição dos elementos visuais. PRIORIZE BREVIDADE MÁXIMA — descreva apenas o essencial para a compreensão pedagógica.
+REGRA 1 — SEPARAÇÃO: Descrever APENAS elementos visuais. NÃO reproduzir texto escrito.
 
-REGRA 1 — SEPARAÇÃO ABSOLUTA: Descrever APENAS elementos visuais (ilustrações, fotografias, gráficos, mapas, tabelas). NÃO reproduzir texto escrito — ele pertence ao audiobook.
+REGRA 2 — BREVIDADE EXTREMA: Cada palavra deve ser indispensável. Usar frases curtas e diretas. Presente do indicativo. Sem adjetivos decorativos, sem redundâncias, sem interpretações. Se um detalhe não altera a compreensão pedagógica, omitir.
 
-REGRA 2 — REDAÇÃO MÍNIMA E OBJETIVA (NBR 16452:2016): Objetivo e imparcial — descrever o que está visível, sem interpretar ou julgar. Presente do indicativo. Sem gerundismos, regionalismos ou redundâncias. Mencionar posições e cores apenas quando essenciais para compreensão pedagógica. Cada palavra deve justificar sua presença — se removê-la não causa perda de compreensão, removê-la.
-
-REGRA 3 — LIMITES DE COMPRIMENTO OBRIGATÓRIOS:
-CAPAS: Título, editora, descrição da ilustração principal em no máximo 2 frases, personagens presentes sem detalhes secundários. MÁXIMO: 60 palavras.
+REGRA 3 — LIMITES MÁXIMOS DE PALAVRAS (não ultrapassar em nenhuma hipótese):
+CAPAS: Título, editora, ilustração principal em 1 frase. MÁXIMO: 40 palavras.
 CRÉDITOS, FICHA TÉCNICA, SUMÁRIO: Retornar PÁGINA_SEM_AUDIODESCRIÇÃO.
-ILUSTRAÇÕES PEDAGÓGICAS: Personagens (aparência essencial, ação, posição), cenário em 1 frase, apenas objetos com função pedagógica direta. MÁXIMO: 80 palavras.
-MAPAS, GRÁFICOS, TABELAS: Tipo, título, dados principais e tendência geral. MÁXIMO: 100 palavras.
-ÍCONES E ELEMENTOS FUNCIONAIS: Apenas função, sem descrever forma ou cor. MÁXIMO: 20 palavras.
+ILUSTRAÇÕES PEDAGÓGICAS: Apenas personagens (quem, o que faz), cenário em meia frase. MÁXIMO: 50 palavras.
+MAPAS E GRÁFICOS: Tipo, título, dado principal. MÁXIMO: 60 palavras.
+TABELAS: Estrutura e dados-chave apenas. MÁXIMO: 60 palavras.
+ÍCONES: Função apenas. MÁXIMO: 10 palavras.
 
-REGRA 4 — CRITÉRIO DE CORTE RIGOROSO: Antes de incluir QUALQUER detalhe, perguntar: "Este detalhe é indispensável para a compreensão pedagógica da página?" Se NÃO — omitir. Omitir sempre: objetos secundários ao redor de personagens, detalhes de vestimenta sem valor pedagógico, elementos decorativos, estilo tipográfico, lateralidade de membros, conteúdo de telas de dispositivos.
+REGRA 4 — OMITIR SEMPRE: vestimenta sem valor pedagógico, objetos secundários, elementos decorativos, cores sem função informativa, lateralidade, estilo tipográfico, conteúdo de telas, expressões faciais genéricas. Incluir SOMENTE o que uma pessoa com deficiência visual PRECISA saber para acompanhar o conteúdo.
 
-REGRA 5 — FORMATO: Texto corrido e contínuo, sem linhas em branco, sem colchetes ou marcadores. Se não houver elementos visuais relevantes: retornar apenas PÁGINA_SEM_AUDIODESCRIÇÃO.
+REGRA 5 — FORMATO: Texto corrido, sem quebras extras, sem colchetes. Se não houver elementos visuais relevantes: PÁGINA_SEM_AUDIODESCRIÇÃO.
 
 TIPO DE LIVRO: ${bookType}${styleNote}`;
 }
