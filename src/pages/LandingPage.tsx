@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Upload, Brain, Pencil, Download, BookOpen, Image, Film,
   Shield, FileText, Mic, School, GraduationCap, Accessibility,
-  BookMarked, Check, Menu, X, Play, Plus, Minus, ChevronRight,
+  BookMarked, Check, Menu, X, Play, Plus, Minus, ChevronRight, Sparkles,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════
@@ -482,48 +482,120 @@ const LandingPage = () => {
           <h2 className="font-serif text-3xl lg:text-5xl text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)" }}>Planos para cada necessidade</h2>
           <p className="font-outfit text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Comece grátis. Escale quando precisar.</p>
 
-          <div className="grid md:grid-cols-3 gap-6 items-start lp-reveal-stagger">
-            {[
-              {
-                name: "Free", price: "R$0", period: "/mês", featured: false,
-                features: ["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição", "Vozes Gemini TTS", "Download MP3"],
-                cta: "Começar Grátis", ctaStyle: { background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" } as React.CSSProperties,
-              },
-              {
-                name: "Pro", price: "R$97", period: "/mês", featured: true,
-                features: ["Projetos ilimitados", "500 páginas por mês", "Audiobook, Audiodescrição e Videobook", "Todas as 30 vozes disponíveis", "Download ZIP por capítulo"],
-                cta: "Assinar Pro", ctaStyle: { background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" } as React.CSSProperties,
-              },
-              {
-                name: "Enterprise", price: "R$297", period: "/mês", featured: false,
-                features: ["Tudo do Pro", "Páginas ilimitadas", "Vozes ultra-realistas ElevenLabs", "Modelo TTS premium", "Suporte prioritário"],
-                cta: "Assinar Enterprise", ctaStyle: { background: "transparent", border: "1px solid rgba(79,172,222,0.3)", color: "var(--lp-blue-bright)" } as React.CSSProperties,
-              },
-            ].map((plan, i) => (
-              <div key={i} className={`glass-card p-7 lp-reveal relative ${plan.featured ? "lg:scale-105" : ""}`}
-                style={plan.featured ? { background: "rgba(46,134,193,0.08)", border: "1px solid rgba(79,172,222,0.3)", boxShadow: "0 0 40px rgba(46,134,193,0.15), 0 8px 32px rgba(0,0,0,0.4)" } : undefined}
-              >
-                {plan.featured && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 font-outfit text-xs font-semibold px-4 py-1 rounded-full text-white" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
-                )}
-                <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-6">
-                  <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>{plan.price}</span>
-                  <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>{plan.period}</span>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                      <Check size={15} style={{ color: "var(--lp-green)" }} /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200" style={plan.ctaStyle}
-                  onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; if(plan.featured) e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
-                >{plan.cta}</Link>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 items-start lp-reveal-stagger">
+            {/* Free Plan */}
+            <div className="glass-card p-6 lp-reveal">
+              <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Free</h3>
+              <div className="flex items-baseline gap-1 mb-5">
+                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 0</span>
+                <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
               </div>
-            ))}
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 1 projeto
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 15 páginas por mês
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> TTS Google (padrão)
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Audiobook básico
+                </li>
+              </ul>
+              <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
+                style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "var(--lp-glass-bg-hover)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "var(--lp-glass-bg)"; }}
+              >Começar Grátis</Link>
+            </div>
+
+            {/* Creator Plan */}
+            <div className="glass-card p-6 lp-reveal">
+              <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Creator</h3>
+              <div className="flex items-baseline gap-1 mb-5">
+                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 147</span>
+                <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 3 projetos
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 90 páginas por mês
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> TTS Google (padrão)
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Audiobook + Audiodescrição
+                </li>
+              </ul>
+              <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
+                style={{ background: "var(--lp-blue-mid)", color: "white" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "var(--lp-blue-bright)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "var(--lp-blue-mid)"; }}
+              >Escolher Creator</Link>
+            </div>
+
+            {/* Pro Plan - Featured */}
+            <div className="glass-card p-6 lp-reveal relative lg:scale-[1.02]"
+              style={{ background: "rgba(46,134,193,0.08)", border: "1px solid rgba(79,172,222,0.3)", boxShadow: "0 0 40px rgba(46,134,193,0.15), 0 8px 32px rgba(0,0,0,0.4)" }}
+            >
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 font-outfit text-xs font-semibold px-4 py-1 rounded-full text-white" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
+              <h3 className="font-outfit font-semibold text-lg mb-1 pt-1" style={{ color: "var(--lp-text-primary)" }}>Pro</h3>
+              <div className="flex items-baseline gap-1 mb-5">
+                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 297</span>
+                <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 10 projetos
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 250 páginas por mês
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-blue-bright)" }}>
+                  <Sparkles size={15} style={{ color: "var(--lp-teal)" }} /> TTS Premium ElevenLabs
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Tudo do Creator + Videobook
+                </li>
+              </ul>
+              <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
+                style={{ background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+              >Escolher Pro</Link>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="glass-card p-6 lp-reveal" style={{ border: "1px solid rgba(79,172,222,0.2)" }}>
+              <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Enterprise</h3>
+              <div className="mb-5">
+                <span className="font-serif text-2xl" style={{ color: "var(--lp-text-secondary)" }}>Entre em contato</span>
+              </div>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Tudo dos anteriores
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Volumes ilimitados
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Suporte dedicado
+                </li>
+                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Onboarding personalizado
+                </li>
+              </ul>
+              <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
+                style={{ background: "transparent", border: "1px solid rgba(79,172,222,0.3)", color: "var(--lp-blue-bright)" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "rgba(79,172,222,0.1)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "transparent"; }}
+              >Falar com Vendas</Link>
+            </div>
           </div>
           <p className="font-outfit text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
         </div>
