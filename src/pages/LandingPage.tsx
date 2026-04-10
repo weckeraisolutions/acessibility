@@ -21,7 +21,7 @@ function useReveal() {
   }, []);
 }
 
-function useCounter(end: number, suffix = "", duration = 2000) {
+function useCounter(end: number, duration = 2000) {
   const [val, setVal] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const started = useRef(false);
@@ -44,7 +44,7 @@ function useCounter(end: number, suffix = "", duration = 2000) {
     obs.observe(el);
     return () => obs.disconnect();
   }, [end, duration]);
-  return { ref, display: `${val.toLocaleString("pt-BR")}${suffix}` };
+  return { ref, val };
 }
 
 /* Particle canvas */
