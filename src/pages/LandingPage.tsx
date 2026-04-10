@@ -13,11 +13,14 @@ import {
 function useReveal() {
   useEffect(() => {
     const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add("visible"); }),
-      { threshold: 0.1 }
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); } }),
+      { threshold: 0, rootMargin: "0px 0px -40px 0px" }
     );
-    document.querySelectorAll(".lp-reveal").forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
+    // Observe after a small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      document.querySelectorAll(".lp-reveal").forEach((el) => obs.observe(el));
+    }, 100);
+    return () => { clearTimeout(timer); obs.disconnect(); };
   }, []);
 }
 
