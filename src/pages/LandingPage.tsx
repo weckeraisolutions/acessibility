@@ -21,7 +21,7 @@ function useReveal() {
   }, []);
 }
 
-function useCounter(end: number, suffix = "", duration = 2000) {
+function useCounter(end: number, duration = 2000) {
   const [val, setVal] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const started = useRef(false);
@@ -44,7 +44,7 @@ function useCounter(end: number, suffix = "", duration = 2000) {
     obs.observe(el);
     return () => obs.disconnect();
   }, [end, duration]);
-  return { ref, display: `${val.toLocaleString("pt-BR")}${suffix}` };
+  return { ref, val };
 }
 
 /* Particle canvas */
@@ -171,9 +171,9 @@ const LandingPage = () => {
     { label: "FAQ", id: "faq" },
   ];
 
-  const c1 = useCounter(45600000, "", 2500);
-  const c2 = useCounter(6500000, "", 2500);
-  const c3 = useCounter(10000000, "", 2500);
+  const c1 = useCounter(45600000, 2500);
+  const c2 = useCounter(6500000, 2500);
+  const c3 = useCounter(10000000, 2500);
 
   const bgStyle: React.CSSProperties = {
     backgroundColor: "var(--lp-bg-base)",
@@ -351,12 +351,12 @@ const LandingPage = () => {
           <div className="glass-card p-10 lg:p-14 lp-reveal">
             <div className="grid md:grid-cols-3 gap-10 text-center lp-reveal-stagger">
               {[
-                { ref: c1.ref, val: c1.display, label: "Brasileiros com alguma deficiência (IBGE 2022)" },
-                { ref: c2.ref, val: c2.display, label: "Pessoas com deficiência visual no Brasil" },
-                { ref: c3.ref, val: c3.display, label: "Pessoas surdas no Brasil" },
+                { ref: c1.ref, val: c1.val, label: "Brasileiros com alguma deficiência (IBGE 2022)" },
+                { ref: c2.ref, val: c2.val, label: "Pessoas com deficiência visual no Brasil" },
+                { ref: c3.ref, val: c3.val, label: "Pessoas surdas no Brasil" },
               ].map((item, i) => (
                 <div key={i} ref={item.ref} className="lp-reveal">
-                  <div className="font-serif italic text-4xl lg:text-5xl mb-3" style={{ color: "var(--lp-blue-bright)" }}>{formatNum(parseInt(item.val.replace(/\D/g, "") || "0"))}</div>
+                  <div className="font-serif italic text-4xl lg:text-5xl mb-3" style={{ color: "var(--lp-blue-bright)" }}>{formatNum(item.val)}</div>
                   <p className="font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>{item.label}</p>
                 </div>
               ))}
