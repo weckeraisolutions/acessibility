@@ -247,11 +247,6 @@ const LandingPage = () => {
         <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
           {/* Left */}
           <div className="lp-reveal">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--lp-teal)" }} />
-              <span className="font-outfit text-xs font-medium" style={{ color: "var(--lp-text-secondary)" }}>IA + Acessibilidade Editorial</span>
-            </div>
 
             <h1 className="font-serif leading-[1.08] mb-6" style={{
               fontSize: "clamp(42px, 6vw, 76px)",
