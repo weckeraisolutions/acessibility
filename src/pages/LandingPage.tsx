@@ -242,7 +242,17 @@ const LandingPage = () => {
       </header>
 
       {/* ──── HERO ──── */}
-      <section className="relative min-h-screen flex items-center pt-20">
+      <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
+        {/* Video background */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover z-0"
+          style={{ filter: "blur(12px) brightness(0.35)", opacity: 0.55, transform: "scale(1.1)" }}
+          src="/videos/hero-bg.mp4"
+        />
         <ParticleCanvas />
         <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
           {/* Left */}
