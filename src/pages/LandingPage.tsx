@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Upload, Brain, Pencil, Download, BookOpen, Image, Film,
   Shield, FileText, Mic, School, GraduationCap, Accessibility,
-  BookMarked, Check, Menu, X, Play, Plus, Minus, ChevronRight,
+  BookMarked, Check, Menu, X, Play, Plus, Minus, ChevronRight, Sparkles,
 } from "lucide-react";
 
 /* ═══════════════════════════════════════════
