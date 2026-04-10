@@ -12,15 +12,18 @@ import {
 
 function useReveal() {
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("visible"); obs.unobserve(e.target); } }),
-      { threshold: 0, rootMargin: "0px 0px -40px 0px" }
-    );
-    // Observe after a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      document.querySelectorAll(".lp-reveal").forEach((el) => obs.observe(el));
-    }, 100);
-    return () => { clearTimeout(timer); obs.disconnect(); };
+    const reveal = () => {
+      document.querySelectorAll(".lp-reveal:not(.visible)").forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight - 40) {
+          el.classList.add("visible");
+        }
+      });
+    };
+    // Run once immediately after a tick
+    requestAnimationFrame(reveal);
+    window.addEventListener("scroll", reveal, { passive: true });
+    return () => window.removeEventListener("scroll", reveal);
   }, []);
 }
 
