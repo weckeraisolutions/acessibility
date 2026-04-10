@@ -250,7 +250,7 @@ const LandingPage = () => {
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover z-0"
-          style={{ filter: "blur(12px) brightness(0.35)", opacity: 0.55, transform: "scale(1.1)" }}
+          style={{ filter: "blur(6px) brightness(0.4)", opacity: 0.7, transform: "scale(1.1)" }}
           src="/videos/hero-bg.mp4"
         />
         <ParticleCanvas />
