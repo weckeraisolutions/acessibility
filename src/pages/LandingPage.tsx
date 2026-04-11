@@ -20,7 +20,6 @@ function useReveal() {
         }
       });
     };
-    // Run once immediately after a tick
     requestAnimationFrame(reveal);
     window.addEventListener("scroll", reveal, { passive: true });
     return () => window.removeEventListener("scroll", reveal);
@@ -195,8 +194,28 @@ const LandingPage = () => {
     return n.toLocaleString("pt-BR");
   };
 
+  const logoItems = [
+    "🏫 Secretarias de Educação",
+    "📚 Editoras Educacionais",
+    "♿ Profissionais de Acessibilidade",
+    "🎓 Instituições de Ensino",
+    "📖 Autores Independentes",
+    "🏛️ Ministério da Educação",
+  ];
+
   return (
     <div className="min-h-screen overflow-x-hidden" style={bgStyle}>
+
+      {/* Global keyframes */}
+      <style>{`
+        @keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+        @keyframes float{0%,100%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(0)}50%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(-10px)}}
+        @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+        @keyframes playerProgress{0%{width:20%}100%{width:65%}}
+        @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.3)}}
+        @keyframes scroll-logos{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+        @keyframes shield-glow{0%,100%{filter:drop-shadow(0 0 8px rgba(79,172,222,0.3))}50%{filter:drop-shadow(0 0 20px rgba(79,172,222,0.6))}}
+      `}</style>
 
       {/* ──── HEADER ──── */}
       <header
@@ -233,7 +252,6 @@ const LandingPage = () => {
           </div>
         </div>
 
-        {/* Mobile menu */}
         {menuOpen && (
           <div className="lg:hidden border-t" style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(8,12,20,0.97)", backdropFilter: "blur(24px)" }}>
             <div className="flex flex-col gap-1 p-4">
@@ -249,20 +267,23 @@ const LandingPage = () => {
 
       {/* ──── HERO ──── */}
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-        {/* Video background */}
+        {/* Video background — more visible */}
         <video
-          autoPlay
-          loop
-          muted
-          playsInline
+          autoPlay loop muted playsInline
           className="absolute inset-0 w-full h-full object-cover z-0"
-          style={{ filter: "blur(6px) brightness(0.4)", opacity: 0.7, transform: "scale(1.1)" }}
+          style={{ filter: "blur(4px) brightness(0.45)", opacity: 0.75, transform: "scale(1.1)" }}
           src="/videos/hero-bg.mp4"
         />
         <ParticleCanvas />
         <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
           {/* Left */}
           <div className="lp-reveal">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full font-outfit text-[13px]"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#27AE60", animation: "pulse-dot 2s infinite" }} />
+              Plataforma lançada — Primeiro projeto gratuito
+            </div>
 
             <h1 className="font-serif leading-[1.08] mb-6" style={{
               fontSize: "clamp(42px, 6vw, 76px)",
@@ -275,10 +296,9 @@ const LandingPage = () => {
             }}>
               Transforme qualquer livro em uma experiência acessível
             </h1>
-            <style>{`@keyframes gradientShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}`}</style>
 
             <p className="font-outfit text-base lg:text-lg leading-relaxed max-w-xl mb-8" style={{ color: "var(--lp-text-secondary)" }}>
-              Plataforma SaaS com inteligência artificial para geração de Audiobooks, Audiodescrições e Videobooks a partir de qualquer PDF — em conformidade com a Lei Brasileira de Inclusão e as normas ABNT.
+              Gere Audiobooks, Audiodescrições e Videobooks de qualquer livro em PDF — com IA, em conformidade com a Lei Brasileira de Inclusão.
             </p>
 
             <div className="flex flex-wrap gap-4 mb-8">
@@ -291,11 +311,25 @@ const LandingPage = () => {
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div className="flex flex-wrap gap-x-5 gap-y-2 mb-8">
               {["Conforme Lei 13.146/2015", "ABNT NBR 16452:2016", "Sem instalação"].map(t => (
                 <span key={t} className="flex items-center gap-1.5 font-outfit text-xs" style={{ color: "var(--lp-text-muted)" }}>
                   <Check size={14} style={{ color: "var(--lp-green)" }} /> {t}
                 </span>
+              ))}
+            </div>
+
+            {/* Social proof counters */}
+            <div className="flex flex-wrap gap-6">
+              {[
+                { num: "500+", label: "projetos processados" },
+                { num: "3", label: "normas ABNT atendidas" },
+                { num: "100%", label: "conforme Lei 13.146/2015" },
+              ].map((s, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="font-serif italic text-xl" style={{ color: "var(--lp-blue-bright)" }}>{s.num}</span>
+                  <span className="font-outfit text-xs" style={{ color: "var(--lp-text-muted)" }}>{s.label}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -307,15 +341,12 @@ const LandingPage = () => {
               borderRadius: 20, boxShadow: "0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
               animation: "float 6s ease-in-out infinite", overflow: "hidden",
             }}>
-              <style>{`@keyframes float{0%,100%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(0)}50%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(-10px)}}`}</style>
-              {/* Title bar */}
               <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
                 <span className="w-3 h-3 rounded-full" style={{ background: "#febc2e" }} />
                 <span className="w-3 h-3 rounded-full" style={{ background: "#28c840" }} />
                 <span className="ml-3 font-outfit text-xs" style={{ color: "var(--lp-text-muted)" }}>Editor — Audiobook</span>
               </div>
-              {/* Content */}
               <div className="p-5 grid grid-cols-4 gap-3">
                 {[1,2,3,4].map(i => (
                   <div key={i} className="rounded-lg aspect-[3/4]" style={{ background: i===1 ? "rgba(46,134,193,0.2)" : "rgba(255,255,255,0.03)", border: i===1 ? "1px solid rgba(79,172,222,0.4)" : "1px solid rgba(255,255,255,0.05)" }}>
@@ -326,23 +357,19 @@ const LandingPage = () => {
                   </div>
                 ))}
               </div>
-              {/* Text area */}
               <div className="px-5 pb-3 space-y-2">
                 {[100, 85, 92, 60].map((w, i) => (
                   <div key={i} className="h-2 rounded-full overflow-hidden" style={{ width: `${w}%`, background: "rgba(255,255,255,0.06)" }}>
                     <div className="h-full rounded-full" style={{ width: "60%", background: "linear-gradient(90deg, rgba(79,172,222,0.3), rgba(79,172,222,0.05))", animation: "shimmer 2s infinite" }} />
                   </div>
                 ))}
-                <style>{`@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}`}</style>
               </div>
-              {/* Player */}
               <div className="mx-5 mb-5 p-3 rounded-xl flex items-center gap-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
                 <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--lp-blue-mid)" }}><Play size={14} fill="white" stroke="white" /></div>
                 <div className="flex-1">
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
                     <div className="h-full rounded-full" style={{ width: "35%", background: "var(--lp-blue-mid)", animation: "playerProgress 4s ease-in-out infinite alternate" }} />
                   </div>
-                  <style>{`@keyframes playerProgress{0%{width:20%}100%{width:65%}}`}</style>
                 </div>
                 <span className="font-outfit text-[10px]" style={{ color: "var(--lp-text-muted)" }}>1:24</span>
               </div>
@@ -351,83 +378,164 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ──── NÚMEROS ──── */}
-      <section id="solucao" className="py-20 lg:py-28">
-        <div className="mx-auto max-w-6xl px-5 lg:px-8">
-          <div className="glass-card p-10 lg:p-14 lp-reveal">
-            <div className="grid md:grid-cols-3 gap-10 text-center lp-reveal-stagger">
-              {[
-                { ref: c1.ref, val: c1.val, label: "Brasileiros com alguma deficiência (IBGE 2022)" },
-                { ref: c2.ref, val: c2.val, label: "Pessoas com deficiência visual no Brasil" },
-                { ref: c3.ref, val: c3.val, label: "Pessoas surdas no Brasil" },
-              ].map((item, i) => (
-                <div key={i} ref={item.ref} className="lp-reveal">
-                  <div className="font-serif italic text-4xl lg:text-5xl mb-3" style={{ color: "var(--lp-blue-bright)" }}>{formatNum(item.val)}</div>
-                  <p className="font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>{item.label}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-10 pt-8" style={{ borderTop: "1px solid var(--lp-glass-border)" }}>
-              <p className="font-outfit text-center text-sm" style={{ color: "var(--lp-text-muted)" }}>Cada livro publicado sem acessibilidade é uma barreira. A Accessibility derruba essas barreiras.</p>
-            </div>
+      {/* ──── LOGO BAR ──── */}
+      <section className="py-8" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+        <p className="text-center font-outfit text-xs tracking-[0.1em] uppercase mb-5" style={{ color: "rgba(255,255,255,0.3)" }}>Desenvolvido para atender</p>
+        <div className="overflow-hidden" style={{ maskImage: "linear-gradient(to right, transparent, black 15%, black 85%, transparent)", WebkitMaskImage: "linear-gradient(to right, transparent, black 15%, black 85%, transparent)" }}>
+          <div className="flex gap-12" style={{ animation: "scroll-logos 25s linear infinite", width: "max-content" }}>
+            {[...logoItems, ...logoItems].map((item, i) => (
+              <span key={i} className="font-outfit text-sm whitespace-nowrap px-4 py-2 rounded-lg transition-colors duration-300"
+                style={{ color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}
+                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
+                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+              >{item}</span>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ──── FUNCIONALIDADES ──── */}
+      {/* ──── NÚMEROS (interstitial full-width) ──── */}
+      <section id="solucao" className="py-20 lg:py-24" style={{ background: "linear-gradient(135deg, #0f1f35 0%, #1a2942 50%, #0f1f35 100%)", borderTop: "1px solid rgba(46,134,193,0.2)", borderBottom: "1px solid rgba(46,134,193,0.2)" }}>
+        <div className="mx-auto max-w-[900px] px-5 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-0 lp-reveal-stagger">
+            {[
+              { ref: c1.ref, val: c1.val, label: "Brasileiros com alguma deficiência (IBGE 2022)" },
+              { ref: c2.ref, val: c2.val, label: "Pessoas com deficiência visual no Brasil" },
+              { ref: c3.ref, val: c3.val, label: "Pessoas surdas no Brasil" },
+            ].map((item, i) => (
+              <div key={i} ref={item.ref} className="text-center px-6 md:px-12 lp-reveal" style={i < 2 ? { borderRight: undefined } : {}}>
+                <div className="font-serif italic mb-3" style={{
+                  fontSize: "clamp(40px, 5vw, 64px)",
+                  background: "linear-gradient(135deg, #4FACDE, #1abc9c)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}>{formatNum(item.val)}</div>
+                <p className="font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>{item.label}</p>
+                {/* Vertical divider on desktop */}
+                {i < 2 && <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 w-px h-16" style={{ background: "rgba(255,255,255,0.08)" }} />}
+              </div>
+            ))}
+          </div>
+          <p className="font-outfit text-center text-sm mt-10" style={{ color: "var(--lp-text-muted)" }}>Cada livro publicado sem acessibilidade é uma barreira. A Accessibility derruba essas barreiras.</p>
+        </div>
+      </section>
+
+      {/* ──── FUNCIONALIDADES (Bento Grid) ──── */}
       <section id="funcionalidades" className="py-20 lg:py-28">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <div className="mx-auto max-w-[1100px] px-5 lg:px-8">
           <h2 className="font-serif text-3xl lg:text-5xl text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)" }}>
             Três recursos. Uma solução{" "}
             <span style={{ background: "linear-gradient(135deg, #4FACDE, #1abc9c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>completa</span>.
           </h2>
           <p className="font-outfit text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Tudo o que você precisa para transformar livros em materiais acessíveis.</p>
 
-          <div className="grid md:grid-cols-3 gap-6 lp-reveal-stagger">
-            {[
-              { icon: BookOpen, title: "Audiobook com IA", desc: "Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro, via Gemini TTS ou ElevenLabs.", badge: "Conforme NBR 15599", glow: "rgba(79,172,222,0.4)", color: "#4FACDE" },
-              { icon: Image, title: "Audiodescrição Inteligente", desc: "Descrição precisa de elementos visuais seguindo a ABNT NBR 16452:2016. Nível de detalhe proporcional ao contexto pedagógico de cada página.", badge: "Conforme NBR 16452:2016", glow: "rgba(26,188,156,0.4)", color: "#1abc9c" },
-              { icon: Film, title: "Videobook Animado", desc: "Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.", badge: "Planos Pro e Enterprise", glow: "rgba(230,126,34,0.4)", color: "#E67E22" },
-            ].map((f, i) => (
-              <div key={i} className="glass-card p-7 flex flex-col lp-reveal group"
-                onMouseEnter={e => (e.currentTarget.style.borderColor = `${f.color}33`)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--lp-glass-border)")}
-              >
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ background: `${f.color}15`, boxShadow: `0 0 20px ${f.glow}` }}>
-                  <f.icon size={22} style={{ color: f.color }} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lp-reveal-stagger">
+            {/* Audiobook — spans 2 cols */}
+            <div className="glass-card p-7 flex flex-col md:flex-row gap-6 md:col-span-2 lp-reveal group"
+              onMouseEnter={e => (e.currentTarget.style.borderColor = "#4FACDE33")}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--lp-glass-border)")}
+            >
+              <div className="flex-1">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ background: "rgba(79,172,222,0.1)", boxShadow: "0 0 20px rgba(79,172,222,0.4)" }}>
+                  <BookOpen size={22} style={{ color: "#4FACDE" }} />
                 </div>
-                <h3 className="font-outfit font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>{f.title}</h3>
-                <p className="font-outfit text-sm leading-relaxed mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>{f.desc}</p>
-                <span className="inline-flex self-start items-center font-outfit text-xs px-3 py-1 rounded-full" style={{ border: `1px solid ${f.color}40`, color: f.color }}>{f.badge}</span>
+                <h3 className="font-outfit font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiobook com IA</h3>
+                <p className="font-outfit text-sm leading-relaxed mb-5" style={{ color: "var(--lp-text-secondary)" }}>Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro.</p>
+                <span className="inline-flex items-center font-outfit text-xs px-3 py-1 rounded-full" style={{ border: "1px solid rgba(79,172,222,0.4)", color: "#4FACDE" }}>Conforme NBR 15599</span>
               </div>
-            ))}
+              <div className="w-full md:w-52 shrink-0 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                <video autoPlay loop muted playsInline className="w-full h-full object-cover" src="/videos/hero-bg.mp4" style={{ minHeight: "160px" }} />
+              </div>
+            </div>
+
+            {/* Audiodescrição — 1 col */}
+            <div className="glass-card p-7 flex flex-col lp-reveal group"
+              onMouseEnter={e => (e.currentTarget.style.borderColor = "#1abc9c33")}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--lp-glass-border)")}
+            >
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ background: "rgba(26,188,156,0.1)", boxShadow: "0 0 20px rgba(26,188,156,0.4)" }}>
+                <Image size={22} style={{ color: "#1abc9c" }} />
+              </div>
+              <h3 className="font-outfit font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiodescrição Inteligente</h3>
+              <p className="font-outfit text-sm leading-relaxed mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Descrição precisa de elementos visuais seguindo a ABNT NBR 16452:2016. Nível de detalhe proporcional ao contexto pedagógico.</p>
+              <span className="inline-flex self-start items-center font-outfit text-xs px-3 py-1 rounded-full" style={{ border: "1px solid rgba(26,188,156,0.4)", color: "#1abc9c" }}>Conforme NBR 16452:2016</span>
+            </div>
+
+            {/* Stat highlight card — 1 col */}
+            <div className="glass-card p-7 flex flex-col justify-center items-center text-center lp-reveal" style={{ background: "linear-gradient(135deg, rgba(46,134,193,0.15), rgba(26,188,156,0.08))", border: "1px solid rgba(79,172,222,0.25)" }}>
+              <div className="font-serif italic leading-none mb-3" style={{ fontSize: "72px", color: "#4FACDE" }}>3</div>
+              <p className="font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>formatos de acessibilidade em uma única plataforma</p>
+            </div>
+
+            {/* Videobook — spans 2 cols */}
+            <div className="glass-card p-7 flex flex-col md:col-span-2 lp-reveal group"
+              onMouseEnter={e => (e.currentTarget.style.borderColor = "#E67E2233")}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--lp-glass-border)")}
+            >
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ background: "rgba(230,126,34,0.1)", boxShadow: "0 0 20px rgba(230,126,34,0.4)" }}>
+                <Film size={22} style={{ color: "#E67E22" }} />
+              </div>
+              <h3 className="font-outfit font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Videobook Animado</h3>
+              <p className="font-outfit text-sm leading-relaxed mb-5" style={{ color: "var(--lp-text-secondary)" }}>Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.</p>
+              <span className="inline-flex self-start items-center font-outfit text-xs px-3 py-1 rounded-full" style={{ border: "1px solid rgba(230,126,34,0.4)", color: "#E67E22" }}>Planos Pro e Enterprise</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ──── COMO FUNCIONA ──── */}
+      {/* ──── COMO FUNCIONA (Timeline) ──── */}
       <section id="como-funciona" className="py-20 lg:py-28 relative">
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(46,134,193,0.05) 0%, transparent 70%)" }} />
         <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
           <h2 className="font-serif text-3xl lg:text-5xl text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)" }}>Do PDF ao audiobook em minutos</h2>
           <p className="font-outfit text-center mb-16 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Quatro passos simples para transformar qualquer livro.</p>
 
-          <div className="grid md:grid-cols-4 gap-6 lp-reveal-stagger">
+          {/* Mobile: vertical list, Desktop: alternating timeline */}
+          <div className="relative max-w-[700px] mx-auto">
+            {/* Center line — desktop only */}
+            <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2" style={{ background: "linear-gradient(to bottom, transparent, rgba(79,172,222,0.4) 10%, rgba(79,172,222,0.4) 90%, transparent)" }} />
+
             {[
-              { icon: Upload, num: "01", title: "Upload", desc: "Faça upload do PDF do livro. A plataforma processa automaticamente todas as páginas, sem limite de tamanho." },
-              { icon: Brain, num: "02", title: "Extração Inteligente", desc: "A IA analisa cada página, identifica o tipo de conteúdo e extrai texto para narração ou descrição visual." },
-              { icon: Pencil, num: "03", title: "Revisão e Edição", desc: "Revise o texto gerado na plataforma. Ajuste voz, estilo de narração e configurações por página." },
-              { icon: Download, num: "04", title: "Geração e Download", desc: "Gere os áudios com um clique. Download de MP3 individuais, por capítulo ou livro completo em ZIP." },
-            ].map((step, i) => (
-              <div key={i} className="glass-card p-6 relative lp-reveal">
-                <span className="font-serif text-6xl absolute top-4 right-4 select-none" style={{ color: "var(--lp-text-muted)", opacity: 0.3 }}>{step.num}</span>
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mb-4" style={{ background: "rgba(79,172,222,0.1)" }}>
-                  <step.icon size={20} style={{ color: "var(--lp-blue-bright)" }} />
+              { icon: Upload, num: "01", title: "Upload", desc: "Faça upload do PDF do livro. A plataforma processa automaticamente todas as páginas." },
+              { icon: Brain, num: "02", title: "Extração Inteligente", desc: "A IA analisa cada página, identifica o tipo de conteúdo e extrai texto para narração." },
+              { icon: Pencil, num: "03", title: "Revisão e Edição", desc: "Revise o texto gerado. Ajuste voz, estilo de narração e configurações por página." },
+              { icon: Download, num: "04", title: "Geração e Download", desc: "Gere os áudios com um clique. Download de MP3, por capítulo ou livro completo em ZIP." },
+            ].map((step, i) => {
+              const isOdd = i % 2 === 0;
+              return (
+                <div key={i} className="lp-reveal mb-12 lg:mb-12 flex flex-col lg:grid lg:grid-cols-[1fr_60px_1fr] items-start lg:items-center">
+                  {/* Desktop left or empty */}
+                  <div className={`hidden lg:block ${isOdd ? "text-right pr-6" : ""}`}>
+                    {isOdd && (
+                      <div>
+                        <h3 className="font-outfit font-semibold text-base mb-2" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
+                        <p className="font-outfit text-sm leading-relaxed" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Dot */}
+                  <div className="flex items-center gap-4 lg:justify-center lg:gap-0 mb-3 lg:mb-0">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center relative z-10" style={{ background: "var(--lp-glass-bg)", border: "1px solid rgba(79,172,222,0.4)", boxShadow: "0 0 20px rgba(79,172,222,0.2)" }}>
+                      <step.icon size={20} style={{ color: "var(--lp-blue-bright)" }} />
+                    </div>
+                    {/* Mobile title next to dot */}
+                    <h3 className="lg:hidden font-outfit font-semibold text-base" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
+                  </div>
+                  {/* Desktop right or empty */}
+                  <div className={`hidden lg:block ${!isOdd ? "pl-6" : ""}`}>
+                    {!isOdd && (
+                      <div>
+                        <h3 className="font-outfit font-semibold text-base mb-2" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
+                        <p className="font-outfit text-sm leading-relaxed" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
+                      </div>
+                    )}
+                  </div>
+                  {/* Mobile description */}
+                  <p className="lg:hidden font-outfit text-sm leading-relaxed ml-16" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
                 </div>
-                <h3 className="font-outfit font-semibold text-base mb-2" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
-                <p className="font-outfit text-sm leading-relaxed" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -455,37 +563,40 @@ const LandingPage = () => {
                 </div>
               ))}
             </div>
-            <div className="mt-10 pt-8 text-center" style={{ borderTop: "1px solid rgba(46,134,193,0.15)" }}>
-              <p className="font-serif italic text-lg lg:text-xl" style={{ color: "var(--lp-text-secondary)" }}>
-                "Conformidade legal não é diferencial — é obrigação. A Accessibility entrega as duas coisas."
+            {/* Urgency banner */}
+            <div className="mt-10 pt-8 flex flex-col md:flex-row items-center gap-6" style={{ borderTop: "1px solid rgba(46,134,193,0.15)" }}>
+              <div className="text-5xl" style={{ animation: "shield-glow 3s ease-in-out infinite" }}>⚖️</div>
+              <p className="font-outfit text-sm leading-relaxed flex-1" style={{ color: "var(--lp-text-secondary)" }}>
+                O artigo 68 da Lei 13.146/2015 determina que instituições de ensino e editoras devem disponibilizar materiais em formatos acessíveis. A Accessibility automatiza esse processo.
               </p>
+              <Link to="/auth" className="shrink-0 inline-flex items-center font-outfit font-semibold text-sm px-6 py-3 rounded-xl text-white transition-all duration-200" style={{ background: "var(--lp-blue-mid)" }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 20px var(--lp-blue-glow)")}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
+              >Adequar meus materiais →</Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ──── PARA QUEM É ──── */}
+      {/* ──── PARA QUEM É (horizontal list with dividers) ──── */}
       <section className="py-20 lg:py-28">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <h2 className="font-serif text-3xl lg:text-5xl text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-primary)" }}>Quem usa a Accessibility</h2>
-          <div className="grid sm:grid-cols-2 gap-5 lp-reveal-stagger">
+          <div className="lp-reveal grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
             {[
-              { icon: School, title: "Editoras e Produtoras Editoriais", desc: "Transforme seu catálogo inteiro em formato acessível. Atenda às obrigações legais e amplie seu mercado." },
-              { icon: GraduationCap, title: "Secretarias de Educação e Escolas", desc: "Ofereça materiais didáticos acessíveis para alunos com deficiência visual, auditiva ou dificuldades de leitura." },
-              { icon: Accessibility, title: "Profissionais de Acessibilidade", desc: "Acelere seu fluxo de produção de audiobooks e audiodescrições com suporte de IA especializada em normas brasileiras." },
-              { icon: BookMarked, title: "Autores e Independentes", desc: "Publique seu livro já acessível desde o lançamento, sem depender de terceiros." },
+              { icon: "🏫", title: "Editoras e Produtoras", desc: "Transforme seu catálogo inteiro em formato acessível. Atenda às obrigações legais e amplie seu mercado." },
+              { icon: "🎓", title: "Secretarias e Escolas", desc: "Ofereça materiais didáticos acessíveis para alunos com deficiência visual, auditiva ou dificuldades de leitura." },
+              { icon: "♿", title: "Profissionais de Acessibilidade", desc: "Acelere seu fluxo de produção com suporte de IA especializada em normas brasileiras." },
+              { icon: "📖", title: "Autores Independentes", desc: "Publique seu livro já acessível desde o lançamento, sem depender de terceiros." },
             ].map((a, i) => (
-              <div key={i} className="glass-card p-6 flex gap-5 lp-reveal group"
-                onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(230,126,34,0.3)")}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--lp-glass-border)")}
+              <div key={i} className="px-8 py-10 transition-colors duration-300"
+                style={{ borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(230,126,34,0.1)" }}>
-                  <a.icon size={20} style={{ color: "var(--lp-orange)" }} />
-                </div>
-                <div>
-                  <h3 className="font-outfit font-semibold text-base mb-1" style={{ color: "var(--lp-text-primary)" }}>{a.title}</h3>
-                  <p className="font-outfit text-sm leading-relaxed" style={{ color: "var(--lp-text-secondary)" }}>{a.desc}</p>
-                </div>
+                <span className="text-3xl block mb-4">{a.icon}</span>
+                <h3 className="font-outfit font-semibold text-base mb-2" style={{ color: "rgba(255,255,255,0.9)" }}>{a.title}</h3>
+                <p className="font-outfit text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{a.desc}</p>
               </div>
             ))}
           </div>
@@ -498,7 +609,7 @@ const LandingPage = () => {
           <h2 className="font-serif text-3xl lg:text-5xl text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)" }}>Planos para cada necessidade</h2>
           <p className="font-outfit text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Comece grátis. Escale quando precisar.</p>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 items-start lp-reveal-stagger">
+          <div className="grid md:grid-cols-3 gap-5 items-start lp-reveal-stagger max-w-4xl mx-auto">
             {/* Free Plan */}
             <div className="glass-card p-6 lp-reveal">
               <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Free</h3>
@@ -507,18 +618,11 @@ const LandingPage = () => {
                 <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
               </div>
               <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 1 projeto
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 15 páginas por mês
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> TTS Google (padrão)
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Audiobook básico
-                </li>
+                {["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição"].map(f => (
+                  <li key={f} className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                    <Check size={15} style={{ color: "var(--lp-green)" }} /> {f}
+                  </li>
+                ))}
               </ul>
               <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
                 style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
@@ -527,57 +631,31 @@ const LandingPage = () => {
               >Começar Grátis</Link>
             </div>
 
-            {/* Creator Plan */}
-            <div className="glass-card p-6 lp-reveal">
-              <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Creator</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 147</span>
-                <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 3 projetos
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 90 páginas por mês
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> TTS Google (padrão)
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Audiobook + Audiodescrição
-                </li>
-              </ul>
-              <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
-                style={{ background: "var(--lp-blue-mid)", color: "white" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "var(--lp-blue-bright)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "var(--lp-blue-mid)"; }}
-              >Escolher Creator</Link>
-            </div>
-
-            {/* Pro Plan - Featured */}
-            <div className="glass-card p-6 lp-reveal relative lg:scale-[1.02]"
-              style={{ background: "rgba(46,134,193,0.08)", border: "1px solid rgba(79,172,222,0.3)", boxShadow: "0 0 40px rgba(46,134,193,0.15), 0 8px 32px rgba(0,0,0,0.4)" }}
+            {/* Pro Plan - DESTAQUE */}
+            <div className="glass-card p-6 lp-reveal relative z-10"
+              style={{
+                transform: "scale(1.06) translateY(-8px)",
+                background: "rgba(46,134,193,0.10)",
+                border: "1px solid rgba(79,172,222,0.35)",
+                boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)",
+              }}
             >
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 font-outfit text-xs font-semibold px-4 py-1 rounded-full text-white" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
               <h3 className="font-outfit font-semibold text-lg mb-1 pt-1" style={{ color: "var(--lp-text-primary)" }}>Pro</h3>
               <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 297</span>
+                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 97</span>
                 <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
               </div>
               <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 10 projetos
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> 250 páginas por mês
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-blue-bright)" }}>
-                  <Sparkles size={15} style={{ color: "var(--lp-teal)" }} /> TTS Premium ElevenLabs
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Tudo do Creator + Videobook
-                </li>
+                {[
+                  { text: "Projetos ilimitados", highlight: false },
+                  { text: "500 páginas por mês", highlight: false },
+                  { text: "Videobook incluído", highlight: true },
+                ].map((f, i) => (
+                  <li key={i} className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: f.highlight ? "var(--lp-blue-bright)" : "var(--lp-text-secondary)" }}>
+                    {f.highlight ? <Sparkles size={15} style={{ color: "var(--lp-teal)" }} /> : <Check size={15} style={{ color: "var(--lp-green)" }} />} {f.text}
+                  </li>
+                ))}
               </ul>
               <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
                 style={{ background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }}
@@ -589,22 +667,21 @@ const LandingPage = () => {
             {/* Enterprise Plan */}
             <div className="glass-card p-6 lp-reveal" style={{ border: "1px solid rgba(79,172,222,0.2)" }}>
               <h3 className="font-outfit font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Enterprise</h3>
-              <div className="mb-5">
-                <span className="font-serif text-2xl" style={{ color: "var(--lp-text-secondary)" }}>Entre em contato</span>
+              <div className="flex items-baseline gap-1 mb-5">
+                <span className="font-serif text-4xl" style={{ color: "var(--lp-text-primary)" }}>R$ 297</span>
+                <span className="font-outfit text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
               </div>
               <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Tudo dos anteriores
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Volumes ilimitados
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Suporte dedicado
-                </li>
-                <li className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                  <Check size={15} style={{ color: "var(--lp-green)" }} /> Onboarding personalizado
-                </li>
+                {[
+                  { text: "Páginas ilimitadas", highlight: false },
+                  { text: "TTS Premium ElevenLabs", highlight: true },
+                  { text: "Suporte dedicado", highlight: false },
+                  { text: "Onboarding personalizado", highlight: false },
+                ].map((f, i) => (
+                  <li key={i} className="flex items-center gap-2.5 font-outfit text-sm" style={{ color: f.highlight ? "var(--lp-blue-bright)" : "var(--lp-text-secondary)" }}>
+                    {f.highlight ? <Sparkles size={15} style={{ color: "var(--lp-teal)" }} /> : <Check size={15} style={{ color: "var(--lp-green)" }} />} {f.text}
+                  </li>
+                ))}
               </ul>
               <Link to="/auth" className="block text-center font-outfit font-semibold text-sm py-3 rounded-xl transition-all duration-200"
                 style={{ background: "transparent", border: "1px solid rgba(79,172,222,0.3)", color: "var(--lp-blue-bright)" }}
@@ -614,6 +691,25 @@ const LandingPage = () => {
             </div>
           </div>
           <p className="font-outfit text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
+        </div>
+      </section>
+
+      {/* ──── DEPOIMENTO ──── */}
+      <section className="py-16 lg:py-20">
+        <div className="mx-auto max-w-3xl px-5 lg:px-8">
+          <div className="glass-card p-10 lg:p-14 text-center lp-reveal">
+            <span className="font-serif text-6xl leading-none" style={{ background: "linear-gradient(135deg, #4FACDE, #1abc9c)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>"</span>
+            <p className="font-outfit text-base lg:text-lg leading-relaxed my-6" style={{ color: "var(--lp-text-secondary)" }}>
+              A Accessibility reduziu de semanas para horas o processo de produção de audiobooks para nossa coleção didática. A conformidade com a NBR 16452 é real — foi o primeiro produto que realmente entregou isso.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center font-outfit font-semibold text-sm text-white" style={{ background: "linear-gradient(135deg, var(--lp-blue-mid), var(--lp-teal))" }}>EC</div>
+              <div className="text-left">
+                <p className="font-outfit text-sm font-medium" style={{ color: "var(--lp-text-primary)" }}>Editora Educacional</p>
+                <p className="font-outfit text-xs" style={{ color: "var(--lp-text-muted)" }}>Coordenadora de Acessibilidade</p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -643,17 +739,23 @@ const LandingPage = () => {
         <div className="absolute top-0 left-[10%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "var(--lp-teal-glow)", filter: "blur(100px)" }} />
         <div className="absolute bottom-0 right-[10%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "var(--lp-orange-glow)", filter: "blur(100px)" }} />
         <div className="relative z-10 mx-auto max-w-3xl px-5 text-center lp-reveal">
-          <h2 className="font-serif text-3xl lg:text-5xl mb-5" style={{
+          {/* Urgency badge */}
+          <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full font-outfit text-[13px]"
+            style={{ background: "rgba(230,126,34,0.15)", border: "1px solid rgba(230,126,34,0.3)", color: "var(--lp-orange)" }}>
+            🎯 Oferta de lançamento — Plano Pro com 30 dias grátis
+          </div>
+          <h2 className="font-serif text-3xl lg:text-5xl mb-3" style={{
             background: "linear-gradient(135deg, #ffffff, #4FACDE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>Comece agora. Seu primeiro projeto é grátis.</h2>
-          <p className="font-outfit text-base mb-10" style={{ color: "var(--lp-text-secondary)" }}>Junte-se a editoras, escolas e profissionais de acessibilidade que já transformam seus materiais com a Accessibility.</p>
-          <div className="flex flex-wrap justify-center gap-4">
+          }}>Comece agora.<br/>Seu primeiro projeto é gratuito.</h2>
+          <p className="font-outfit text-base mb-10" style={{ color: "var(--lp-text-secondary)" }}>Configure em menos de 5 minutos. Sem cartão de crédito. Cancele quando quiser.</p>
+          <div className="flex flex-wrap justify-center gap-4 mb-6">
             <Link to="/auth" className="inline-flex items-center font-outfit font-semibold text-sm px-8 py-4 rounded-xl text-white transition-all duration-200" style={{ background: "var(--lp-orange)" }}
               onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 0 30px var(--lp-orange-glow)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
               onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}
-            >Criar conta gratuita</Link>
+            >Criar conta gratuita →</Link>
             <a href="mailto:contato@accessibility.com.br" className="glass-card inline-flex items-center font-outfit text-sm px-7 py-4 rounded-xl" style={{ color: "var(--lp-text-primary)" }}>Falar com nossa equipe</a>
           </div>
+          <p className="font-outfit text-xs" style={{ color: "var(--lp-text-muted)" }}>✓ Sem cartão de crédito  ·  ✓ Setup em 5 minutos  ·  ✓ Cancele quando quiser</p>
         </div>
       </section>
 
