@@ -14,10 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        display: ["Playfair Display", "serif"],
-        serif: ["Instrument Serif", "serif"],
-        outfit: ["Outfit", "sans-serif"],
+        sans: ["Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Arial", "sans-serif"],
+        display: ["Instrument Serif", "Georgia", "serif"],
+        serif: ["Instrument Serif", "Georgia", "serif"],
+        body: ["Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Arial", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
