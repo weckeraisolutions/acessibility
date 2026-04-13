@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -51,9 +51,16 @@
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 204 70% 47%;
 
+    /* Typography */
+    --font-display: 'Instrument Serif', Georgia, serif;
+    --font-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', Arial, sans-serif;
+
     /* Landing page dark glassmorphism tokens */
-    --lp-bg-base: #080c14;
-    --lp-bg-surface: #0d1424;
+    --lp-bg-base: #060a10;
+    --lp-bg-surface: #0a1220;
+    --lp-bg-elevated: #0f1a2e;
+    --lp-bg-accent: #0d1f3c;
+    --lp-bg-interstitial: #112244;
     --lp-blue-deep: #1E3A5F;
     --lp-blue-mid: #2E86C1;
     --lp-blue-bright: #4FACDE;
@@ -63,13 +70,24 @@
     --lp-green: #27AE60;
     --lp-teal: #1abc9c;
     --lp-teal-glow: rgba(26, 188, 156, 0.25);
-    --lp-glass-bg: rgba(255, 255, 255, 0.04);
-    --lp-glass-bg-hover: rgba(255, 255, 255, 0.07);
-    --lp-glass-border: rgba(255, 255, 255, 0.08);
-    --lp-glass-border-hover: rgba(255, 255, 255, 0.15);
-    --lp-text-primary: rgba(255, 255, 255, 0.95);
-    --lp-text-secondary: rgba(255, 255, 255, 0.6);
-    --lp-text-muted: rgba(255, 255, 255, 0.35);
+
+    /* WCAG-compliant text colors */
+    --lp-text-primary: rgba(255, 255, 255, 0.97);
+    --lp-text-secondary: rgba(255, 255, 255, 0.72);
+    --lp-text-muted: rgba(255, 255, 255, 0.55);
+    --lp-text-disabled: rgba(255, 255, 255, 0.38);
+
+    /* WCAG-compliant glass tokens */
+    --lp-glass-bg: rgba(255, 255, 255, 0.045);
+    --lp-glass-bg-hover: rgba(255, 255, 255, 0.075);
+    --lp-glass-border: rgba(255, 255, 255, 0.14);
+    --lp-glass-border-hover: rgba(255, 255, 255, 0.24);
+
+    /* Accent colors — all ≥ 4.5:1 on dark bg */
+    --lp-accent-blue: #4FACDE;
+    --lp-accent-teal: #2dd4ab;
+    --lp-accent-orange: #F4913A;
+    --lp-accent-green: #4ADE80;
   }
 }
 
@@ -79,26 +97,95 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
   }
 }
 
 /* Landing page glass utilities */
 @layer components {
+  /* Card Type 1 — Default */
   .glass-card {
     background: var(--lp-glass-bg);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
     border: 1px solid var(--lp-glass-border);
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.07);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .glass-card:hover {
     background: var(--lp-glass-bg-hover);
     border-color: var(--lp-glass-border-hover);
-    box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.10);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.10);
     transform: translateY(-2px);
+  }
+
+  /* Card Type 2 — Featured */
+  .card-featured {
+    background: rgba(46, 134, 193, 0.09);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(79, 172, 222, 0.28);
+    border-radius: 20px;
+    box-shadow:
+      0 0 0 1px rgba(79, 172, 222, 0.08),
+      0 20px 60px rgba(46, 134, 193, 0.18),
+      0 4px 20px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  }
+
+  /* Feature card colored top borders */
+  .card-feature-audio    { border-top: 2px solid var(--lp-accent-blue); }
+  .card-feature-audiodesc { border-top: 2px solid var(--lp-accent-teal); }
+  .card-feature-video    { border-top: 2px solid var(--lp-accent-orange); }
+
+  /* Feature icon wraps */
+  .feature-icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .feature-icon-wrap--audio {
+    background: rgba(79, 172, 222, 0.12);
+    border: 1px solid rgba(79, 172, 222, 0.25);
+    box-shadow: 0 0 16px rgba(79, 172, 222, 0.20);
+    color: #4FACDE;
+  }
+  .feature-icon-wrap--audiodesc {
+    background: rgba(45, 212, 171, 0.12);
+    border: 1px solid rgba(45, 212, 171, 0.25);
+    box-shadow: 0 0 16px rgba(45, 212, 171, 0.20);
+    color: #2dd4ab;
+  }
+  .feature-icon-wrap--video {
+    background: rgba(244, 145, 58, 0.12);
+    border: 1px solid rgba(244, 145, 58, 0.25);
+    box-shadow: 0 0 16px rgba(244, 145, 58, 0.20);
+    color: #F4913A;
+  }
+
+  /* Section backgrounds */
+  .lp-bg-base        { background-color: var(--lp-bg-base); }
+  .lp-bg-surface     { background-color: var(--lp-bg-surface); }
+  .lp-bg-elevated    { background-color: var(--lp-bg-elevated); }
+  .lp-bg-accent      { background-color: var(--lp-bg-accent); }
+  .lp-bg-interstitial { background-color: var(--lp-bg-interstitial); }
+
+  /* Section divider */
+  .section-divider {
+    border-top: 1px solid transparent;
+    border-image: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(79, 172, 222, 0.25) 30%,
+      rgba(79, 172, 222, 0.25) 70%,
+      transparent 100%
+    ) 1;
   }
 
   .lp-reveal {
@@ -123,5 +210,25 @@
       transition: none;
     }
     .lp-reveal-stagger > * { transition-delay: 0ms !important; }
+  }
+
+  /* Footer a11y note */
+  .footer-a11y-note {
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--lp-text-muted);
+    padding: 16px 0 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin-top: 24px;
+  }
+  .footer-a11y-link {
+    color: var(--lp-accent-blue);
+    text-decoration: underline;
+    text-decoration-color: rgba(79, 172, 222, 0.4);
+    text-underline-offset: 3px;
+  }
+  .footer-a11y-link:hover {
+    text-decoration-color: var(--lp-accent-blue);
   }
 }
