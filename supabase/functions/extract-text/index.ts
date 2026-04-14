@@ -118,15 +118,21 @@ serve(async (req) => {
       return respond({ success: false, error: "api_key_missing", message: "GEMINI_API_KEY não configurada no servidor" }, 500);
     }
 
-    // Download image and convert to base64
+    // Download image and convert to base64 (chunked to avoid CPU limits)
     const imgResponse = await fetch(image_url);
     if (!imgResponse.ok) {
       return respond({ success: false, error: "image_download_failed", message: "Não foi possível baixar a imagem da página" }, 400);
     }
     const imgBuffer = await imgResponse.arrayBuffer();
-    const imgBase64 = btoa(
-      new Uint8Array(imgBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-    );
+    const imgBytes = new Uint8Array(imgBuffer);
+
+    // Chunked base64 encoding to avoid CPU timeout on large images
+    const CHUNK = 32768;
+    let imgBase64 = "";
+    for (let i = 0; i < imgBytes.length; i += CHUNK) {
+      imgBase64 += String.fromCharCode(...imgBytes.subarray(i, i + CHUNK));
+    }
+    imgBase64 = btoa(imgBase64);
 
     const prompt = getPrompt(mode, book_type || "general", global_style || "", page_style || "");
 
