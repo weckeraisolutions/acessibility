@@ -461,24 +461,19 @@ const LandingPage = () => {
           </h2>
           <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Tudo o que você precisa para transformar livros em materiais acessíveis.</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lp-reveal-stagger">
-            {/* Audiobook — spans 2 cols */}
-            <div className="glass-card card-feature-audio p-7 flex flex-col md:flex-row gap-6 md:col-span-2 lp-reveal">
-              <div className="flex-1">
-                <div className="feature-icon-wrap feature-icon-wrap--audio">
-                  <BookOpen size={22} />
-                </div>
-                <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiobook com IA</h3>
-                <p className="text-sm leading-[1.7] mb-5" style={{ color: "var(--lp-text-secondary)" }}>Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro.</p>
-                <span className="inline-flex items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(79,172,222,0.4)", color: "var(--lp-accent-blue)" }}>Conforme NBR 15599</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lp-reveal-stagger">
+            {/* Audiobook */}
+            <div className="glass-card card-feature-audio p-7 flex flex-col lp-reveal h-full">
+              <div className="feature-icon-wrap feature-icon-wrap--audio">
+                <BookOpen size={22} />
               </div>
-              <div className="w-full md:w-52 shrink-0 rounded-xl overflow-hidden" style={{ border: "1px solid var(--lp-glass-border)" }}>
-                <video autoPlay loop muted playsInline className="w-full h-full object-cover" src="/videos/hero-bg.mp4" style={{ minHeight: "160px" }} />
-              </div>
+              <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiobook com IA</h3>
+              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro.</p>
+              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(79,172,222,0.4)", color: "var(--lp-accent-blue)" }}>Conforme NBR 15599</span>
             </div>
 
-            {/* Audiodescrição — 1 col */}
-            <div className="glass-card card-feature-audiodesc p-7 flex flex-col lp-reveal">
+            {/* Audiodescrição */}
+            <div className="glass-card card-feature-audiodesc p-7 flex flex-col lp-reveal h-full">
               <div className="feature-icon-wrap feature-icon-wrap--audiodesc">
                 <Image size={22} />
               </div>
@@ -487,20 +482,14 @@ const LandingPage = () => {
               <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(45,212,171,0.4)", color: "var(--lp-accent-teal)" }}>Conforme NBR 16452:2016</span>
             </div>
 
-            {/* Stat highlight card — 1 col */}
-            <div className="card-featured p-7 flex flex-col justify-center items-center text-center lp-reveal">
-              <div className="font-serif italic leading-none mb-3" style={{ fontSize: "72px", color: "var(--lp-accent-blue)" }}>3</div>
-              <p className="text-sm" style={{ color: "var(--lp-text-secondary)" }}>formatos de acessibilidade em uma única plataforma</p>
-            </div>
-
-            {/* Videobook — spans 2 cols */}
-            <div className="glass-card card-feature-video p-7 flex flex-col md:col-span-2 lp-reveal">
+            {/* Videobook */}
+            <div className="glass-card card-feature-video p-7 flex flex-col lp-reveal h-full">
               <div className="feature-icon-wrap feature-icon-wrap--video">
                 <Film size={22} />
               </div>
               <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Videobook Animado</h3>
-              <p className="text-sm leading-[1.7] mb-5" style={{ color: "var(--lp-text-secondary)" }}>Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.</p>
-              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(244,145,58,0.4)", color: "var(--lp-accent-orange)" }}>Planos Pro e Enterprise</span>
+              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.</p>
+              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(244,145,58,0.4)", color: "var(--lp-accent-orange)" }}>Plano Enterprise</span>
             </div>
           </div>
         </div>
