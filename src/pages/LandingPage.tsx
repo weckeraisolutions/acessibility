@@ -199,6 +199,8 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "var(--lp-bg-base)" }}>
 
+      <VLibras forceOnload={true} />
+
       {/* Global keyframes */}
       <style>{`
         @keyframes float{0%,100%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(0)}50%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(-10px)}}
