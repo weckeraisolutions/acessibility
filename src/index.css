@@ -232,3 +232,62 @@
     text-decoration-color: var(--lp-accent-blue);
   }
 }
+
+/* ═══════════════════════════════════════════
+   VLibras Widget — Brand customization
+   ═══════════════════════════════════════════ */
+[vw], [vw] * {
+  font-family: 'Atkinson Hyperlegible Next', Arial, sans-serif !important;
+}
+
+[vw-access-button] {
+  background: linear-gradient(135deg, #4FACDE 0%, #2dd4ab 100%) !important;
+  box-shadow: 0 8px 28px rgba(79, 172, 222, 0.45), inset 0 0 0 1px rgba(255,255,255,0.12) !important;
+  border-radius: 50% !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease !important;
+}
+[vw-access-button]:hover {
+  transform: scale(1.06) !important;
+  box-shadow: 0 12px 36px rgba(79, 172, 222, 0.6), inset 0 0 0 1px rgba(255,255,255,0.18) !important;
+}
+
+[vw-plugin-wrapper],
+[vw-plugin-top-wrapper] {
+  background: rgba(10, 18, 32, 0.72) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  border: 1px solid rgba(79, 172, 222, 0.28) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
+}
+
+[vw-plugin-wrapper] .vw-canvas,
+[vw-plugin-wrapper] canvas {
+  background: rgba(79, 172, 222, 0.08) !important;
+  border-radius: 12px !important;
+}
+
+[vw-plugin-top-wrapper] .vpw-header,
+[vw-plugin-wrapper] .vpw-header,
+[vw-plugin-wrapper] .vpw-controls-wrapper {
+  background: rgba(13, 31, 60, 0.6) !important;
+  border-bottom: 1px solid rgba(79, 172, 222, 0.18) !important;
+}
+
+[vw-plugin-wrapper] button,
+[vw-plugin-top-wrapper] button {
+  background: rgba(79, 172, 222, 0.14) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(79, 172, 222, 0.25) !important;
+  border-radius: 8px !important;
+  transition: background 0.2s ease !important;
+}
+[vw-plugin-wrapper] button:hover,
+[vw-plugin-top-wrapper] button:hover {
+  background: rgba(79, 172, 222, 0.28) !important;
+}
+
+[vw-plugin-wrapper] *,
+[vw-plugin-top-wrapper] * {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
