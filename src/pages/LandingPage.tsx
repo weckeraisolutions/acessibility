@@ -315,44 +315,95 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Right — Mockup */}
-          <div className="lp-reveal hidden lg:block" style={{ perspective: "1000px" }}>
+          {/* Right — Mockup refinado: Editor Audiobook */}
+          <div className="lp-reveal hidden lg:block" style={{ perspective: "1200px" }}>
             <div style={{
-              background: "rgba(10,18,32,0.9)", backdropFilter: "blur(40px)", border: "1px solid var(--lp-glass-border)",
+              background: "rgba(10,18,32,0.92)", backdropFilter: "blur(40px)", border: "1px solid var(--lp-glass-border)",
               borderRadius: 20, boxShadow: "0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
               animation: "float 6s ease-in-out infinite", overflow: "hidden",
             }}>
+              {/* Title bar */}
               <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid var(--lp-glass-border)" }}>
                 <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
                 <span className="w-3 h-3 rounded-full" style={{ background: "#febc2e" }} />
                 <span className="w-3 h-3 rounded-full" style={{ background: "#28c840" }} />
-                <span className="ml-3 text-xs" style={{ color: "var(--lp-text-muted)" }}>Editor — Audiobook</span>
+                <span className="ml-3 text-xs flex items-center gap-1.5" style={{ color: "var(--lp-text-muted)" }}>
+                  <BookOpen size={11} /> Editor — Audiobook
+                </span>
+                <span className="ml-auto inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(39,174,96,0.15)", border: "1px solid rgba(39,174,96,0.3)", color: "var(--lp-accent-green)" }}>
+                  <span className="w-1 h-1 rounded-full" style={{ background: "var(--lp-accent-green)", animation: "pulse-dot 2s infinite" }} /> ao vivo
+                </span>
               </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: "1px solid var(--lp-glass-border)", background: "rgba(255,255,255,0.02)" }}>
+                {[
+                  { icon: Brain, label: "IA" },
+                  { icon: Mic, label: "Voz" },
+                  { icon: Pencil, label: "Editar" },
+                  { icon: Download, label: "Export" },
+                ].map((t, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md" style={{ background: i === 1 ? "rgba(46,134,193,0.18)" : "var(--lp-glass-bg)", border: i === 1 ? "1px solid rgba(79,172,222,0.35)" : "1px solid var(--lp-glass-border)", color: i === 1 ? "var(--lp-accent-blue)" : "var(--lp-text-muted)" }}>
+                    <t.icon size={10} /> {t.label}
+                  </span>
+                ))}
+                <span className="ml-auto text-[10px]" style={{ color: "var(--lp-text-muted)" }}>Pág. 1 / 24</span>
+              </div>
+
+              {/* Pages thumbnails */}
               <div className="p-5 grid grid-cols-4 gap-3">
                 {[1,2,3,4].map(i => (
-                  <div key={i} className="rounded-lg aspect-[3/4]" style={{ background: i===1 ? "rgba(46,134,193,0.2)" : "var(--lp-glass-bg)", border: i===1 ? "1px solid rgba(79,172,222,0.4)" : "1px solid var(--lp-glass-border)" }}>
+                  <div key={i} className="rounded-lg aspect-[3/4] relative overflow-hidden" style={{ background: i===1 ? "rgba(46,134,193,0.22)" : "var(--lp-glass-bg)", border: i===1 ? "1px solid rgba(79,172,222,0.5)" : "1px solid var(--lp-glass-border)", boxShadow: i===1 ? "0 0 16px rgba(79,172,222,0.25)" : "none" }}>
                     <div className="p-2">
                       <div className="w-full h-1.5 rounded-full mb-1.5" style={{ background: "var(--lp-glass-border)" }} />
-                      <div className="w-3/4 h-1.5 rounded-full" style={{ background: "var(--lp-glass-bg)" }} />
+                      <div className="w-3/4 h-1.5 rounded-full mb-1.5" style={{ background: "var(--lp-glass-bg)" }} />
+                      <div className="w-1/2 h-1.5 rounded-full" style={{ background: "var(--lp-glass-bg)" }} />
                     </div>
+                    {i === 1 && (
+                      <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: "var(--lp-accent-green)" }}>
+                        <Check size={9} className="text-white" />
+                      </div>
+                    )}
+                    <span className="absolute bottom-1 left-1.5 text-[8px]" style={{ color: "var(--lp-text-muted)" }}>{String(i).padStart(2, "0")}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Text extract preview */}
+              <div className="mx-5 mb-3 p-3 rounded-lg" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles size={10} style={{ color: "var(--lp-accent-teal)" }} />
+                  <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: "var(--lp-accent-teal)" }}>Texto extraído</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="w-full h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
+                  <div className="w-[92%] h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
+                  <div className="w-[78%] h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
+                </div>
+              </div>
+
+              {/* Waveform / progress bars */}
               <div className="px-5 pb-3 space-y-2">
                 {[100, 85, 92, 60].map((w, i) => (
                   <div key={i} className="h-2 rounded-full overflow-hidden" style={{ width: `${w}%`, background: "var(--lp-glass-bg)" }}>
-                    <div className="h-full rounded-full" style={{ width: "60%", background: "linear-gradient(90deg, rgba(79,172,222,0.3), rgba(79,172,222,0.05))", animation: "shimmer 2s infinite" }} />
+                    <div className="h-full rounded-full" style={{ width: "60%", background: "linear-gradient(90deg, rgba(79,172,222,0.5), rgba(79,172,222,0.05))", animation: "shimmer 2s infinite" }} />
                   </div>
                 ))}
               </div>
+
+              {/* Audio player */}
               <div className="mx-5 mb-5 p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--lp-blue-mid)" }}><Play size={14} fill="white" stroke="white" /></div>
-                <div className="flex-1">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--lp-blue-mid)", boxShadow: "0 0 12px var(--lp-blue-glow)" }}><Play size={14} fill="white" stroke="white" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-medium" style={{ color: "var(--lp-text-primary)" }}>Capítulo 01 — Introdução</span>
+                    <span className="text-[9px]" style={{ color: "var(--lp-text-muted)" }}>NBR 15599</span>
+                  </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--lp-glass-border)" }}>
-                    <div className="h-full rounded-full" style={{ width: "35%", background: "var(--lp-blue-mid)", animation: "playerProgress 4s ease-in-out infinite alternate" }} />
+                    <div className="h-full rounded-full" style={{ width: "35%", background: "linear-gradient(90deg, var(--lp-blue-mid), var(--lp-accent-teal))", animation: "playerProgress 4s ease-in-out infinite alternate" }} />
                   </div>
                 </div>
-                <span className="text-[10px]" style={{ color: "var(--lp-text-muted)" }}>1:24</span>
+                <span className="text-[10px] shrink-0" style={{ color: "var(--lp-text-muted)" }}>1:24</span>
               </div>
             </div>
           </div>
