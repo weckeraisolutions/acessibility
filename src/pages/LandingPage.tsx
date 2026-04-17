@@ -268,13 +268,6 @@ const LandingPage = () => {
         <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
           {/* Left */}
           <div className="lp-reveal">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-[13px] font-medium tracking-[0.08em] uppercase"
-              style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-secondary)", backdropFilter: "blur(8px)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--lp-accent-green)", animation: "pulse-dot 2s infinite" }} />
-              Plataforma lançada — Primeiro projeto gratuito
-            </div>
-
             {/* HERO HEADLINE — solid color, no gradient text */}
             <h1 className="font-serif leading-[1.1] mb-6" style={{
               fontSize: "clamp(48px, 6vw, 88px)",
