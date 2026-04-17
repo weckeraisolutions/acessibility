@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
+// @ts-ignore - no types shipped
+import VLibras from "@djpfs/react-vlibras";
 import {
   Upload, Brain, Pencil, Download, BookOpen, Image, Film,
   Shield, FileText, Mic, School, GraduationCap, Accessibility,
@@ -196,6 +198,8 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "var(--lp-bg-base)" }}>
+
+      <VLibras forceOnload={true} />
 
       {/* Global keyframes */}
       <style>{`
