@@ -613,85 +613,132 @@ const LandingPage = () => {
           <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Planos para cada necessidade</h2>
           <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Comece grátis. Escale quando precisar.</p>
 
-          <div className="grid md:grid-cols-3 gap-5 items-start lp-reveal-stagger max-w-4xl mx-auto">
-            {/* Free Plan */}
-            <div className="glass-card p-6 lp-reveal">
-              <h3 className="font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Free</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif" style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>R$ 0</span>
-                <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
+          {(() => {
+            const plans = [
+              {
+                name: "Free",
+                price: "R$ 0",
+                period: "/mês",
+                features: ["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição"],
+                cta: "Começar Grátis",
+                ctaTo: "/auth",
+                variant: "default" as const,
+              },
+              {
+                name: "Creator",
+                price: "R$ 147",
+                period: "/mês",
+                features: ["2 projetos", "150 páginas por mês", "Audiobook e Audiodescrição", "Sem Videobook"],
+                cta: "Escolher Creator",
+                ctaTo: "/auth",
+                variant: "default" as const,
+              },
+              {
+                name: "Pro",
+                price: "R$ 597",
+                period: "/mês",
+                features: ["5 projetos", "300 páginas por mês", "TTS Gemini e ElevenLabs", "Sem Videobook"],
+                cta: "Escolher Pro",
+                ctaTo: "/auth",
+                variant: "featured" as const,
+                highlightIdx: [2],
+              },
+              {
+                name: "Enterprise",
+                price: "R$ 1.498",
+                period: "/mês",
+                features: ["10 projetos", "1.000 páginas por mês", "TTS Premium", "Videobook incluído"],
+                cta: "Escolher Enterprise",
+                ctaTo: "/auth",
+                variant: "default" as const,
+                highlightIdx: [3],
+              },
+            ];
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch lp-reveal-stagger max-w-6xl mx-auto">
+                {plans.map((p, idx) => {
+                  const isFeatured = p.variant === "featured";
+                  return (
+                    <div
+                      key={p.name}
+                      className={`${isFeatured ? "card-featured" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
+                      style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)" } : undefined}
+                    >
+                      {isFeatured && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
+                      )}
+                      <h3 className={`font-semibold text-lg mb-1 ${isFeatured ? "pt-1" : ""}`} style={{ color: "var(--lp-text-primary)" }}>{p.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-5">
+                        <span className="font-serif" style={{ fontSize: "38px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>{p.price}</span>
+                        <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{p.period}</span>
+                      </div>
+                      <ul className="space-y-3 mb-6 flex-1">
+                        {p.features.map((f, i) => {
+                          const highlight = (p.highlightIdx ?? []).includes(i);
+                          const isNeg = /^Sem /i.test(f);
+                          return (
+                            <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: highlight ? "var(--lp-accent-blue)" : isNeg ? "var(--lp-text-muted)" : "var(--lp-text-secondary)" }}>
+                              {highlight ? (
+                                <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} />
+                              ) : isNeg ? (
+                                <X size={15} style={{ color: "var(--lp-text-muted)" }} />
+                              ) : (
+                                <Check size={15} style={{ color: "var(--lp-accent-green)" }} />
+                              )}
+                              {f}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <Link
+                        to={p.ctaTo}
+                        className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
+                        style={isFeatured
+                          ? { background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }
+                          : { background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          if (isFeatured) e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)";
+                          else e.currentTarget.style.background = "var(--lp-glass-bg-hover)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          if (isFeatured) e.currentTarget.style.boxShadow = "none";
+                          else e.currentTarget.style.background = "var(--lp-glass-bg)";
+                        }}
+                      >{p.cta}</Link>
+                    </div>
+                  );
+                })}
               </div>
-              <ul className="space-y-3 mb-6">
-                {["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição"].map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                    <Check size={15} style={{ color: "var(--lp-accent-green)" }} /> {f}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/auth" className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "var(--lp-glass-bg-hover)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "var(--lp-glass-bg)"; }}
-              >Começar Grátis</Link>
-            </div>
+            );
+          })()}
 
-            {/* Pro Plan - DESTAQUE */}
-            <div className="card-featured p-6 lp-reveal relative z-10"
-              style={{
-                transform: "scale(1.06) translateY(-8px)",
-                boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)",
-              }}
-            >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1 rounded-full text-white" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
-              <h3 className="font-semibold text-lg mb-1 pt-1" style={{ color: "var(--lp-text-primary)" }}>Pro</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif" style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>R$ 97</span>
-                <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
+          {/* Plano Onyx — sob consulta */}
+          <div className="mt-8 max-w-6xl mx-auto lp-reveal">
+            <div className="card-featured p-6 lg:p-7 flex flex-col md:flex-row items-start md:items-center gap-5">
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,145,58,0.15)", border: "1px solid rgba(244,145,58,0.35)", boxShadow: "0 0 16px rgba(244,145,58,0.25)" }}>
+                  <Sparkles size={20} style={{ color: "var(--lp-accent-orange)" }} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg" style={{ color: "var(--lp-text-primary)" }}>Onyx</h3>
+                  <p className="text-xs tracking-[0.08em] uppercase font-medium" style={{ color: "var(--lp-accent-orange)" }}>Sob consulta</p>
+                </div>
               </div>
-              <ul className="space-y-3 mb-6">
-                {[
-                  { text: "Projetos ilimitados", highlight: false },
-                  { text: "500 páginas por mês", highlight: false },
-                  { text: "Videobook incluído", highlight: true },
-                ].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: f.highlight ? "var(--lp-accent-blue)" : "var(--lp-text-secondary)" }}>
-                    {f.highlight ? <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} /> : <Check size={15} style={{ color: "var(--lp-accent-green)" }} />} {f.text}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/auth" className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                style={{ background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
-              >Escolher Pro</Link>
-            </div>
-
-            {/* Enterprise Plan */}
-            <div className="glass-card p-6 lp-reveal" style={{ border: "1px solid rgba(79,172,222,0.2)" }}>
-              <h3 className="font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Enterprise</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif" style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>R$ 297</span>
-                <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
-              </div>
-              <ul className="space-y-3 mb-6">
-                {[
-                  { text: "Páginas ilimitadas", highlight: false },
-                  { text: "TTS Premium ElevenLabs", highlight: true },
-                  { text: "Suporte dedicado", highlight: false },
-                  { text: "Onboarding personalizado", highlight: false },
-                ].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: f.highlight ? "var(--lp-accent-blue)" : "var(--lp-text-secondary)" }}>
-                    {f.highlight ? <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} /> : <Check size={15} style={{ color: "var(--lp-accent-green)" }} />} {f.text}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/auth" className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                style={{ background: "transparent", border: "1px solid rgba(79,172,222,0.3)", color: "var(--lp-accent-blue)" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "rgba(79,172,222,0.1)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "transparent"; }}
-              >Falar com Vendas</Link>
+              <p className="text-sm leading-[1.7] flex-1" style={{ color: "var(--lp-text-secondary)" }}>
+                Volume editorial alto, integrações personalizadas, SLA dedicado e produção customizada. Plano corporativo disponível somente via contato.
+              </p>
+              <a
+                href="mailto:contato@accessibility.com.br"
+                className="shrink-0 inline-flex items-center font-semibold text-[15px] tracking-[0.02em] px-6 py-3 rounded-xl text-white transition-all duration-200"
+                style={{ background: "var(--lp-blue-mid)" }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 20px var(--lp-blue-glow)")}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
+              >Falar com nossa equipe →</a>
             </div>
           </div>
+
           <p className="text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
         </div>
       </section>
