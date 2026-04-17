@@ -268,13 +268,6 @@ const LandingPage = () => {
         <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
           {/* Left */}
           <div className="lp-reveal">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-[13px] font-medium tracking-[0.08em] uppercase"
-              style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-secondary)", backdropFilter: "blur(8px)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--lp-accent-green)", animation: "pulse-dot 2s infinite" }} />
-              Plataforma lançada — Primeiro projeto gratuito
-            </div>
-
             {/* HERO HEADLINE — solid color, no gradient text */}
             <h1 className="font-serif leading-[1.1] mb-6" style={{
               fontSize: "clamp(48px, 6vw, 88px)",
@@ -322,44 +315,95 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Right — Mockup */}
-          <div className="lp-reveal hidden lg:block" style={{ perspective: "1000px" }}>
+          {/* Right — Mockup refinado: Editor Audiobook */}
+          <div className="lp-reveal hidden lg:block" style={{ perspective: "1200px" }}>
             <div style={{
-              background: "rgba(10,18,32,0.9)", backdropFilter: "blur(40px)", border: "1px solid var(--lp-glass-border)",
+              background: "rgba(10,18,32,0.92)", backdropFilter: "blur(40px)", border: "1px solid var(--lp-glass-border)",
               borderRadius: 20, boxShadow: "0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
               animation: "float 6s ease-in-out infinite", overflow: "hidden",
             }}>
+              {/* Title bar */}
               <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid var(--lp-glass-border)" }}>
                 <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
                 <span className="w-3 h-3 rounded-full" style={{ background: "#febc2e" }} />
                 <span className="w-3 h-3 rounded-full" style={{ background: "#28c840" }} />
-                <span className="ml-3 text-xs" style={{ color: "var(--lp-text-muted)" }}>Editor — Audiobook</span>
+                <span className="ml-3 text-xs flex items-center gap-1.5" style={{ color: "var(--lp-text-muted)" }}>
+                  <BookOpen size={11} /> Editor — Audiobook
+                </span>
+                <span className="ml-auto inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(39,174,96,0.15)", border: "1px solid rgba(39,174,96,0.3)", color: "var(--lp-accent-green)" }}>
+                  <span className="w-1 h-1 rounded-full" style={{ background: "var(--lp-accent-green)", animation: "pulse-dot 2s infinite" }} /> ao vivo
+                </span>
               </div>
+
+              {/* Toolbar */}
+              <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: "1px solid var(--lp-glass-border)", background: "rgba(255,255,255,0.02)" }}>
+                {[
+                  { icon: Brain, label: "IA" },
+                  { icon: Mic, label: "Voz" },
+                  { icon: Pencil, label: "Editar" },
+                  { icon: Download, label: "Export" },
+                ].map((t, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md" style={{ background: i === 1 ? "rgba(46,134,193,0.18)" : "var(--lp-glass-bg)", border: i === 1 ? "1px solid rgba(79,172,222,0.35)" : "1px solid var(--lp-glass-border)", color: i === 1 ? "var(--lp-accent-blue)" : "var(--lp-text-muted)" }}>
+                    <t.icon size={10} /> {t.label}
+                  </span>
+                ))}
+                <span className="ml-auto text-[10px]" style={{ color: "var(--lp-text-muted)" }}>Pág. 1 / 24</span>
+              </div>
+
+              {/* Pages thumbnails */}
               <div className="p-5 grid grid-cols-4 gap-3">
                 {[1,2,3,4].map(i => (
-                  <div key={i} className="rounded-lg aspect-[3/4]" style={{ background: i===1 ? "rgba(46,134,193,0.2)" : "var(--lp-glass-bg)", border: i===1 ? "1px solid rgba(79,172,222,0.4)" : "1px solid var(--lp-glass-border)" }}>
+                  <div key={i} className="rounded-lg aspect-[3/4] relative overflow-hidden" style={{ background: i===1 ? "rgba(46,134,193,0.22)" : "var(--lp-glass-bg)", border: i===1 ? "1px solid rgba(79,172,222,0.5)" : "1px solid var(--lp-glass-border)", boxShadow: i===1 ? "0 0 16px rgba(79,172,222,0.25)" : "none" }}>
                     <div className="p-2">
                       <div className="w-full h-1.5 rounded-full mb-1.5" style={{ background: "var(--lp-glass-border)" }} />
-                      <div className="w-3/4 h-1.5 rounded-full" style={{ background: "var(--lp-glass-bg)" }} />
+                      <div className="w-3/4 h-1.5 rounded-full mb-1.5" style={{ background: "var(--lp-glass-bg)" }} />
+                      <div className="w-1/2 h-1.5 rounded-full" style={{ background: "var(--lp-glass-bg)" }} />
                     </div>
+                    {i === 1 && (
+                      <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: "var(--lp-accent-green)" }}>
+                        <Check size={9} className="text-white" />
+                      </div>
+                    )}
+                    <span className="absolute bottom-1 left-1.5 text-[8px]" style={{ color: "var(--lp-text-muted)" }}>{String(i).padStart(2, "0")}</span>
                   </div>
                 ))}
               </div>
+
+              {/* Text extract preview */}
+              <div className="mx-5 mb-3 p-3 rounded-lg" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles size={10} style={{ color: "var(--lp-accent-teal)" }} />
+                  <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: "var(--lp-accent-teal)" }}>Texto extraído</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="w-full h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
+                  <div className="w-[92%] h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
+                  <div className="w-[78%] h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
+                </div>
+              </div>
+
+              {/* Waveform / progress bars */}
               <div className="px-5 pb-3 space-y-2">
                 {[100, 85, 92, 60].map((w, i) => (
                   <div key={i} className="h-2 rounded-full overflow-hidden" style={{ width: `${w}%`, background: "var(--lp-glass-bg)" }}>
-                    <div className="h-full rounded-full" style={{ width: "60%", background: "linear-gradient(90deg, rgba(79,172,222,0.3), rgba(79,172,222,0.05))", animation: "shimmer 2s infinite" }} />
+                    <div className="h-full rounded-full" style={{ width: "60%", background: "linear-gradient(90deg, rgba(79,172,222,0.5), rgba(79,172,222,0.05))", animation: "shimmer 2s infinite" }} />
                   </div>
                 ))}
               </div>
+
+              {/* Audio player */}
               <div className="mx-5 mb-5 p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "var(--lp-blue-mid)" }}><Play size={14} fill="white" stroke="white" /></div>
-                <div className="flex-1">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--lp-blue-mid)", boxShadow: "0 0 12px var(--lp-blue-glow)" }}><Play size={14} fill="white" stroke="white" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-medium" style={{ color: "var(--lp-text-primary)" }}>Capítulo 01 — Introdução</span>
+                    <span className="text-[9px]" style={{ color: "var(--lp-text-muted)" }}>NBR 15599</span>
+                  </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--lp-glass-border)" }}>
-                    <div className="h-full rounded-full" style={{ width: "35%", background: "var(--lp-blue-mid)", animation: "playerProgress 4s ease-in-out infinite alternate" }} />
+                    <div className="h-full rounded-full" style={{ width: "35%", background: "linear-gradient(90deg, var(--lp-blue-mid), var(--lp-accent-teal))", animation: "playerProgress 4s ease-in-out infinite alternate" }} />
                   </div>
                 </div>
-                <span className="text-[10px]" style={{ color: "var(--lp-text-muted)" }}>1:24</span>
+                <span className="text-[10px] shrink-0" style={{ color: "var(--lp-text-muted)" }}>1:24</span>
               </div>
             </div>
           </div>
@@ -417,24 +461,19 @@ const LandingPage = () => {
           </h2>
           <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Tudo o que você precisa para transformar livros em materiais acessíveis.</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lp-reveal-stagger">
-            {/* Audiobook — spans 2 cols */}
-            <div className="glass-card card-feature-audio p-7 flex flex-col md:flex-row gap-6 md:col-span-2 lp-reveal">
-              <div className="flex-1">
-                <div className="feature-icon-wrap feature-icon-wrap--audio">
-                  <BookOpen size={22} />
-                </div>
-                <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiobook com IA</h3>
-                <p className="text-sm leading-[1.7] mb-5" style={{ color: "var(--lp-text-secondary)" }}>Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro.</p>
-                <span className="inline-flex items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(79,172,222,0.4)", color: "var(--lp-accent-blue)" }}>Conforme NBR 15599</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lp-reveal-stagger">
+            {/* Audiobook */}
+            <div className="glass-card card-feature-audio p-7 flex flex-col lp-reveal h-full">
+              <div className="feature-icon-wrap feature-icon-wrap--audio">
+                <BookOpen size={22} />
               </div>
-              <div className="w-full md:w-52 shrink-0 rounded-xl overflow-hidden" style={{ border: "1px solid var(--lp-glass-border)" }}>
-                <video autoPlay loop muted playsInline className="w-full h-full object-cover" src="/videos/hero-bg.mp4" style={{ minHeight: "160px" }} />
-              </div>
+              <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiobook com IA</h3>
+              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro.</p>
+              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(79,172,222,0.4)", color: "var(--lp-accent-blue)" }}>Conforme NBR 15599</span>
             </div>
 
-            {/* Audiodescrição — 1 col */}
-            <div className="glass-card card-feature-audiodesc p-7 flex flex-col lp-reveal">
+            {/* Audiodescrição */}
+            <div className="glass-card card-feature-audiodesc p-7 flex flex-col lp-reveal h-full">
               <div className="feature-icon-wrap feature-icon-wrap--audiodesc">
                 <Image size={22} />
               </div>
@@ -443,20 +482,14 @@ const LandingPage = () => {
               <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(45,212,171,0.4)", color: "var(--lp-accent-teal)" }}>Conforme NBR 16452:2016</span>
             </div>
 
-            {/* Stat highlight card — 1 col */}
-            <div className="card-featured p-7 flex flex-col justify-center items-center text-center lp-reveal">
-              <div className="font-serif italic leading-none mb-3" style={{ fontSize: "72px", color: "var(--lp-accent-blue)" }}>3</div>
-              <p className="text-sm" style={{ color: "var(--lp-text-secondary)" }}>formatos de acessibilidade em uma única plataforma</p>
-            </div>
-
-            {/* Videobook — spans 2 cols */}
-            <div className="glass-card card-feature-video p-7 flex flex-col md:col-span-2 lp-reveal">
+            {/* Videobook */}
+            <div className="glass-card card-feature-video p-7 flex flex-col lp-reveal h-full">
               <div className="feature-icon-wrap feature-icon-wrap--video">
                 <Film size={22} />
               </div>
               <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Videobook Animado</h3>
-              <p className="text-sm leading-[1.7] mb-5" style={{ color: "var(--lp-text-secondary)" }}>Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.</p>
-              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(244,145,58,0.4)", color: "var(--lp-accent-orange)" }}>Planos Pro e Enterprise</span>
+              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.</p>
+              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(244,145,58,0.4)", color: "var(--lp-accent-orange)" }}>Plano Enterprise</span>
             </div>
           </div>
         </div>
@@ -580,85 +613,132 @@ const LandingPage = () => {
           <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Planos para cada necessidade</h2>
           <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Comece grátis. Escale quando precisar.</p>
 
-          <div className="grid md:grid-cols-3 gap-5 items-start lp-reveal-stagger max-w-4xl mx-auto">
-            {/* Free Plan */}
-            <div className="glass-card p-6 lp-reveal">
-              <h3 className="font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Free</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif" style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>R$ 0</span>
-                <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
+          {(() => {
+            const plans = [
+              {
+                name: "Free",
+                price: "R$ 0",
+                period: "/mês",
+                features: ["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição"],
+                cta: "Começar Grátis",
+                ctaTo: "/auth",
+                variant: "default" as const,
+              },
+              {
+                name: "Creator",
+                price: "R$ 147",
+                period: "/mês",
+                features: ["2 projetos", "150 páginas por mês", "Audiobook e Audiodescrição", "Sem Videobook"],
+                cta: "Escolher Creator",
+                ctaTo: "/auth",
+                variant: "default" as const,
+              },
+              {
+                name: "Pro",
+                price: "R$ 597",
+                period: "/mês",
+                features: ["5 projetos", "300 páginas por mês", "TTS Gemini e ElevenLabs", "Sem Videobook"],
+                cta: "Escolher Pro",
+                ctaTo: "/auth",
+                variant: "featured" as const,
+                highlightIdx: [2],
+              },
+              {
+                name: "Enterprise",
+                price: "R$ 1.498",
+                period: "/mês",
+                features: ["10 projetos", "1.000 páginas por mês", "TTS Premium", "Videobook incluído"],
+                cta: "Escolher Enterprise",
+                ctaTo: "/auth",
+                variant: "default" as const,
+                highlightIdx: [3],
+              },
+            ];
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch lp-reveal-stagger max-w-6xl mx-auto">
+                {plans.map((p, idx) => {
+                  const isFeatured = p.variant === "featured";
+                  return (
+                    <div
+                      key={p.name}
+                      className={`${isFeatured ? "card-featured" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
+                      style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)" } : undefined}
+                    >
+                      {isFeatured && (
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
+                      )}
+                      <h3 className={`font-semibold text-lg mb-1 ${isFeatured ? "pt-1" : ""}`} style={{ color: "var(--lp-text-primary)" }}>{p.name}</h3>
+                      <div className="flex items-baseline gap-1 mb-5">
+                        <span className="font-serif" style={{ fontSize: "38px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>{p.price}</span>
+                        <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{p.period}</span>
+                      </div>
+                      <ul className="space-y-3 mb-6 flex-1">
+                        {p.features.map((f, i) => {
+                          const highlight = (p.highlightIdx ?? []).includes(i);
+                          const isNeg = /^Sem /i.test(f);
+                          return (
+                            <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: highlight ? "var(--lp-accent-blue)" : isNeg ? "var(--lp-text-muted)" : "var(--lp-text-secondary)" }}>
+                              {highlight ? (
+                                <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} />
+                              ) : isNeg ? (
+                                <X size={15} style={{ color: "var(--lp-text-muted)" }} />
+                              ) : (
+                                <Check size={15} style={{ color: "var(--lp-accent-green)" }} />
+                              )}
+                              {f}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <Link
+                        to={p.ctaTo}
+                        className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
+                        style={isFeatured
+                          ? { background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }
+                          : { background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          if (isFeatured) e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)";
+                          else e.currentTarget.style.background = "var(--lp-glass-bg-hover)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          if (isFeatured) e.currentTarget.style.boxShadow = "none";
+                          else e.currentTarget.style.background = "var(--lp-glass-bg)";
+                        }}
+                      >{p.cta}</Link>
+                    </div>
+                  );
+                })}
               </div>
-              <ul className="space-y-3 mb-6">
-                {["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição"].map(f => (
-                  <li key={f} className="flex items-center gap-2.5 text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                    <Check size={15} style={{ color: "var(--lp-accent-green)" }} /> {f}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/auth" className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "var(--lp-glass-bg-hover)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "var(--lp-glass-bg)"; }}
-              >Começar Grátis</Link>
-            </div>
+            );
+          })()}
 
-            {/* Pro Plan - DESTAQUE */}
-            <div className="card-featured p-6 lp-reveal relative z-10"
-              style={{
-                transform: "scale(1.06) translateY(-8px)",
-                boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)",
-              }}
-            >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1 rounded-full text-white" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
-              <h3 className="font-semibold text-lg mb-1 pt-1" style={{ color: "var(--lp-text-primary)" }}>Pro</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif" style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>R$ 97</span>
-                <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
+          {/* Plano Onyx — sob consulta */}
+          <div className="mt-8 max-w-6xl mx-auto lp-reveal">
+            <div className="card-featured p-6 lg:p-7 flex flex-col md:flex-row items-start md:items-center gap-5">
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,145,58,0.15)", border: "1px solid rgba(244,145,58,0.35)", boxShadow: "0 0 16px rgba(244,145,58,0.25)" }}>
+                  <Sparkles size={20} style={{ color: "var(--lp-accent-orange)" }} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg" style={{ color: "var(--lp-text-primary)" }}>Onyx</h3>
+                  <p className="text-xs tracking-[0.08em] uppercase font-medium" style={{ color: "var(--lp-accent-orange)" }}>Sob consulta</p>
+                </div>
               </div>
-              <ul className="space-y-3 mb-6">
-                {[
-                  { text: "Projetos ilimitados", highlight: false },
-                  { text: "500 páginas por mês", highlight: false },
-                  { text: "Videobook incluído", highlight: true },
-                ].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: f.highlight ? "var(--lp-accent-blue)" : "var(--lp-text-secondary)" }}>
-                    {f.highlight ? <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} /> : <Check size={15} style={{ color: "var(--lp-accent-green)" }} />} {f.text}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/auth" className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                style={{ background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
-              >Escolher Pro</Link>
-            </div>
-
-            {/* Enterprise Plan */}
-            <div className="glass-card p-6 lp-reveal" style={{ border: "1px solid rgba(79,172,222,0.2)" }}>
-              <h3 className="font-semibold text-lg mb-1" style={{ color: "var(--lp-text-primary)" }}>Enterprise</h3>
-              <div className="flex items-baseline gap-1 mb-5">
-                <span className="font-serif" style={{ fontSize: "42px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>R$ 297</span>
-                <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>/mês</span>
-              </div>
-              <ul className="space-y-3 mb-6">
-                {[
-                  { text: "Páginas ilimitadas", highlight: false },
-                  { text: "TTS Premium ElevenLabs", highlight: true },
-                  { text: "Suporte dedicado", highlight: false },
-                  { text: "Onboarding personalizado", highlight: false },
-                ].map((f, i) => (
-                  <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: f.highlight ? "var(--lp-accent-blue)" : "var(--lp-text-secondary)" }}>
-                    {f.highlight ? <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} /> : <Check size={15} style={{ color: "var(--lp-accent-green)" }} />} {f.text}
-                  </li>
-                ))}
-              </ul>
-              <Link to="/auth" className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                style={{ background: "transparent", border: "1px solid rgba(79,172,222,0.3)", color: "var(--lp-accent-blue)" }}
-                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = "rgba(79,172,222,0.1)"; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "transparent"; }}
-              >Falar com Vendas</Link>
+              <p className="text-sm leading-[1.7] flex-1" style={{ color: "var(--lp-text-secondary)" }}>
+                Volume editorial alto, integrações personalizadas, SLA dedicado e produção customizada. Plano corporativo disponível somente via contato.
+              </p>
+              <a
+                href="mailto:contato@accessibility.com.br"
+                className="shrink-0 inline-flex items-center font-semibold text-[15px] tracking-[0.02em] px-6 py-3 rounded-xl text-white transition-all duration-200"
+                style={{ background: "var(--lp-blue-mid)" }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 20px var(--lp-blue-glow)")}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
+              >Falar com nossa equipe →</a>
             </div>
           </div>
+
           <p className="text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
         </div>
       </section>
