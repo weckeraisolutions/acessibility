@@ -391,6 +391,26 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           />
         </div>
 
+        {isElevenlabs && (
+          <div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Velocidade:</Label>
+              {pageNarrationSpeed && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
+            </div>
+            <Select
+              value={pageNarrationSpeed || globalNarrationSpeed}
+              onValueChange={(v) => onPageNarrationSpeedChange?.(v === globalNarrationSpeed ? null : v)}
+            >
+              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pausada">🐢 Pausada</SelectItem>
+                <SelectItem value="educativo">📚 Ritmo educativo</SelectItem>
+                <SelectItem value="fluente">⚡ Fluente</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Button size="sm" className="w-full" disabled={!localText.trim() || generating} onClick={() => handleGenerateAudio()}>
             {generating ? (
