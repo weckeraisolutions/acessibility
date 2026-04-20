@@ -871,7 +871,6 @@ const LandingPage = () => {
           <p className="text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
         </div>
       </section>
-       </section>
 
        {/* ──── DEPOIMENTO ──── */}
       <section className="py-16 lg:py-20 lp-bg-accent section-divider">
