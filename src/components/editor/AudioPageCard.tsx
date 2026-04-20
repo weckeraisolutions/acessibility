@@ -221,6 +221,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           use_elevenlabs: isElevenlabs,
           elevenlabs_voice_id: currentElevenlabsVoice,
           elevenlabs_model: "eleven_multilingual_v2",
+          narration_speed: pageNarrationSpeed || globalNarrationSpeed,
         },
       });
 

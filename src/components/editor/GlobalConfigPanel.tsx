@@ -157,6 +157,20 @@ const GlobalConfigPanel = ({
           )}
         </div>
 
+        {isElevenlabs && (
+          <div>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Velocidade de Narração</Label>
+            <Select value={narrationSpeed} onValueChange={onNarrationSpeedChange}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pausada">🐢 Pausada — ideal para conteúdo complexo</SelectItem>
+                <SelectItem value="educativo">📚 Ritmo educativo — padrão recomendado</SelectItem>
+                <SelectItem value="fluente">⚡ Fluente — narração contínua</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {extractor.extracting ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
