@@ -76,7 +76,14 @@ Sem linhas em branco entre parágrafos — usar apenas uma quebra de linha simpl
 Sem colchetes, sem marcadores como [Título] ou [Box], sem rótulos de tipo
 Balões sempre no formato: Nome diz: texto da fala
 Fórmulas matemáticas ou científicas: substituir por: Fórmula — consultar versão acessível
-Se absolutamente nenhum texto narrável existir nesta página: retornar apenas a palavra PÁGINA_SEM_NARRAÇÃO${styleNote}`;
+Se absolutamente nenhum texto narrável existir nesta página: retornar apenas a palavra PÁGINA_SEM_NARRAÇÃO
+
+REGRA 5 — FORMATAÇÃO DE NUMERAÇÃO:
+Quando o texto extraído contiver itens numerados que representam tópicos, seções ou conteúdos informativos (ex: "6 VIDA COLETIVA E APRENDIZAGEM", "7 BRINCADEIRAS E PRÁTICAS CORPORAIS"), formatar SEMPRE como: número + ponto + espaço + texto. Exemplo: "6. VIDA COLETIVA E APRENDIZAGEM". Nunca apenas o número sem ponto.
+
+REGRA 6 — FORMATAÇÃO DE QUESTÕES E ATIVIDADES:
+Quando o texto extraído contiver itens numerados que representam questões, perguntas ou atividades (identificáveis por verbos como "escreva", "responda", "explique", "calcule", "complete", "observe", ou pela presença de campos de resposta), formatar SEMPRE como: a palavra "Questão" + espaço + número + dois-pontos + espaço + texto da questão. Exemplo: "Questão 7: O que você acredita que aconteceria...".
+Itens com letras (A, B, C) dentro de uma questão devem ser formatados como: letra + parêntese + espaço + texto. Exemplo: "A) Escreva o número 295...". Manter este padrão sem prefixo adicional.${styleNote}`;
   }
 
   return `Você é especialista em audiodescrição editorial brasileira (ABNT NBR 16452:2016, Lei 13.146/2015). Sua tarefa é produzir audiodescrições ULTRA-CONCISAS — o menor texto possível que preserve a compreensão pedagógica.
