@@ -611,8 +611,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-            {/* ──── PLANOS ──── */}
-      <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
       {/* ──── PLANOS ──── */}
       <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
       {/* ──── PLANOS ──── */}
