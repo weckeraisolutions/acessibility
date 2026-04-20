@@ -611,7 +611,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* ──── PLANOS ──── */}
+            {/* ──── PLANOS ──── */}
       <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Planos para cada necessidade</h2>
@@ -621,55 +621,86 @@ const LandingPage = () => {
             const plans = [
               {
                 name: "Free",
-                price: "R$ 0",
+                price: "R$0",
                 period: "/mês",
-                features: ["1 projeto", "30 páginas por mês", "Audiobook e Audiodescrição"],
+                features: [
+                  "15 páginas/mês",
+                  "1 projeto",
+                  "Audiobook + Audiodescrição",
+                  "TTS Gemini",
+                  "Download MP3",
+                  "Conforme Lei 13.146/2015"
+                ],
                 cta: "Começar Grátis",
                 ctaTo: "/auth",
                 variant: "default" as const,
               },
               {
                 name: "Creator",
-                price: "R$ 147",
+                price: "R$97",
                 period: "/mês",
-                features: ["2 projetos", "150 páginas por mês", "Audiobook e Audiodescrição", "Sem Videobook"],
+                features: [
+                  "150 páginas/mês",
+                  "3 projetos",
+                  "Audiobook + Audiodescrição",
+                  "TTS Gemini",
+                  "Controle de velocidade",
+                  "Download MP3 e ZIP"
+                ],
                 cta: "Escolher Creator",
                 ctaTo: "/auth",
                 variant: "default" as const,
               },
               {
                 name: "Pro",
-                price: "R$ 597",
+                price: "R$197",
                 period: "/mês",
-                features: ["5 projetos", "300 páginas por mês", "TTS Gemini e ElevenLabs", "Sem Videobook"],
+                features: [
+                  "500 páginas/mês",
+                  "10 projetos",
+                  "Audiobook + Audiodescrição",
+                  "TTS Gemini",
+                  "Videobook MP4",
+                  "Controle de velocidade",
+                  "Download MP3 e ZIP"
+                ],
                 cta: "Escolher Pro",
                 ctaTo: "/auth",
                 variant: "featured" as const,
-                highlightIdx: [2],
+                badge: "Mais popular",
               },
               {
                 name: "Enterprise",
-                price: "R$ 1.498",
+                price: "R$497",
                 period: "/mês",
-                features: ["10 projetos", "1.000 páginas por mês", "TTS Premium", "Videobook incluído"],
+                features: [
+                  "1.500 páginas/mês",
+                  "Projetos ilimitados",
+                  "Audiobook + Audiodescrição",
+                  "TTS Gemini + ElevenLabs (chave própria)",
+                  "Videobook MP4 (Em desenvolvimento)",
+                  "Controle de velocidade",
+                  "Download MP3 e ZIP",
+                  "Suporte prioritário"
+                ],
                 cta: "Escolher Enterprise",
                 ctaTo: "/auth",
                 variant: "default" as const,
-                highlightIdx: [3],
+                footerNote: "* ElevenLabs requer assinatura própria a partir de $99/mês"
               },
             ];
             return (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch lp-reveal-stagger max-w-6xl mx-auto">
-                {plans.map((p, idx) => {
+                {plans.map((p) => {
                   const isFeatured = p.variant === "featured";
                   return (
                     <div
                       key={p.name}
-                      className={`${isFeatured ? "card-featured" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
-                      style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)" } : undefined}
+                      className={`${isFeatured ? "card-featured scale-[1.02]" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
+                      style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)", zIndex: 10 } : undefined}
                     >
                       {isFeatured && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>Mais popular</span>
+                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1.5 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>{p.badge}</span>
                       )}
                       <h3 className={`font-semibold text-lg mb-1 ${isFeatured ? "pt-1" : ""}`} style={{ color: "var(--lp-text-primary)" }}>{p.name}</h3>
                       <div className="flex items-baseline gap-1 mb-5">
@@ -677,23 +708,16 @@ const LandingPage = () => {
                         <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{p.period}</span>
                       </div>
                       <ul className="space-y-3 mb-6 flex-1">
-                        {p.features.map((f, i) => {
-                          const highlight = (p.highlightIdx ?? []).includes(i);
-                          const isNeg = /^Sem /i.test(f);
-                          return (
-                            <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: highlight ? "var(--lp-accent-blue)" : isNeg ? "var(--lp-text-muted)" : "var(--lp-text-secondary)" }}>
-                              {highlight ? (
-                                <Sparkles size={15} style={{ color: "var(--lp-accent-teal)" }} />
-                              ) : isNeg ? (
-                                <X size={15} style={{ color: "var(--lp-text-muted)" }} />
-                              ) : (
-                                <Check size={15} style={{ color: "var(--lp-accent-green)" }} />
-                              )}
-                              {f}
-                            </li>
-                          );
-                        })}
+                        {p.features.map((f, i) => (
+                          <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                            <Check size={15} style={{ color: "var(--lp-accent-green)", flexShrink: 0 }} />
+                            <span>{f}</span>
+                          </li>
+                        ))}
                       </ul>
+                      {p.footerNote && (
+                        <p className="text-xs mb-3 italic" style={{ color: "var(--lp-text-muted)" }}>{p.footerNote}</p>
+                      )}
                       <Link
                         to={p.ctaTo}
                         className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
@@ -718,161 +742,11 @@ const LandingPage = () => {
             );
           })()}
 
-          {/* Plano Onyx — sob consulta */}
-          <div className="mt-8 max-w-6xl mx-auto lp-reveal">
-            <div className="card-featured p-6 lg:p-7 flex flex-col md:flex-row items-start md:items-center gap-5">
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "rgba(244,145,58,0.15)", border: "1px solid rgba(244,145,58,0.35)", boxShadow: "0 0 16px rgba(244,145,58,0.25)" }}>
-                  <Sparkles size={20} style={{ color: "var(--lp-accent-orange)" }} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg" style={{ color: "var(--lp-text-primary)" }}>Onyx</h3>
-                  <p className="text-xs tracking-[0.08em] uppercase font-medium" style={{ color: "var(--lp-accent-orange)" }}>Sob consulta</p>
-                </div>
-              </div>
-              <p className="text-sm leading-[1.7] flex-1" style={{ color: "var(--lp-text-secondary)" }}>
-                Volume editorial alto, integrações personalizadas, SLA dedicado e produção customizada. Plano corporativo disponível somente via contato.
-              </p>
-              <a
-                href="mailto:contato@accessibility.com.br"
-                className="shrink-0 inline-flex items-center font-semibold text-[15px] tracking-[0.02em] px-6 py-3 rounded-xl text-white transition-all duration-200"
-                style={{ background: "var(--lp-blue-mid)" }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 20px var(--lp-blue-glow)")}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
-              >Falar com nossa equipe →</a>
-            </div>
-          </div>
-         {(() => {
-         {(() => {
-           const plans = [
-             {
-               name: "Free",
-               price: "R$0",
-               period: "/mês",
-               features: [
-                 "15 páginas/mês",
-                 "1 projeto",
-                 "Audiobook + Audiodescrição",
-                 "TTS Gemini",
-                 "Download MP3",
-                 "Conforme Lei 13.146/2015"
-               ],
-               cta: "Começar Grátis",
-               ctaTo: "/auth",
-               variant: "default" as const,
-             },
-             {
-               name: "Creator",
-               price: "R$97",
-               period: "/mês",
-               features: [
-                 "150 páginas/mês",
-                 "3 projetos",
-                 "Audiobook + Audiodescrição",
-                 "TTS Gemini",
-                 "Controle de velocidade",
-                 "Download MP3 e ZIP"
-               ],
-               cta: "Escolher Creator",
-               ctaTo: "/auth",
-               variant: "default" as const,
-             },
-             {
-               name: "Pro",
-               price: "R$197",
-               period: "/mês",
-               features: [
-                 "500 páginas/mês",
-                 "10 projetos",
-                 "Audiobook + Audiodescrição",
-                 "TTS Gemini",
-                 "Videobook MP4",
-                 "Controle de velocidade",
-                 "Download MP3 e ZIP"
-               ],
-               cta: "Escolher Pro",
-               ctaTo: "/auth",
-               variant: "featured" as const,
-               badge: "Mais popular",
-             },
-             {
-               name: "Enterprise",
-               price: "R$497",
-               period: "/mês",
-               features: [
-                 "1.500 páginas/mês",
-                 "Projetos ilimitados",
-                 "Audiobook + Audiodescrição",
-                 "TTS Gemini + ElevenLabs (chave própria)",
-                 "Videobook MP4 (Em desenvolvimento)",
-                 "Controle de velocidade",
-                 "Download MP3 e ZIP",
-                 "Suporte prioritário"
-               ],
-               cta: "Escolher Enterprise",
-               ctaTo: "/auth",
-               variant: "default" as const,
-               footerNote: "* ElevenLabs requer assinatura própria a partir de $99/mês"
-             },
-           ];
-           return (
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch lp-reveal-stagger max-w-6xl mx-auto">
-               {plans.map((p) => {
-                 const isFeatured = p.variant === "featured";
-                 return (
-                   <div
-                     key={p.name}
-                     className={`${isFeatured ? "card-featured scale-[1.02]" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
-                     style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)", zIndex: 10 } : undefined}
-                   >
-                     {isFeatured && (
-                       <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1.5 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>{p.badge}</span>
-                     )}
-                     <h3 className={`font-semibold text-lg mb-1 ${isFeatured ? "pt-1" : ""}`} style={{ color: "var(--lp-text-primary)" }}>{p.name}</h3>
-                     <div className="flex items-baseline gap-1 mb-5">
-                       <span className="font-serif" style={{ fontSize: "38px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>{p.price}</span>
-                       <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{p.period}</span>
-                     </div>
-                     <ul className="space-y-3 mb-6 flex-1">
-                       {p.features.map((f, i) => (
-                         <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                           <Check size={15} style={{ color: "var(--lp-accent-green)", flexShrink: 0 }} />
-                           <span>{f}</span>
-                         </li>
-                       ))}
-                     </ul>
-                     {p.footerNote && (
-                       <p className="text-xs mb-3 italic" style={{ color: "var(--lp-text-muted)" }}>{p.footerNote}</p>
-                     )}
-                     <Link
-                       to={p.ctaTo}
-                       className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                       style={isFeatured
-                         ? { background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }
-                         : { background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
-                       onMouseEnter={e => {
-                         e.currentTarget.style.transform = "translateY(-1px)";
-                         if (isFeatured) e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)";
-                         else e.currentTarget.style.background = "var(--lp-glass-bg-hover)";
-                       }}
-                       onMouseLeave={e => {
-                         e.currentTarget.style.transform = "translateY(0)";
-                         if (isFeatured) e.currentTarget.style.boxShadow = "none";
-                         else e.currentTarget.style.background = "var(--lp-glass-bg)";
-                       }}
-                     >{p.cta}</Link>
-                   </div>
-                 );
-               })}
-             </div>
-           );
-         })()}
-
           <p className="text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
         </div>
       </section>
 
-       {/* ──── DEPOIMENTO ──── */}
+      {/* ──── DEPOIMENTO ──── */}
       <section className="py-16 lg:py-20 lp-bg-accent section-divider">
         <div className="mx-auto max-w-3xl px-5 lg:px-8">
           <div className="card-featured p-10 lg:p-14 text-center lp-reveal">
