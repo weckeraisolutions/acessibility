@@ -615,6 +615,8 @@ const LandingPage = () => {
       <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
       {/* ──── PLANOS ──── */}
       <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
+      {/* ──── PLANOS ──── */}
+      <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Planos para cada necessidade</h2>
           <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Comece grátis. Escale quando precisar.</p>
