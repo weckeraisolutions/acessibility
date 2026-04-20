@@ -742,6 +742,130 @@ const LandingPage = () => {
               >Falar com nossa equipe →</a>
             </div>
           </div>
+         {(() => {
+           const plans = [
+             {
+               name: "Free",
+               price: "R$0",
+               period: "/mês",
+               features: [
+                 "15 páginas/mês",
+                 "1 projeto",
+                 "Audiobook + Audiodescrição",
+                 "TTS Gemini",
+                 "Download MP3",
+                 "Conforme Lei 13.146/2015"
+               ],
+               cta: "Começar Grátis",
+               ctaTo: "/auth",
+               variant: "default" as const,
+             },
+             {
+               name: "Creator",
+               price: "R$97",
+               period: "/mês",
+               features: [
+                 "150 páginas/mês",
+                 "3 projetos",
+                 "Audiobook + Audiodescrição",
+                 "TTS Gemini",
+                 "Controle de velocidade",
+                 "Download MP3 e ZIP"
+               ],
+               cta: "Escolher Creator",
+               ctaTo: "/auth",
+               variant: "default" as const,
+             },
+             {
+               name: "Pro",
+               price: "R$197",
+               period: "/mês",
+               features: [
+                 "500 páginas/mês",
+                 "10 projetos",
+                 "Audiobook + Audiodescrição",
+                 "TTS Gemini",
+                 "Videobook MP4",
+                 "Controle de velocidade",
+                 "Download MP3 e ZIP"
+               ],
+               cta: "Escolher Pro",
+               ctaTo: "/auth",
+               variant: "featured" as const,
+               badge: "Mais popular",
+             },
+             {
+               name: "Enterprise",
+               price: "R$497",
+               period: "/mês",
+               features: [
+                 "1.500 páginas/mês",
+                 "Projetos ilimitados",
+                 "Audiobook + Audiodescrição",
+                 "TTS Gemini + ElevenLabs (chave própria)",
+                 "Videobook MP4 (Em desenvolvimento)",
+                 "Controle de velocidade",
+                 "Download MP3 e ZIP",
+                 "Suporte prioritário"
+               ],
+               cta: "Escolher Enterprise",
+               ctaTo: "/auth",
+               variant: "default" as const,
+               footerNote: "* ElevenLabs requer assinatura própria a partir de $99/mês"
+             },
+           ];
+           return (
+             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch lp-reveal-stagger max-w-6xl mx-auto">
+               {plans.map((p) => {
+                 const isFeatured = p.variant === "featured";
+                 return (
+                   <div
+                     key={p.name}
+                     className={`${isFeatured ? "card-featured scale-[1.02]" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
+                     style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)", zIndex: 10 } : undefined}
+                   >
+                     {isFeatured && (
+                       <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1.5 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>{p.badge}</span>
+                     )}
+                     <h3 className={`font-semibold text-lg mb-1 ${isFeatured ? "pt-1" : ""}`} style={{ color: "var(--lp-text-primary)" }}>{p.name}</h3>
+                     <div className="flex items-baseline gap-1 mb-5">
+                       <span className="font-serif" style={{ fontSize: "38px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>{p.price}</span>
+                       <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{p.period}</span>
+                     </div>
+                     <ul className="space-y-3 mb-6 flex-1">
+                       {p.features.map((f, i) => (
+                         <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: "var(--lp-text-secondary)" }}>
+                           <Check size={15} style={{ color: "var(--lp-accent-green)", flexShrink: 0 }} />
+                           <span>{f}</span>
+                         </li>
+                       ))}
+                     </ul>
+                     {p.footerNote && (
+                       <p className="text-xs mb-3 italic" style={{ color: "var(--lp-text-muted)" }}>{p.footerNote}</p>
+                     )}
+                     <Link
+                       to={p.ctaTo}
+                       className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
+                       style={isFeatured
+                         ? { background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }
+                         : { background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
+                       onMouseEnter={e => {
+                         e.currentTarget.style.transform = "translateY(-1px)";
+                         if (isFeatured) e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)";
+                         else e.currentTarget.style.background = "var(--lp-glass-bg-hover)";
+                       }}
+                       onMouseLeave={e => {
+                         e.currentTarget.style.transform = "translateY(0)";
+                         if (isFeatured) e.currentTarget.style.boxShadow = "none";
+                         else e.currentTarget.style.background = "var(--lp-glass-bg)";
+                       }}
+                     >{p.cta}</Link>
+                   </div>
+                 );
+               })}
+             </div>
+           );
+         })()}
 
           <p className="text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
         </div>
