@@ -743,6 +743,7 @@ const LandingPage = () => {
             </div>
           </div>
          {(() => {
+         {(() => {
            const plans = [
              {
                name: "Free",
