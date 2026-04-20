@@ -34,6 +34,8 @@ interface GlobalConfigPanelProps {
   elevenlabsVoices: ElevenLabsVoice[];
   selectedElevenlabsVoice: string;
   onElevenlabsVoiceChange: (voiceId: string) => void;
+  narrationSpeed: string;
+  onNarrationSpeedChange: (v: string) => void;
 }
 
 const placeholders: Record<string, string> = {
@@ -46,6 +48,7 @@ const GlobalConfigPanel = ({
   pages, project, onPageUpdate,
   ttsEngine, onTtsEngineChange, canUseElevenlabs,
   elevenlabsVoices, selectedElevenlabsVoice, onElevenlabsVoiceChange,
+  narrationSpeed, onNarrationSpeedChange,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();

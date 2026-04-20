@@ -175,6 +175,8 @@ const ProjectDetail = () => {
               elevenlabsVoices={elevenlabsVoices}
               selectedElevenlabsVoice={selectedElevenlabsVoice}
               onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
+              narrationSpeed={narrationSpeed}
+              onNarrationSpeedChange={setNarrationSpeed}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -195,6 +197,9 @@ const ProjectDetail = () => {
                   elevenlabsVoices={elevenlabsVoices}
                   selectedElevenlabsVoice={selectedElevenlabsVoice}
                   plan={profile?.plan}
+                  globalNarrationSpeed={narrationSpeed}
+                  pageNarrationSpeed={pageNarrationSpeeds[page.id] || null}
+                  onPageNarrationSpeedChange={(v) => setPageNarrationSpeed(page.id, v)}
                 />
               ))}
             </div>
@@ -216,6 +221,8 @@ const ProjectDetail = () => {
               elevenlabsVoices={elevenlabsVoices}
               selectedElevenlabsVoice={selectedElevenlabsVoice}
               onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
+              narrationSpeed={narrationSpeed}
+              onNarrationSpeedChange={setNarrationSpeed}
             />
             <PageNavigator
               currentPair={pairIndex}
@@ -236,6 +243,9 @@ const ProjectDetail = () => {
                   elevenlabsVoices={elevenlabsVoices}
                   selectedElevenlabsVoice={selectedElevenlabsVoice}
                   plan={profile?.plan}
+                  globalNarrationSpeed={narrationSpeed}
+                  pageNarrationSpeed={pageNarrationSpeeds[page.id] || null}
+                  onPageNarrationSpeedChange={(v) => setPageNarrationSpeed(page.id, v)}
                 />
               ))}
             </div>

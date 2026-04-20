@@ -30,6 +30,9 @@ interface AudioPageCardProps {
   elevenlabsVoices: ElevenLabsVoice[];
   selectedElevenlabsVoice: string;
   plan?: string;
+  globalNarrationSpeed?: string;
+  pageNarrationSpeed?: string | null;
+  onPageNarrationSpeedChange?: (v: string | null) => void;
 }
 
 function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
@@ -43,7 +46,7 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan, globalNarrationSpeed = "educativo", pageNarrationSpeed = null, onPageNarrationSpeedChange }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
