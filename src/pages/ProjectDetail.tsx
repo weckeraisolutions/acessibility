@@ -32,7 +32,34 @@ const ProjectDetail = () => {
   const [canUseElevenlabs, setCanUseElevenlabs] = useState(false);
   const [elevenlabsVoices, setElevenlabsVoices] = useState<ElevenLabsVoice[]>([]);
   const [selectedElevenlabsVoice, setSelectedElevenlabsVoice] = useState("");
+  const [narrationSpeed, setNarrationSpeedState] = useState<string>("educativo");
+  const [pageNarrationSpeeds, setPageNarrationSpeedsState] = useState<Record<string, string>>({});
   const isMobile = useIsMobile();
+
+  // Persist narration-speed settings per project in localStorage (no DB column available)
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const g = localStorage.getItem(`narration_speed_global_${id}`);
+      if (g) setNarrationSpeedState(g);
+      const p = localStorage.getItem(`narration_speed_pages_${id}`);
+      if (p) setPageNarrationSpeedsState(JSON.parse(p));
+    } catch { /* ignore */ }
+  }, [id]);
+
+  const setNarrationSpeed = (v: string) => {
+    setNarrationSpeedState(v);
+    if (id) localStorage.setItem(`narration_speed_global_${id}`, v);
+  };
+  const setPageNarrationSpeed = (pageId: string, v: string | null) => {
+    setPageNarrationSpeedsState((prev) => {
+      const next = { ...prev };
+      if (v === null) delete next[pageId];
+      else next[pageId] = v;
+      if (id) localStorage.setItem(`narration_speed_pages_${id}`, JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Check ElevenLabs availability on mount by calling the edge function
   useEffect(() => {
