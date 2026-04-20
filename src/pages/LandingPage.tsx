@@ -872,7 +872,7 @@ const LandingPage = () => {
         </div>
       </section>
        </section>
- 
+
        {/* ──── DEPOIMENTO ──── */}
       <section className="py-16 lg:py-20 lp-bg-accent section-divider">
         <div className="mx-auto max-w-3xl px-5 lg:px-8">
