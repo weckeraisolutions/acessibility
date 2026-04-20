@@ -34,6 +34,8 @@ interface GlobalConfigPanelProps {
   elevenlabsVoices: ElevenLabsVoice[];
   selectedElevenlabsVoice: string;
   onElevenlabsVoiceChange: (voiceId: string) => void;
+  narrationSpeed: string;
+  onNarrationSpeedChange: (v: string) => void;
 }
 
 const placeholders: Record<string, string> = {
@@ -46,6 +48,7 @@ const GlobalConfigPanel = ({
   pages, project, onPageUpdate,
   ttsEngine, onTtsEngineChange, canUseElevenlabs,
   elevenlabsVoices, selectedElevenlabsVoice, onElevenlabsVoiceChange,
+  narrationSpeed, onNarrationSpeedChange,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
@@ -153,6 +156,20 @@ const GlobalConfigPanel = ({
             </Select>
           )}
         </div>
+
+        {isElevenlabs && (
+          <div>
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Velocidade de Narração</Label>
+            <Select value={narrationSpeed} onValueChange={onNarrationSpeedChange}>
+              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pausada">🐢 Pausada — ideal para conteúdo complexo</SelectItem>
+                <SelectItem value="educativo">📚 Ritmo educativo — padrão recomendado</SelectItem>
+                <SelectItem value="fluente">⚡ Fluente — narração contínua</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {extractor.extracting ? (
           <div className="space-y-2">

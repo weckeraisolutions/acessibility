@@ -30,6 +30,9 @@ interface AudioPageCardProps {
   elevenlabsVoices: ElevenLabsVoice[];
   selectedElevenlabsVoice: string;
   plan?: string;
+  globalNarrationSpeed?: string;
+  pageNarrationSpeed?: string | null;
+  onPageNarrationSpeedChange?: (v: string | null) => void;
 }
 
 function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
@@ -43,7 +46,7 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan, globalNarrationSpeed = "educativo", pageNarrationSpeed = null, onPageNarrationSpeedChange }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
@@ -218,6 +221,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           use_elevenlabs: isElevenlabs,
           elevenlabs_voice_id: currentElevenlabsVoice,
           elevenlabs_model: "eleven_multilingual_v2",
+          narration_speed: pageNarrationSpeed || globalNarrationSpeed,
         },
       });
 
@@ -386,6 +390,26 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
             className="mt-1 h-8 text-xs"
           />
         </div>
+
+        {isElevenlabs && (
+          <div>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Velocidade:</Label>
+              {pageNarrationSpeed && <Badge variant="secondary" className="text-[10px]">✏️ Personalizada</Badge>}
+            </div>
+            <Select
+              value={pageNarrationSpeed || globalNarrationSpeed}
+              onValueChange={(v) => onPageNarrationSpeedChange?.(v === globalNarrationSpeed ? null : v)}
+            >
+              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pausada">🐢 Pausada</SelectItem>
+                <SelectItem value="educativo">📚 Ritmo educativo</SelectItem>
+                <SelectItem value="fluente">⚡ Fluente</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Button size="sm" className="w-full" disabled={!localText.trim() || generating} onClick={() => handleGenerateAudio()}>

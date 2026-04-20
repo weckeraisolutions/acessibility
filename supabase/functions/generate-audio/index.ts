@@ -292,7 +292,7 @@ function deriveProjectSeed(projectId: string): number {
 
 async function generateWithElevenLabs(
   text: string, voiceId: string, modelId: string, apiKey: string,
-  projectId?: string, pageNumber?: number, mode?: string,
+  projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const prepared = preprocessTextForPTBR(prepareText(text));
 
@@ -354,7 +354,7 @@ async function generateWithElevenLabs(
         similarity_boost: 0.90,
         style: 0.20,
         use_speaker_boost: true,
-        speed: 0.95,
+        speed: speed,
       },
     };
     if (seed !== undefined) bodyObj.seed = seed;
@@ -451,7 +451,7 @@ serve(async (req) => {
     const {
       page_id, project_id, page_number, text, voice,
       global_style, page_style, mode, plan,
-      use_elevenlabs, elevenlabs_voice_id, elevenlabs_model,
+      use_elevenlabs, elevenlabs_voice_id, elevenlabs_model, narration_speed,
     } = await req.json();
 
     if (!page_id || !project_id || !text || !mode) {
@@ -471,7 +471,9 @@ serve(async (req) => {
     if (use_elevenlabs) {
       const elApiKey = Deno.env.get("ELEVENLABS_API_KEY");
       if (!elApiKey) return respond({ success: false, error: "elevenlabs_credits", message: "ELEVENLABS_API_KEY não configurada no servidor" }, 500);
-      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode);
+      const speedMap: Record<string, number> = { pausada: 0.80, educativo: 0.92, fluente: 1.00 };
+      const elSpeed = (typeof narration_speed === "string" && speedMap[narration_speed]) ? speedMap[narration_speed] : 0.92;
+      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode, elSpeed);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
       engine = "elevenlabs";
