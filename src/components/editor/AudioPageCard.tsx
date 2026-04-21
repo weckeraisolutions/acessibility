@@ -75,6 +75,15 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
+  // Múltiplas narrações (apenas audiobook)
+  const isAudiobook = mode === "audiobook";
+  const { narrations, add, addMany, update, remove } = usePageNarrations(
+    isAudiobook ? page.id : undefined,
+    isAudiobook ? project.project_id ?? project.id : undefined,
+  );
+  const [characterSuggestion, setCharacterSuggestion] = useState<Array<{ label: string; text: string }> | null>(null);
+  const [zipping, setZipping] = useState(false);
+
   const handlePreviewVoice = useCallback((voiceId: string, previewUrl?: string) => {
     if (!previewUrl) return;
     if (playingVoiceId === voiceId && previewAudioRef.current) {
