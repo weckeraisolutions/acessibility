@@ -183,12 +183,82 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
   const handleExtractSingle = async () => {
     setExtracting(true);
-    const ok = await extractor.extractSingle(page, mode, project, onUpdate);
-    setExtracting(false);
-    if (ok) {
+    try {
+      // Chamada direta para capturar has_characters / suggested_blocks no audiobook
+      const { data, error } = await supabase.functions.invoke("extract-text", {
+        body: {
+          page_id: page.id,
+          image_url: page.image_url,
+          mode,
+          book_type: project.book_type,
+          global_style: (mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style) || "",
+          page_style: (mode === "audiobook" ? page.audiobook_style : page.audiodesc_style) || "",
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: "Erro", description: data?.message || "Falha ao extrair texto.", variant: "destructive" });
+        return;
+      }
+      const tField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
+      const sField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
+      onUpdate(page.id, { [tField]: data.text, [sField]: data.no_content ? "no_content" : "extracted" });
       toast({ title: "Texto extraído", description: `Página ${page.page_number} processada.` });
-    } else {
-      toast({ title: "Erro", description: "Falha ao extrair texto desta página.", variant: "destructive" });
+      if (isAudiobook && data.has_characters && Array.isArray(data.suggested_blocks) && data.suggested_blocks.length > 1) {
+        setCharacterSuggestion(data.suggested_blocks);
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao extrair texto.", variant: "destructive" });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const applyCharacterSuggestion = async () => {
+    if (!characterSuggestion || characterSuggestion.length === 0) return;
+    // Primeiro bloco vira "Narração principal" (atualiza o texto da página)
+    const [first, ...rest] = characterSuggestion;
+    const tField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
+    setLocalText(first.text);
+    onUpdate(page.id, { [tField]: first.text });
+    if (rest.length) {
+      await addMany(rest.map((b) => ({ label: b.label, text: b.text })));
+    }
+    setCharacterSuggestion(null);
+    toast({ title: "Narrações criadas", description: `${rest.length} bloco(s) adicionado(s).` });
+  };
+
+  const handleAddNarration = async () => {
+    await add({ label: `Narração ${narrations.length + 2}` });
+  };
+
+  const handleDownloadAllZip = async () => {
+    const blocks = narrations.filter((n) => n.audio_url);
+    const hasMain = !!audioUrl;
+    if (!hasMain && blocks.length === 0) {
+      toast({ title: "Nada a baixar", description: "Gere ao menos um áudio nesta página." });
+      return;
+    }
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      const pageNum = String(page.page_number).padStart(3, "0");
+      if (hasMain) {
+        const r = await fetch(audioUrl!);
+        zip.file(`pagina_${pageNum}_01_narracao_principal.mp3`, await r.blob());
+      }
+      let idx = hasMain ? 2 : 1;
+      for (const n of blocks) {
+        const r = await fetch(n.audio_url!);
+        const safe = n.label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+        zip.file(`pagina_${pageNum}_${String(idx).padStart(2, "0")}_${safe}.mp3`, await r.blob());
+        idx++;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      saveAs(blob, `pagina_${pageNum}_blocos.zip`);
+    } catch {
+      toast({ title: "Erro", description: "Falha ao criar ZIP.", variant: "destructive" });
+    } finally {
+      setZipping(false);
     }
   };
 
