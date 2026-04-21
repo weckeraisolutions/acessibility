@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square } from "lucide-react";
+import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square, Plus, Package, X } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
@@ -16,6 +16,10 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 import { useTextExtractor } from "@/hooks/useTextExtractor";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
+import { usePageNarrations } from "@/hooks/usePageNarrations";
+import NarrationBlock from "@/components/editor/NarrationBlock";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 type Page = Tables<"pages">;
 type Project = Tables<"projects">;
@@ -70,6 +74,15 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+
+  // Múltiplas narrações (apenas audiobook)
+  const isAudiobook = mode === "audiobook";
+  const { narrations, add, addMany, update, remove } = usePageNarrations(
+    isAudiobook ? page.id : undefined,
+    isAudiobook ? project.id : undefined,
+  );
+  const [characterSuggestion, setCharacterSuggestion] = useState<Array<{ label: string; text: string }> | null>(null);
+  const [zipping, setZipping] = useState(false);
 
   const handlePreviewVoice = useCallback((voiceId: string, previewUrl?: string) => {
     if (!previewUrl) return;
@@ -170,12 +183,82 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
   const handleExtractSingle = async () => {
     setExtracting(true);
-    const ok = await extractor.extractSingle(page, mode, project, onUpdate);
-    setExtracting(false);
-    if (ok) {
+    try {
+      // Chamada direta para capturar has_characters / suggested_blocks no audiobook
+      const { data, error } = await supabase.functions.invoke("extract-text", {
+        body: {
+          page_id: page.id,
+          image_url: page.image_url,
+          mode,
+          book_type: project.book_type,
+          global_style: (mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style) || "",
+          page_style: (mode === "audiobook" ? page.audiobook_style : page.audiodesc_style) || "",
+        },
+      });
+      if (error || !data?.success) {
+        toast({ title: "Erro", description: data?.message || "Falha ao extrair texto.", variant: "destructive" });
+        return;
+      }
+      const tField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
+      const sField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
+      onUpdate(page.id, { [tField]: data.text, [sField]: data.no_content ? "no_content" : "extracted" });
       toast({ title: "Texto extraído", description: `Página ${page.page_number} processada.` });
-    } else {
-      toast({ title: "Erro", description: "Falha ao extrair texto desta página.", variant: "destructive" });
+      if (isAudiobook && data.has_characters && Array.isArray(data.suggested_blocks) && data.suggested_blocks.length > 1) {
+        setCharacterSuggestion(data.suggested_blocks);
+      }
+    } catch {
+      toast({ title: "Erro", description: "Falha ao extrair texto.", variant: "destructive" });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const applyCharacterSuggestion = async () => {
+    if (!characterSuggestion || characterSuggestion.length === 0) return;
+    // Primeiro bloco vira "Narração principal" (atualiza o texto da página)
+    const [first, ...rest] = characterSuggestion;
+    const tField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
+    setLocalText(first.text);
+    onUpdate(page.id, { [tField]: first.text });
+    if (rest.length) {
+      await addMany(rest.map((b) => ({ label: b.label, text: b.text })));
+    }
+    setCharacterSuggestion(null);
+    toast({ title: "Narrações criadas", description: `${rest.length} bloco(s) adicionado(s).` });
+  };
+
+  const handleAddNarration = async () => {
+    await add({ label: `Narração ${narrations.length + 2}` });
+  };
+
+  const handleDownloadAllZip = async () => {
+    const blocks = narrations.filter((n) => n.audio_url);
+    const hasMain = !!audioUrl;
+    if (!hasMain && blocks.length === 0) {
+      toast({ title: "Nada a baixar", description: "Gere ao menos um áudio nesta página." });
+      return;
+    }
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      const pageNum = String(page.page_number).padStart(3, "0");
+      if (hasMain) {
+        const r = await fetch(audioUrl!);
+        zip.file(`pagina_${pageNum}_01_narracao_principal.mp3`, await r.blob());
+      }
+      let idx = hasMain ? 2 : 1;
+      for (const n of blocks) {
+        const r = await fetch(n.audio_url!);
+        const safe = n.label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+        zip.file(`pagina_${pageNum}_${String(idx).padStart(2, "0")}_${safe}.mp3`, await r.blob());
+        idx++;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      saveAs(blob, `pagina_${pageNum}_blocos.zip`);
+    } catch {
+      toast({ title: "Erro", description: "Falha ao criar ZIP.", variant: "destructive" });
+    } finally {
+      setZipping(false);
     }
   };
 
@@ -320,6 +403,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
       <CardContent className="p-3 space-y-3">
         <div>
+          {isAudiobook && narrations.length > 0 && (
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1 block">
+              Narração principal
+            </Label>
+          )}
           <Textarea
             rows={8}
             value={localText}
@@ -333,6 +421,28 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
               <><RotateCw className="h-3 w-3 mr-1" /> Extrair esta página</>
             )}
           </Button>
+          {isAudiobook && characterSuggestion && (
+            <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 p-2 text-xs space-y-2">
+              <div className="flex items-start gap-1">
+                <span>💬</span>
+                <span className="flex-1">Esta página pode conter falas de personagens. Deseja separar em narrações individuais?</span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setCharacterSuggestion(null)}
+                  aria-label="Fechar"
+                ><X className="h-3 w-3" /></button>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs flex-1" onClick={applyCharacterSuggestion}>
+                  Separar automaticamente
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCharacterSuggestion(null)}>
+                  Ignorar
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
@@ -488,6 +598,36 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
             </>
           )}
         </div>
+
+        {isAudiobook && (
+          <div className="space-y-2 pt-2 border-t">
+            {narrations.map((n) => (
+              <NarrationBlock
+                key={n.id}
+                narration={n}
+                page={page}
+                project={project}
+                ttsEngine={ttsEngine}
+                globalVoice={globalVoice}
+                elevenlabsVoices={elevenlabsVoices}
+                selectedElevenlabsVoice={selectedElevenlabsVoice}
+                globalNarrationSpeed={globalNarrationSpeed}
+                plan={plan}
+                onUpdate={update}
+                onRemove={remove}
+              />
+            ))}
+            <Button variant="outline" size="sm" className="w-full" onClick={handleAddNarration}>
+              <Plus className="h-3 w-3 mr-1" /> Adicionar narração
+            </Button>
+            {(narrations.some((n) => n.audio_url) || (narrations.length > 0 && audioUrl)) && (
+              <Button variant="ghost" size="sm" className="w-full" onClick={handleDownloadAllZip} disabled={zipping}>
+                {zipping ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Package className="h-3 w-3 mr-1" />}
+                Baixar todos os blocos como ZIP
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

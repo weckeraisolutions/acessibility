@@ -458,6 +458,7 @@ serve(async (req) => {
       page_id, project_id, page_number, text, voice,
       global_style, page_style, mode, plan,
       use_elevenlabs, elevenlabs_voice_id, elevenlabs_model, narration_speed,
+      skip_page_update, narration_id,
     } = await req.json();
 
     if (!page_id || !project_id || !text || !mode) {
@@ -507,7 +508,9 @@ serve(async (req) => {
     const bucket = mode === "audiobook" ? "audiobook-audios" : "audiodesc-audios";
     const pageNum = String(page_number || 1).padStart(3, "0");
     const ext = getExtension(mimeType);
-    const filePath = `${project_id}/pag_${pageNum}.${ext}`;
+    const filePath = skip_page_update && narration_id
+      ? `${project_id}/narrations/pag_${pageNum}_${narration_id}.${ext}`
+      : `${project_id}/pag_${pageNum}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
@@ -524,23 +527,25 @@ serve(async (req) => {
 
     const audioUrl = signedUrlData?.signedUrl || "";
 
-    const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
-    const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
-    const durationField = mode === "audiobook" ? "audiobook_audio_duration_seconds" : "audiodesc_audio_duration_seconds";
-    const voiceDbField = mode === "audiobook" ? "audiobook_voice" : "audiodesc_voice";
-    const styleDbField = mode === "audiobook" ? "audiobook_style" : "audiodesc_style";
+    if (!skip_page_update) {
+      const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
+      const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
+      const durationField = mode === "audiobook" ? "audiobook_audio_duration_seconds" : "audiodesc_audio_duration_seconds";
+      const voiceDbField = mode === "audiobook" ? "audiobook_voice" : "audiodesc_voice";
+      const styleDbField = mode === "audiobook" ? "audiobook_style" : "audiodesc_style";
 
-    await supabase
-      .from("pages")
-      .update({
-        [audioUrlField]: audioUrl,
-        [statusField]: "audio_generated",
-        [durationField]: estimatedDurationSeconds,
-        [voiceDbField]: engine === "elevenlabs" ? elevenlabs_voice_id : voice,
-        [styleDbField]: styleApplied,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", page_id);
+      await supabase
+        .from("pages")
+        .update({
+          [audioUrlField]: audioUrl,
+          [statusField]: "audio_generated",
+          [durationField]: estimatedDurationSeconds,
+          [voiceDbField]: engine === "elevenlabs" ? elevenlabs_voice_id : voice,
+          [styleDbField]: styleApplied,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", page_id);
+    }
 
     return respond({
       success: true,
