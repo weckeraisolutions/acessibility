@@ -403,6 +403,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
       <CardContent className="p-3 space-y-3">
         <div>
+          {isAudiobook && narrations.length > 0 && (
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1 block">
+              Narração principal
+            </Label>
+          )}
           <Textarea
             rows={8}
             value={localText}
@@ -416,6 +421,28 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
               <><RotateCw className="h-3 w-3 mr-1" /> Extrair esta página</>
             )}
           </Button>
+          {isAudiobook && characterSuggestion && (
+            <div className="mt-2 rounded-md border border-primary/30 bg-primary/5 p-2 text-xs space-y-2">
+              <div className="flex items-start gap-1">
+                <span>💬</span>
+                <span className="flex-1">Esta página pode conter falas de personagens. Deseja separar em narrações individuais?</span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setCharacterSuggestion(null)}
+                  aria-label="Fechar"
+                ><X className="h-3 w-3" /></button>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="h-7 text-xs flex-1" onClick={applyCharacterSuggestion}>
+                  Separar automaticamente
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCharacterSuggestion(null)}>
+                  Ignorar
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
