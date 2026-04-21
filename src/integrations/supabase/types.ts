@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      page_narrations: {
+        Row: {
+          audio_duration_seconds: number | null
+          audio_url: string | null
+          created_at: string
+          id: string
+          label: string
+          narration_speed: string | null
+          page_id: string
+          position: number
+          project_id: string
+          status: string
+          style: string | null
+          text: string | null
+          updated_at: string
+          voice_engine: string
+          voice_id: string | null
+        }
+        Insert: {
+          audio_duration_seconds?: number | null
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          narration_speed?: string | null
+          page_id: string
+          position?: number
+          project_id: string
+          status?: string
+          style?: string | null
+          text?: string | null
+          updated_at?: string
+          voice_engine?: string
+          voice_id?: string | null
+        }
+        Update: {
+          audio_duration_seconds?: number | null
+          audio_url?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          narration_speed?: string | null
+          page_id?: string
+          position?: number
+          project_id?: string
+          status?: string
+          style?: string | null
+          text?: string | null
+          updated_at?: string
+          voice_engine?: string
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_narrations_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "page_narrations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pages: {
         Row: {
           audiobook_audio_duration_seconds: number | null
