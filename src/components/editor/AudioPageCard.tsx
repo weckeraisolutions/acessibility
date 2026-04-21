@@ -598,6 +598,36 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
             </>
           )}
         </div>
+
+        {isAudiobook && (
+          <div className="space-y-2 pt-2 border-t">
+            {narrations.map((n) => (
+              <NarrationBlock
+                key={n.id}
+                narration={n}
+                page={page}
+                project={project}
+                ttsEngine={ttsEngine}
+                globalVoice={globalVoice}
+                elevenlabsVoices={elevenlabsVoices}
+                selectedElevenlabsVoice={selectedElevenlabsVoice}
+                globalNarrationSpeed={globalNarrationSpeed}
+                plan={plan}
+                onUpdate={update}
+                onRemove={remove}
+              />
+            ))}
+            <Button variant="outline" size="sm" className="w-full" onClick={handleAddNarration}>
+              <Plus className="h-3 w-3 mr-1" /> Adicionar narração
+            </Button>
+            {(narrations.some((n) => n.audio_url) || (narrations.length > 0 && audioUrl)) && (
+              <Button variant="ghost" size="sm" className="w-full" onClick={handleDownloadAllZip} disabled={zipping}>
+                {zipping ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Package className="h-3 w-3 mr-1" />}
+                Baixar todos os blocos como ZIP
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
