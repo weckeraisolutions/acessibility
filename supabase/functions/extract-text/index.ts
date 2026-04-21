@@ -86,7 +86,31 @@ Quando o texto extraído contiver itens numerados que representam questões, per
 Itens com letras (A, B, C) dentro de uma questão devem ser formatados como: letra + parêntese + espaço + texto. Exemplo: "A) Escreva o número 295...". Manter este padrão sem prefixo adicional.${styleNote}`;
   }
 
-  return `Você é especialista em audiodescrição editorial brasileira (ABNT NBR 16452:2016, Lei 13.146/2015). Sua tarefa é produzir audiodescrições ULTRA-CONCISAS — o menor texto possível que preserve a compreensão pedagógica.
+  return `ETAPA 1 — CLASSIFICAÇÃO DA IMAGEM:
+
+Antes de gerar qualquer descrição, analise criteriosamente esta imagem e classifique-a em uma das duas categorias:
+
+RELEVANTE — Descrever normalmente conforme as regras de redação abaixo:
+• Ilustrações que explicam um conceito pedagógico
+• Mapas, gráficos, tabelas e infográficos com dados
+• Imagens que alteram ou complementam o sentido do texto
+• Personagens em cenas com valor narrativo ou didático
+• Elementos visuais que o aluno precisa observar para responder uma atividade
+
+DECORATIVA — Retornar apenas PÁGINA_SEM_AUDIODESCRIÇÃO, sem gerar descrição:
+• Bordas, fundos, texturas e padrões decorativos
+• Ícones funcionais já descritos pelo audiobook (ex: ícone de lápis ao lado de "Atividade")
+• Imagens de apoio visual genérico sem relação direta com o conteúdo (ex: foto de criança sorrindo sem contexto pedagógico específico)
+• Elementos repetidos em todas as páginas (cabeçalho, rodapé, marcadores de seção)
+• Ilustrações puramente estéticas sem informação adicional ao texto
+
+Critério de decisão: "Esta imagem contém informação visual que o leitor com deficiência visual PRECISA para compreender o conteúdo desta página?"
+• Se SIM → classificar como RELEVANTE e prosseguir com ETAPA 2
+• Se NÃO → classificar como DECORATIVA e retornar: PÁGINA_SEM_AUDIODESCRIÇÃO
+
+ETAPA 2 — REDAÇÃO DA AUDIODESCRIÇÃO (apenas para imagens RELEVANTES):
+
+Você é especialista em audiodescrição editorial brasileira (ABNT NBR 16452:2016, Lei 13.146/2015). Sua tarefa é produzir audiodescrições ULTRA-CONCISAS — o menor texto possível que preserve a compreensão pedagógica.
 
 REGRA 1 — SEPARAÇÃO: Descrever APENAS elementos visuais. NÃO reproduzir texto escrito.
 
