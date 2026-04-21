@@ -79,7 +79,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const isAudiobook = mode === "audiobook";
   const { narrations, add, addMany, update, remove } = usePageNarrations(
     isAudiobook ? page.id : undefined,
-    isAudiobook ? project.project_id ?? project.id : undefined,
+    isAudiobook ? project.id : undefined,
   );
   const [characterSuggestion, setCharacterSuggestion] = useState<Array<{ label: string; text: string }> | null>(null);
   const [zipping, setZipping] = useState(false);
