@@ -359,6 +359,12 @@ async function generateWithElevenLabs(
     };
     if (seed !== undefined) bodyObj.seed = seed;
 
+    // [TEMP] Verificação do parâmetro speed enviado ao ElevenLabs
+    console.log(
+      `[ElevenLabs] chunk ${ci + 1}/${chunks.length} voice_settings:`,
+      JSON.stringify((bodyObj as { voice_settings: unknown }).voice_settings),
+    );
+
     // For first chunk, use previous page context; for subsequent chunks, use previous chunk text
     if (ci === 0 && previousText) {
       bodyObj.previous_text = previousText;
