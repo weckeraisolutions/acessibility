@@ -29,6 +29,64 @@ function cleanText(text: string): string {
     .trim();
 }
 
+/**
+ * Heurística simples para detectar falas de personagens no texto extraído.
+ * Retorna blocos sugeridos { label, text } na ordem em que aparecem.
+ * Não altera o texto original; apenas sugere uma separação.
+ */
+function detectCharacterBlocks(text: string): { hasCharacters: boolean; blocks: Array<{ label: string; text: string }> } {
+  if (!text || text.length < 20) return { hasCharacters: false, blocks: [] };
+
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  // Padrão "Nome diz:" / "Nome:"  (Nome com 1ª maiúscula, até 30 chars)
+  const sayRegex = /^([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ\- ]{1,28})\s+diz\s*:\s*(.+)$/;
+  const colonRegex = /^([A-ZÁÉÍÓÚÂÊÔÃÕÇ][\wÀ-ÿ\- ]{1,28})\s*:\s*(.+)$/;
+  // Linha começando por travessão (— ou --) indica fala
+  const dashRegex = /^[—–-]{1,2}\s*(.+)$/;
+  // Aspas envolvendo trecho com pelo menos 3 palavras
+  const quoteRegex = /["“][^"”]{8,}["”]/;
+
+  type Block = { label: string; text: string };
+  const blocks: Block[] = [];
+  let narratorBuf: string[] = [];
+  let charCounter = 0;
+  let dashCounter = 0;
+
+  const flushNarrator = () => {
+    if (narratorBuf.length) {
+      blocks.push({ label: "Narrador", text: narratorBuf.join(" ").trim() });
+      narratorBuf = [];
+    }
+  };
+
+  for (const line of lines) {
+    let m = line.match(sayRegex) || line.match(colonRegex);
+    if (m) {
+      flushNarrator();
+      charCounter++;
+      blocks.push({ label: m[1].trim(), text: m[2].trim() });
+      continue;
+    }
+    m = line.match(dashRegex);
+    if (m) {
+      flushNarrator();
+      dashCounter++;
+      blocks.push({ label: `Personagem ${dashCounter}`, text: m[1].trim() });
+      continue;
+    }
+    narratorBuf.push(line);
+  }
+  flushNarrator();
+
+  const namedChars = blocks.filter((b) => b.label !== "Narrador").length;
+  const hasQuotes = quoteRegex.test(text);
+  // Só consideramos "tem personagens" se houver pelo menos 2 falas detectadas
+  // ou padrão "Nome:" claro, evitando falsos positivos com hífens em listas.
+  const hasCharacters = namedChars >= 2 || (charCounter >= 1 && hasQuotes);
+
+  return { hasCharacters, blocks: hasCharacters ? blocks : [] };
+}
+
 function getPrompt(mode: string, bookType: string, globalStyle: string, pageStyle: string): string {
   const styleNote = pageStyle || globalStyle ? `\n\nESTILO ADICIONAL: ${pageStyle || globalStyle}` : "";
 
