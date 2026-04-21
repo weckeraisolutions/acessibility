@@ -296,7 +296,16 @@ serve(async (req) => {
       console.error("DB update error:", updateError);
     }
 
-    return respond({ success: true, text: cleanedText, no_content: noContent, page_id });
+    // Detecção de personagens (apenas audiobook, e quando há texto válido)
+    let has_characters = false;
+    let suggested_blocks: Array<{ label: string; text: string }> = [];
+    if (mode === "audiobook" && !noContent) {
+      const det = detectCharacterBlocks(cleanedText);
+      has_characters = det.hasCharacters;
+      suggested_blocks = det.blocks;
+    }
+
+    return respond({ success: true, text: cleanedText, no_content: noContent, page_id, has_characters, suggested_blocks });
   } catch (e) {
     console.error("extract-text error:", e);
     return respond({ success: false, error: "api_error", message: e instanceof Error ? e.message : "Unknown error" }, 500);
