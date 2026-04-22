@@ -37,6 +37,10 @@ interface AudioPageCardProps {
   globalNarrationSpeed?: string;
   pageNarrationSpeed?: string | null;
   onPageNarrationSpeedChange?: (v: string | null) => void;
+  /** When true, hides the page image header (used inside UnifiedPageCard which renders the image once). */
+  hideImage?: boolean;
+  /** Optional title shown above the text area when hideImage is true (e.g. "🔊 Narração"). */
+  sectionTitle?: string;
 }
 
 function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
@@ -50,7 +54,7 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan, globalNarrationSpeed = "educativo", pageNarrationSpeed = null, onPageNarrationSpeedChange }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan, globalNarrationSpeed = "educativo", pageNarrationSpeed = null, onPageNarrationSpeedChange, hideImage = false, sectionTitle }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
