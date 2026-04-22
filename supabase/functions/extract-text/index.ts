@@ -87,7 +87,13 @@ function detectCharacterBlocks(text: string): { hasCharacters: boolean; blocks: 
   return { hasCharacters, blocks: hasCharacters ? blocks : [] };
 }
 
-function getPrompt(mode: string, bookType: string, globalStyle: string, pageStyle: string): string {
+function getPrompt(
+  mode: string,
+  bookType: string,
+  globalStyle: string,
+  pageStyle: string,
+  narrationText: string = ""
+): string {
   const styleNote = pageStyle || globalStyle ? `\n\nESTILO ADICIONAL: ${pageStyle || globalStyle}` : "";
 
   if (mode === "audiobook") {
@@ -144,6 +150,10 @@ Quando o texto extraído contiver itens numerados que representam questões, per
 Itens com letras (A, B, C) dentro de uma questão devem ser formatados como: letra + parêntese + espaço + texto. Exemplo: "A) Escreva o número 295...". Manter este padrão sem prefixo adicional.${styleNote}`;
   }
 
+  const narrationBlock = narrationText && narrationText.trim() && narrationText.trim() !== "PÁGINA_SEM_NARRAÇÃO"
+    ? `\n\nTEXTO JÁ NARRADO NESTA PÁGINA (NÃO REPETIR NA AUDIODESCRIÇÃO):\n"""\n${narrationText.trim()}\n"""\n\nREGRA DE NÃO-REDUNDÂNCIA (OBRIGATÓRIA): A audiodescrição é COMPLEMENTAR à narração. Tudo que já está descrito, mencionado ou nomeado no texto narrado acima NÃO deve ser repetido. Se o texto narrado já cita um personagem, objeto, ação, local, dado de gráfico, título de mapa ou qualquer informação verbal, a audiodescrição deve PRESSUPOR essa informação como conhecida pelo ouvinte e descrever APENAS o que é exclusivamente visual e ainda desconhecido. Se TODA a informação visual relevante já estiver coberta pela narração, retornar PÁGINA_SEM_AUDIODESCRIÇÃO.`
+    : "";
+
   return `ETAPA 1 — CLASSIFICAÇÃO DA IMAGEM:
 
 Antes de gerar qualquer descrição, analise criteriosamente esta imagem e classifique-a em uma das duas categorias:
@@ -185,6 +195,16 @@ TABELAS: Estrutura e dados-chave apenas. MÁXIMO: 60 palavras.
 REGRA 4 — OMITIR SEMPRE: vestimenta sem valor pedagógico, objetos secundários, elementos decorativos, cores sem função informativa, lateralidade, estilo tipográfico, conteúdo de telas, expressões faciais genéricas. Incluir SOMENTE o que uma pessoa com deficiência visual PRECISA saber para acompanhar o conteúdo.
 
 REGRA 5 — FORMATO: Texto corrido, sem quebras extras, sem colchetes. Se não houver elementos visuais relevantes: PÁGINA_SEM_AUDIODESCRIÇÃO.
+
+REGRA 6 — FUNDAMENTO NORMATIVO (Manual de Audiodescrição – GPEAD/IBC, ABNT NBR 16452:2016, Lei 13.146/2015 – LBI, Decreto 5.296/2004):
+• Descrever de forma OBJETIVA, no presente do indicativo, sem opiniões, juízos de valor, interpretações ou inferências subjetivas (não usar "parece", "talvez", "alegre", "triste", "bonito").
+• Usar vocabulário simples, claro e adequado ao público; frases curtas e diretas — "menos é mais".
+• Descrever do geral para o particular: primeiro o todo (cena, suporte), depois o essencial.
+• Não antecipar informações que o texto/narração revelará depois; não substituir a leitura do texto.
+• Nomear cores apenas quando forem informação pedagógica indispensável (mapas, gráficos, sinalização). Caso contrário, omitir.
+• Não descrever elementos meramente decorativos, repetitivos (cabeçalhos, rodapés, marcadores) nem ícones já compreendidos pelo contexto textual.
+• Para personagens recorrentes já apresentados em página anterior, não repetir a descrição física completa — apenas nomear e descrever a NOVA ação/postura.
+• A audiodescrição NUNCA reproduz texto escrito presente na imagem (isso é função da narração/audiobook).${narrationBlock}
 
 TIPO DE LIVRO: ${bookType}${styleNote}`;
 }
