@@ -15,6 +15,7 @@ import VideoGlobalPanel from "@/components/editor/VideoGlobalPanel";
 import PageNavigator from "@/components/editor/PageNavigator";
 import AudioPageCard from "@/components/editor/AudioPageCard";
 import VideoPageCard from "@/components/editor/VideoPageCard";
+import UnifiedPageCard from "@/components/editor/UnifiedPageCard";
 import ExportFooter from "@/components/editor/ExportFooter";
 import ProcessingScreen from "@/components/editor/ProcessingScreen";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
@@ -26,7 +27,7 @@ const ProjectDetail = () => {
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
   const videoDetector = useVideoRegionDetector();
-  const [activeTab, setActiveTab] = useState("audiobook");
+  const [activeTab, setActiveTab] = useState("unified");
   const [pairIndex, setPairIndex] = useState(0);
   const [ttsEngine, setTtsEngine] = useState<TtsEngine>("gemini");
   const [canUseElevenlabs, setCanUseElevenlabs] = useState(false);
