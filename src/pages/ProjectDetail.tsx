@@ -159,44 +159,45 @@ const ProjectDetail = () => {
           </TabsList>
 
           <TabsContent value="unified">
-            {/* Audiobook (narração) global config */}
-            <GlobalConfigPanel
-              mode="audiobook"
-              style={project.audiobook_global_style || ""}
-              voice={project.audiobook_global_voice || "Zephyr"}
-              onStyleChange={(v) => updateProject({ audiobook_global_style: v || null })}
-              onVoiceChange={(v) => updateProject({ audiobook_global_voice: v })}
-              pages={pages}
-              project={project}
-              onPageUpdate={updatePage}
-              ttsEngine={ttsEngine}
-              onTtsEngineChange={setTtsEngine}
-              canUseElevenlabs={canUseElevenlabs}
-              elevenlabsVoices={elevenlabsVoices}
-              selectedElevenlabsVoice={selectedElevenlabsVoice}
-              onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
-              narrationSpeed={narrationSpeed}
-              onNarrationSpeedChange={setNarrationSpeed}
-            />
-            {/* Audiodesc global config (mantém configuração separada de voz/estilo) */}
-            <GlobalConfigPanel
-              mode="audiodesc"
-              style={project.audiodesc_global_style || ""}
-              voice={project.audiodesc_global_voice || "Kore"}
-              onStyleChange={(v) => updateProject({ audiodesc_global_style: v || null })}
-              onVoiceChange={(v) => updateProject({ audiodesc_global_voice: v })}
-              pages={pages}
-              project={project}
-              onPageUpdate={updatePage}
-              ttsEngine={ttsEngine}
-              onTtsEngineChange={setTtsEngine}
-              canUseElevenlabs={canUseElevenlabs}
-              elevenlabsVoices={elevenlabsVoices}
-              selectedElevenlabsVoice={selectedElevenlabsVoice}
-              onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
-              narrationSpeed={narrationSpeed}
-              onNarrationSpeedChange={setNarrationSpeed}
-            />
+            {/* Painéis globais lado a lado: Narração (audiobook) + Audiodescrição */}
+            <div className="grid gap-4 lg:grid-cols-2 mb-4">
+              <GlobalConfigPanel
+                mode="audiobook"
+                style={project.audiobook_global_style || ""}
+                voice={project.audiobook_global_voice || "Zephyr"}
+                onStyleChange={(v) => updateProject({ audiobook_global_style: v || null })}
+                onVoiceChange={(v) => updateProject({ audiobook_global_voice: v })}
+                pages={pages}
+                project={project}
+                onPageUpdate={updatePage}
+                ttsEngine={ttsEngine}
+                onTtsEngineChange={setTtsEngine}
+                canUseElevenlabs={canUseElevenlabs}
+                elevenlabsVoices={elevenlabsVoices}
+                selectedElevenlabsVoice={selectedElevenlabsVoice}
+                onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
+                narrationSpeed={narrationSpeed}
+                onNarrationSpeedChange={setNarrationSpeed}
+              />
+              <GlobalConfigPanel
+                mode="audiodesc"
+                style={project.audiodesc_global_style || ""}
+                voice={project.audiodesc_global_voice || "Kore"}
+                onStyleChange={(v) => updateProject({ audiodesc_global_style: v || null })}
+                onVoiceChange={(v) => updateProject({ audiodesc_global_voice: v })}
+                pages={pages}
+                project={project}
+                onPageUpdate={updatePage}
+                ttsEngine={ttsEngine}
+                onTtsEngineChange={setTtsEngine}
+                canUseElevenlabs={canUseElevenlabs}
+                elevenlabsVoices={elevenlabsVoices}
+                selectedElevenlabsVoice={selectedElevenlabsVoice}
+                onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
+                narrationSpeed={narrationSpeed}
+                onNarrationSpeedChange={setNarrationSpeed}
+              />
+            </div>
             <PageNavigator
               currentPair={pairIndex}
               totalPairs={totalPairs}
