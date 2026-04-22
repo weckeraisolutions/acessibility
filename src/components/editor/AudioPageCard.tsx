@@ -411,7 +411,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
       <CardContent className="p-3 space-y-3">
         {hideImage && (
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold">
+            <h4 className="font-semibold text-2xl">
               {sectionTitle || (mode === "audiobook" ? "🔊 Narração" : "🖼️ Audiodescrição")}
             </h4>
             <Badge className={`text-[10px] ${status.color} text-white border-0`}>{status.label}</Badge>
