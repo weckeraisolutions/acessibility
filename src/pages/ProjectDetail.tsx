@@ -13,7 +13,6 @@ import EditorHeader from "@/components/editor/EditorHeader";
 import GlobalConfigPanel, { type TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import VideoGlobalPanel from "@/components/editor/VideoGlobalPanel";
 import PageNavigator from "@/components/editor/PageNavigator";
-import AudioPageCard from "@/components/editor/AudioPageCard";
 import VideoPageCard from "@/components/editor/VideoPageCard";
 import UnifiedPageCard from "@/components/editor/UnifiedPageCard";
 import ExportFooter from "@/components/editor/ExportFooter";
