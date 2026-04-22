@@ -37,6 +37,10 @@ interface AudioPageCardProps {
   globalNarrationSpeed?: string;
   pageNarrationSpeed?: string | null;
   onPageNarrationSpeedChange?: (v: string | null) => void;
+  /** When true, hides the page image header (used inside UnifiedPageCard which renders the image once). */
+  hideImage?: boolean;
+  /** Optional title shown above the text area when hideImage is true (e.g. "🔊 Narração"). */
+  sectionTitle?: string;
 }
 
 function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
@@ -50,7 +54,7 @@ function getStatus(page: Page, mode: "audiobook" | "audiodesc") {
   return { label: "○ Pendente", color: "bg-muted-foreground/40" };
 }
 
-const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan, globalNarrationSpeed = "educativo", pageNarrationSpeed = null, onPageNarrationSpeedChange }: AudioPageCardProps) => {
+const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, elevenlabsVoices, selectedElevenlabsVoice, plan, globalNarrationSpeed = "educativo", pageNarrationSpeed = null, onPageNarrationSpeedChange, hideImage = false, sectionTitle }: AudioPageCardProps) => {
   const text = mode === "audiobook" ? page.audiobook_text : page.audiodesc_text;
   const audioUrl = mode === "audiobook" ? page.audiobook_audio_url : page.audiodesc_audio_url;
   const pageVoice = mode === "audiobook" ? page.audiobook_voice : page.audiodesc_voice;
@@ -387,7 +391,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
   return (
     <Card className="overflow-hidden">
-      <div className="relative bg-muted aspect-[3/4] flex items-center justify-center">
+      {!hideImage && (
+        <div className="relative bg-muted aspect-[3/4] flex items-center justify-center">
         {(page.thumbnail_url || page.image_url) ? (
           <img src={page.thumbnail_url || page.image_url || ""} alt={`Página ${page.page_number}`} className="w-full h-full object-contain" />
         ) : (
@@ -399,9 +404,18 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         <span className="absolute bottom-2 left-2 text-xs bg-background/80 rounded px-1.5 py-0.5">
           Página {page.page_number}
         </span>
-      </div>
+        </div>
+      )}
 
       <CardContent className="p-3 space-y-3">
+        {hideImage && (
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold">
+              {sectionTitle || (mode === "audiobook" ? "🔊 Narração" : "🖼️ Audiodescrição")}
+            </h4>
+            <Badge className={`text-[10px] ${status.color} text-white border-0`}>{status.label}</Badge>
+          </div>
+        )}
         <div>
           {isAudiobook && narrations.length > 0 && (
             <Label className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1 block">

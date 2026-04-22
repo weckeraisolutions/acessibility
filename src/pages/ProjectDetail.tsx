@@ -13,8 +13,8 @@ import EditorHeader from "@/components/editor/EditorHeader";
 import GlobalConfigPanel, { type TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import VideoGlobalPanel from "@/components/editor/VideoGlobalPanel";
 import PageNavigator from "@/components/editor/PageNavigator";
-import AudioPageCard from "@/components/editor/AudioPageCard";
 import VideoPageCard from "@/components/editor/VideoPageCard";
+import UnifiedPageCard from "@/components/editor/UnifiedPageCard";
 import ExportFooter from "@/components/editor/ExportFooter";
 import ProcessingScreen from "@/components/editor/ProcessingScreen";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
@@ -26,7 +26,7 @@ const ProjectDetail = () => {
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
   const videoDetector = useVideoRegionDetector();
-  const [activeTab, setActiveTab] = useState("audiobook");
+  const [activeTab, setActiveTab] = useState("unified");
   const [pairIndex, setPairIndex] = useState(0);
   const [ttsEngine, setTtsEngine] = useState<TtsEngine>("gemini");
   const [canUseElevenlabs, setCanUseElevenlabs] = useState(false);
@@ -154,12 +154,12 @@ const ProjectDetail = () => {
       <div className="container flex-1 py-4">
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setPairIndex(0); }}>
           <TabsList className="mb-4">
-            <TabsTrigger value="audiobook">📖 Audiobook</TabsTrigger>
-            <TabsTrigger value="audiodesc">🖼️ Audiodescrição</TabsTrigger>
+            <TabsTrigger value="unified">📖 Narração + AD</TabsTrigger>
             <TabsTrigger value="videobook">🎬 Videobook</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="audiobook">
+          <TabsContent value="unified">
+            {/* Audiobook (narração) global config */}
             <GlobalConfigPanel
               mode="audiobook"
               style={project.audiobook_global_style || ""}
@@ -178,34 +178,7 @@ const ProjectDetail = () => {
               narrationSpeed={narrationSpeed}
               onNarrationSpeedChange={setNarrationSpeed}
             />
-            <PageNavigator
-              currentPair={pairIndex}
-              totalPairs={totalPairs}
-              onPrev={() => setPairIndex((i) => Math.max(0, i - 1))}
-              onNext={() => setPairIndex((i) => Math.min(totalPairs - 1, i + 1))}
-            />
-            <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
-              {currentPages.map((page) => (
-                <AudioPageCard
-                  key={page.id}
-                  page={page}
-                  mode="audiobook"
-                  globalVoice={project.audiobook_global_voice || "Zephyr"}
-                  project={project}
-                  onUpdate={updatePage}
-                  ttsEngine={ttsEngine}
-                  elevenlabsVoices={elevenlabsVoices}
-                  selectedElevenlabsVoice={selectedElevenlabsVoice}
-                  plan={profile?.plan}
-                  globalNarrationSpeed={narrationSpeed}
-                  pageNarrationSpeed={pageNarrationSpeeds[page.id] || null}
-                  onPageNarrationSpeedChange={(v) => setPageNarrationSpeed(page.id, v)}
-                />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="audiodesc">
+            {/* Audiodesc global config (mantém configuração separada de voz/estilo) */}
             <GlobalConfigPanel
               mode="audiodesc"
               style={project.audiodesc_global_style || ""}
@@ -232,11 +205,9 @@ const ProjectDetail = () => {
             />
             <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
               {currentPages.map((page) => (
-                <AudioPageCard
+                <UnifiedPageCard
                   key={page.id}
                   page={page}
-                  mode="audiodesc"
-                  globalVoice={project.audiodesc_global_voice || "Kore"}
                   project={project}
                   onUpdate={updatePage}
                   ttsEngine={ttsEngine}
