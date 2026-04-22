@@ -215,7 +215,7 @@ serve(async (req) => {
   }
 
   try {
-    const { page_id, image_url, mode, book_type, global_style, page_style } = await req.json();
+    const { page_id, image_url, mode, book_type, global_style, page_style, narration_text } = await req.json();
 
     const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
 
@@ -243,7 +243,13 @@ serve(async (req) => {
     }
     imgBase64 = btoa(imgBase64);
 
-    const prompt = getPrompt(mode, book_type || "general", global_style || "", page_style || "");
+    const prompt = getPrompt(
+      mode,
+      book_type || "general",
+      global_style || "",
+      page_style || "",
+      mode === "audiodesc" ? (narration_text || "") : ""
+    );
 
     // Call Gemini Vision API with 55s timeout
     const controller = new AbortController();
