@@ -49,6 +49,7 @@ async function callExtractText(
           : project.audiodesc_global_style,
       page_style:
         mode === "audiobook" ? page.audiobook_style : page.audiodesc_style,
+      narration_text: mode === "audiodesc" ? (page.audiobook_text || "") : "",
     },
   });
 

@@ -197,6 +197,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           book_type: project.book_type,
           global_style: (mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style) || "",
           page_style: (mode === "audiobook" ? page.audiobook_style : page.audiodesc_style) || "",
+          narration_text: mode === "audiodesc" ? (page.audiobook_text || "") : "",
         },
       });
       if (error || !data?.success) {
