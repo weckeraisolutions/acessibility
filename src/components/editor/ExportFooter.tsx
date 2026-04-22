@@ -33,7 +33,10 @@ const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: 
   const [newEnd, setNewEnd] = useState(totalPages);
   const [showConfig, setShowConfig] = useState(false);
 
+  // For backward compatibility: legacy tabs ("audiobook"/"audiodesc") still work.
+  // The new "unified" tab exports BOTH narration and audio description.
   const mode = activeTab === "audiodesc" ? "audiodesc" as const : "audiobook" as const;
+  const isUnified = activeTab === "unified";
 
   const handleAddChapter = () => {
     if (!newName.trim()) { toast.error("Informe o nome do capítulo"); return; }
@@ -44,15 +47,32 @@ const ExportFooter = ({ activeTab, totalPages, pages, projectName, projectId }: 
 
   const handleDownloadSelection = () => {
     if (selectedChapter === "all") {
-      zip.downloadFullBook(pages, projectName, mode, chapters.length ? chapters : undefined);
+      if (isUnified) {
+        zip.downloadFullBook(pages, `${projectName}_narracao`, "audiobook", chapters.length ? chapters : undefined);
+        zip.downloadFullBook(pages, `${projectName}_audiodescricao`, "audiodesc", chapters.length ? chapters : undefined);
+      } else {
+        zip.downloadFullBook(pages, projectName, mode, chapters.length ? chapters : undefined);
+      }
     } else {
       const ch = chapters.find(c => c.id === selectedChapter);
-      if (ch) zip.downloadChapter(pages, projectName, ch.name, mode, ch.startPage, ch.endPage);
+      if (ch) {
+        if (isUnified) {
+          zip.downloadChapter(pages, `${projectName}_narracao`, ch.name, "audiobook", ch.startPage, ch.endPage);
+          zip.downloadChapter(pages, `${projectName}_audiodescricao`, ch.name, "audiodesc", ch.startPage, ch.endPage);
+        } else {
+          zip.downloadChapter(pages, projectName, ch.name, mode, ch.startPage, ch.endPage);
+        }
+      }
     }
   };
 
   const handleDownloadFull = () => {
-    zip.downloadFullBook(pages, projectName, mode, chapters.length ? chapters : undefined);
+    if (isUnified) {
+      zip.downloadFullBook(pages, `${projectName}_narracao`, "audiobook", chapters.length ? chapters : undefined);
+      zip.downloadFullBook(pages, `${projectName}_audiodescricao`, "audiodesc", chapters.length ? chapters : undefined);
+    } else {
+      zip.downloadFullBook(pages, projectName, mode, chapters.length ? chapters : undefined);
+    }
   };
 
   return (
