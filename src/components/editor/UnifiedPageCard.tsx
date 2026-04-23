@@ -12,7 +12,11 @@ interface UnifiedPageCardProps {
   page: Page;
   project: Project;
   onUpdate: (pageId: string, fields: Partial<Page>) => void;
-  ttsEngine: TtsEngine;
+  narrationTtsEngine: TtsEngine;
+  audiodescTtsEngine: TtsEngine;
+  onNarrationTtsEngineChange: (engine: TtsEngine) => void;
+  onAudiodescTtsEngineChange: (engine: TtsEngine) => void;
+  canUseElevenlabs: boolean;
   elevenlabsVoices: ElevenLabsVoice[];
   selectedElevenlabsVoice: string;
   plan?: string;
@@ -30,7 +34,11 @@ const UnifiedPageCard = ({
   page,
   project,
   onUpdate,
-  ttsEngine,
+  narrationTtsEngine,
+  audiodescTtsEngine,
+  onNarrationTtsEngineChange,
+  onAudiodescTtsEngineChange,
+  canUseElevenlabs,
   elevenlabsVoices,
   selectedElevenlabsVoice,
   plan,
@@ -76,7 +84,9 @@ const UnifiedPageCard = ({
         globalVoice={project.audiobook_global_voice || "Zephyr"}
         project={project}
         onUpdate={onUpdate}
-        ttsEngine={ttsEngine}
+        ttsEngine={narrationTtsEngine}
+        onTtsEngineChange={onNarrationTtsEngineChange}
+        canUseElevenlabs={canUseElevenlabs}
         elevenlabsVoices={elevenlabsVoices}
         selectedElevenlabsVoice={selectedElevenlabsVoice}
         plan={plan}
@@ -94,7 +104,9 @@ const UnifiedPageCard = ({
         globalVoice={project.audiodesc_global_voice || "Kore"}
         project={project}
         onUpdate={onUpdate}
-        ttsEngine={ttsEngine}
+        ttsEngine={audiodescTtsEngine}
+        onTtsEngineChange={onAudiodescTtsEngineChange}
+        canUseElevenlabs={canUseElevenlabs}
         elevenlabsVoices={elevenlabsVoices}
         selectedElevenlabsVoice={selectedElevenlabsVoice}
         plan={plan}

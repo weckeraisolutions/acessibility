@@ -28,7 +28,8 @@ const ProjectDetail = () => {
   const videoDetector = useVideoRegionDetector();
   const [activeTab, setActiveTab] = useState("unified");
   const [pairIndex, setPairIndex] = useState(0);
-  const [ttsEngine, setTtsEngine] = useState<TtsEngine>("gemini");
+  const [narrationTtsEngine, setNarrationTtsEngine] = useState<TtsEngine>("gemini");
+  const [audiodescTtsEngine, setAudiodescTtsEngine] = useState<TtsEngine>("gemini");
   const [canUseElevenlabs, setCanUseElevenlabs] = useState(false);
   const [elevenlabsVoices, setElevenlabsVoices] = useState<ElevenLabsVoice[]>([]);
   const [selectedElevenlabsVoice, setSelectedElevenlabsVoice] = useState("");
@@ -83,8 +84,6 @@ const ProjectDetail = () => {
       }
     }).catch((err) => { console.error("[ElevenLabs] Erro ao buscar vozes:", err); });
   }, []);
-
-  const isElevenlabs = ttsEngine === "elevenlabs" && canUseElevenlabs;
 
   const perPage = isMobile ? 1 : 2;
   const pairs = useMemo(() => {
@@ -170,8 +169,8 @@ const ProjectDetail = () => {
                 pages={pages}
                 project={project}
                 onPageUpdate={updatePage}
-                ttsEngine={ttsEngine}
-                onTtsEngineChange={setTtsEngine}
+                ttsEngine={narrationTtsEngine}
+                onTtsEngineChange={setNarrationTtsEngine}
                 canUseElevenlabs={canUseElevenlabs}
                 elevenlabsVoices={elevenlabsVoices}
                 selectedElevenlabsVoice={selectedElevenlabsVoice}
@@ -188,8 +187,8 @@ const ProjectDetail = () => {
                 pages={pages}
                 project={project}
                 onPageUpdate={updatePage}
-                ttsEngine={ttsEngine}
-                onTtsEngineChange={setTtsEngine}
+                ttsEngine={audiodescTtsEngine}
+                onTtsEngineChange={setAudiodescTtsEngine}
                 canUseElevenlabs={canUseElevenlabs}
                 elevenlabsVoices={elevenlabsVoices}
                 selectedElevenlabsVoice={selectedElevenlabsVoice}
@@ -211,7 +210,11 @@ const ProjectDetail = () => {
                   page={page}
                   project={project}
                   onUpdate={updatePage}
-                  ttsEngine={ttsEngine}
+                  narrationTtsEngine={narrationTtsEngine}
+                  audiodescTtsEngine={audiodescTtsEngine}
+                  onNarrationTtsEngineChange={setNarrationTtsEngine}
+                  onAudiodescTtsEngineChange={setAudiodescTtsEngine}
+                  canUseElevenlabs={canUseElevenlabs}
                   elevenlabsVoices={elevenlabsVoices}
                   selectedElevenlabsVoice={selectedElevenlabsVoice}
                   plan={profile?.plan}
