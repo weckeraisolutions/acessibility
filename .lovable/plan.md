@@ -1,53 +1,130 @@
 
 
-# Correção Completa — Audiobook & Audiodescrição
+# Refinamento Completo do Módulo Videobook (Flipbook + Capítulos + Libras)
 
-## Problemas Identificados
+Reformulação do módulo Videobook em um fluxo autocontido: capítulos → reprocessamento HD → flipbook interativo com áudio sincronizado → painel de Libras → exportação MP4 H.264 por capítulo. Todo o pipeline de upload, extração e geração de áudio permanece intacto.
 
-### Problema 1: Timeout em páginas com muito conteúdo
-- **Causa**: `extract-text` edge function uses `btoa()` with string concatenation for large images — can be slow but main issue is no timeout on the Gemini API call. The Supabase edge function has a ~60s limit; large images + long prompts can exceed this.
-- **Fix**: Add `AbortController` with 55s timeout to the Gemini fetch call. Also add a `signal` parameter. The current approach (edge function downloads image by URL) is already correct — no base64 from frontend.
+## Visão geral do fluxo
 
-### Problema 2: Geração de áudio não funciona
-- **Causa**: Looking at `generate-audio`, the implementation looks correct — reads `GEMINI_API_KEY` from env, uses service role for upload. The issue is likely that `supabase.functions.invoke` returns errors in a way that's swallowed. Need to check error handling and ensure the function is deployed. Also, the `btoa()`-based base64 decoding of audio on line 76 (`Uint8Array.from(atob(audioPart.data), (c) => c.charCodeAt(0))`) can fail for large audio — should use proper base64 decoding.
-- **Fix**: Use `decode` from Deno's base64 module instead of `atob()` for binary data. Add timeout to Gemini TTS call. Improve frontend error messages.
+```text
+[Aba Videobook]
+   │
+   ▼
+1. Definir Capítulos (lista + intervalo de páginas + interpreter_mode)
+   │
+   ▼
+2. Selecionar capítulo → checa resolução das imagens
+   │       └── < 2000px? chama reprocess-pages-highres (300dpi → page-images-hd)
+   ▼
+3. Editor do Capítulo
+   ┌─────────────────────────┬───────────────────┐
+   │  Flipbook (StPageFlip)  │  Painel Libras    │
+   │  + áudio sincronizado   │  (VLibras / vídeo │
+   │  + 1 ou 2 páginas       │   humano / vazio) │
+   └─────────────────────────┴───────────────────┘
+   │
+   ▼
+4. Gerar Vídeo (FFmpeg.wasm)
+   - ffprobe duração de cada MP3 → mapa de viradas
+   - captura canvas 30fps + composição esquerda/direita
+   - concat MP3 + encode H.264 (Full HD ou 4K)
+   - upload videobook-final/{user}/{project}/{chapter}_{res}.mp4
+```
 
-### Problema 3: ElevenLabs bloqueado
-- **Causa**: `ProjectDetail.tsx` line 32: `canUseElevenlabs = !!(profile?.elevenlabs_default_voice_id)` — requires user to have configured a default voice in Settings. Should instead check if the ElevenLabs service is available (API key exists on server).
-- **Fix**: Change availability check to call `get-elevenlabs-voices` on mount and use result to determine availability. Remove plan-based restriction. Make voice selector work for ElevenLabs in both global panel and per-page cards.
+## Mudanças no banco
 
-## Implementation Plan
+**Nova tabela `chapters`**
+- `id uuid PK`, `project_id uuid` (FK projects), `title text`
+- `start_page int`, `end_page int`, `order int`
+- `interpreter_mode text` (`vlibras` | `human_video` | `none`)
+- `interpreter_video_url text` (path no bucket interpreter-videos)
+- `videobook_url text`, `videobook_status text` default `'draft'`
+- `videobook_resolution text`, `videobook_layout text` (`single` | `double`)
+- `created_at`, `updated_at`
+- RLS: SELECT/INSERT/UPDATE/DELETE permitidos quando `EXISTS project com user_id = auth.uid()`
+- Índice em `(project_id, "order")`
+- Validação de sobreposição via trigger `BEFORE INSERT/UPDATE` que rejeita se `[start_page,end_page]` intersectar outro capítulo do mesmo projeto
 
-### 1. Fix `extract-text` Edge Function
-- Add `AbortController` with 55s timeout to Gemini API call
-- Use Deno's `encode`/base64 properly for large images
-- Improve error responses with distinct error codes
+**Coluna nova em `pages`**
+- `image_hd_url text NULL` — URL da imagem em alta resolução (preenchida sob demanda)
 
-### 2. Fix `generate-audio` Edge Function  
-- Replace `atob()` with Deno's `decode` from `std/encoding/base64.ts` for audio binary
-- Add 55s timeout to Gemini TTS call
-- Add 55s timeout to ElevenLabs call
-- Handle `403` from ElevenLabs as "credits exhausted" with specific message
+**Novos buckets de Storage**
+- `page-images-hd` (público) — imagens 300dpi
+- `interpreter-videos` (privado) — vídeos do intérprete humano
+- Políticas: usuário só lê/escreve em pasta `{user_id}/...`
 
-### 3. Fix ElevenLabs Availability in Frontend
-- **`ProjectDetail.tsx`**: Remove `canUseElevenlabs = !!(profile?.elevenlabs_default_voice_id)`. Instead, add a `useEffect` that calls `get-elevenlabs-voices` on mount. If it returns voices successfully, set `canUseElevenlabs = true`.
-- **`GlobalConfigPanel.tsx`**: Accept `elevenlabsVoices` prop. When ElevenLabs is selected, show these voices in the voice selector (not disabled). Allow changing the voice.
-- **`AudioPageCard.tsx`**: Accept `ttsEngine` prop. When `elevenlabs`, show ElevenLabs voices and pass `use_elevenlabs: true` to generate-audio. Allow per-page voice override for ElevenLabs voices too.
-- Remove dependency on `profile.elevenlabs_default_voice_id` for availability — the key is on the server.
+A tabela `projects.videobook_url` permanece (legado/compat), mas o vídeo passa a viver em `chapters.videobook_url`.
 
-### 4. Better Frontend Error Handling
-- In `useTextExtractor.ts`: Parse error response from edge function and show specific toast messages
-- In `AudioPageCard.tsx`: Show specific error messages for each failure type (invalid key, rate limit, credits exhausted, timeout)
+## Edge Functions (novas)
 
-## Files to Modify
-- `supabase/functions/extract-text/index.ts` — add timeout
-- `supabase/functions/generate-audio/index.ts` — fix base64 decoding, add timeout, improve ElevenLabs error handling
-- `src/pages/ProjectDetail.tsx` — fix ElevenLabs availability check, pass voices/engine down
-- `src/components/editor/GlobalConfigPanel.tsx` — accept ElevenLabs voices, enable voice selection
-- `src/components/editor/AudioPageCard.tsx` — accept ttsEngine, show correct voices per engine
-- `src/hooks/useTextExtractor.ts` — better error messages in toasts
+**`reprocess-pages-highres`** (`supabase/functions/reprocess-pages-highres/index.ts`)
+- Input: `{ project_id, chapter_id }`
+- Baixa o PDF do bucket `pdfs`, renderiza apenas as páginas `start_page..end_page` em 300dpi usando `pdfjs-dist` em Deno (mesma estratégia do worker client) ou via `pdf-lib` + render canvas-server.
+- Faz upload em `page-images-hd/{user_id}/{project_id}/pag_NNN.png` e atualiza `pages.image_hd_url`.
+- Retorna progresso em streaming (SSE) ou polling de uma tabela auxiliar.
+- Skip automático se a imagem atual já tiver largura ≥ 2000px (verificado client-side antes de chamar).
 
-## Files NOT Modified
-- Edge functions `get-elevenlabs-voices` and `preview-elevenlabs-voice` — already correct
-- Videobook components — explicitly excluded
+## Componentes / Hooks novos
+
+**Hooks**
+- `src/hooks/useChapters.ts` (CRUD: list/create/update/delete + validação de sobreposição local antes de persistir)
+- `src/hooks/useHighResPages.ts` (verifica largura via `Image()` natural, dispara edge function, mostra progresso)
+- `src/hooks/useFlipbookPlayback.ts` (controla play/pause, página atual, ouve `audio.ended` para virar; calcula mapa `pageId → duration` via `<audio>.duration` ou ffprobe)
+- `src/hooks/useChapterVideoExport.ts` (substitui o uso atual de `useVideobookExport` para capítulos; reaproveita helpers `loadImage`, `easeInOut`, init FFmpeg do hook existente)
+
+**Componentes**
+- `src/components/videobook/ChapterListPanel.tsx` — grid de capítulos + botão "+ Definir Capítulos"
+- `src/components/videobook/ChapterEditorDialog.tsx` — formulário título + range de páginas + atalho "Capítulo Único"
+- `src/components/videobook/PageGridSelector.tsx` — grid de cards de páginas para selecionar intervalo
+- `src/components/videobook/HighResPreparationDialog.tsx` — barra de progresso do reprocessamento
+- `src/components/videobook/VideobookPlayer.tsx` — wrapper do `page-flip` (StPageFlip) + áudio + controles (play/pause, prev/next, fullscreen, toggle 1/2 páginas, barra de progresso do capítulo)
+- `src/components/videobook/InterpreterPanel.tsx` — 3 abas: VLibras (`@djpfs/react-vlibras`), upload MP4 humano (com validação de duração ≈ duração do capítulo), "Sem intérprete"
+- `src/components/videobook/ChapterEditorView.tsx` — layout 70/30 com Player + InterpreterPanel
+- `src/components/videobook/VideobookExportDialog.tsx` — modal nova versão: seleção Full HD/4K, layout 1/2 páginas, barra de progresso detalhada, preview e download
+
+## Mudanças de UI na aba Videobook (`src/pages/ProjectDetail.tsx`)
+
+A aba `videobook` atual é substituída por:
+
+1. **Estado vazio**: card "Nenhum capítulo definido" + CTA "+ Definir Capítulos".
+2. **Lista de capítulos**: grid de cards (`title`, `N páginas`, status badge, botão "Abrir editor", botão "Editar capítulo"). Botão flutuante "+ Novo Capítulo".
+3. **Editor de capítulo** (rota interna ou modal full-screen): renderiza `ChapterEditorView`.
+4. **Modal de exportação** acionado por "Gerar Videobook" dentro do editor.
+
+Os componentes legados `VideoGlobalPanel`, `VideoPageCard`, `useVideoRegionDetector`, `useVideobookExport`, `VideobookExportDialog` antigos permanecem no repo mas deixam de ser montados (mantidos para compat caso reativados — sem quebrar build).
+
+## Pipeline de exportação por capítulo (FFmpeg.wasm)
+
+1. **Pré-cálculo**: para cada página do capítulo, baixa o MP3 de `audiobook_audio_url`, escreve em FS virtual e roda `ffprobe` (`-i in.mp3 -show_entries format=duration`) → constrói `{ pageId: durationSec }`. Soma = duração total do capítulo.
+2. **Captura de frames**: instancia `StPageFlip` num `<canvas>` headless (mesma config do player). Em loop a 30fps:
+   - tempo `t` cresce; quando `t ≥ accumulatedDuration[i] - 0.3` → dispara `flipNext()` para a próxima página.
+   - `canvas.toBlob('image/png')` → grava `frame_NNNNNN.png` no FS do FFmpeg.
+   - Compõe **frame final** num segundo canvas com layout `[Flipbook | Interpreter]` (70/30): se `vlibras` → captura do widget DOM via `html2canvas`; se `human_video` → desenha `<video>` no instante `t`; se `none` → fundo neutro.
+3. **Áudio**: concat dos MP3s na ordem do capítulo (`-f concat`), gera `audio_chapter.mp3`.
+4. **Encode**: `libx264 -preset medium -crf 20 -pix_fmt yuv420p` em 1920×1080 ou 3840×2160; `-c:a aac -b:a 192k`; `-movflags +faststart`. Aviso ao usuário de 30–60min para 4K.
+5. **Upload**: `videobook-final/{user_id}/{project_id}/{chapter_slug}_{res}.mp4`, atualiza `chapters.videobook_url` + `videobook_status='ready'`.
+6. **Progresso detalhado**: hook expõe `{ phase, currentPage, totalPages, percent, etaSec, partialBytes }` consumido pelo modal.
+
+## Dependências
+
+- `npm install page-flip` (StPageFlip)
+- Reaproveita `@ffmpeg/ffmpeg`, `@ffmpeg/util`, `pdfjs-dist`, `@djpfs/react-vlibras`, `html2canvas` (verificar se já existe — caso contrário adicionar para captura do VLibras).
+
+## O que NÃO muda
+
+- `usePdfProcessor`, `useTextExtractor`, `useProjectEditor`
+- Edge Functions: `extract-text`, `generate-audio`, `get-elevenlabs-voices`, `preview-elevenlabs-voice`, `detect-video-regions`
+- Tabelas `pages`, `projects`, `profiles`, `page_narrations` (apenas adição de `pages.image_hd_url`)
+- Aba "Narração + AD" e seus componentes
+- Landing page, Auth, Dashboard, sistema de planos
+
+## Ordem de implementação (incremental)
+
+1. Migração DB: tabela `chapters` + trigger de sobreposição + coluna `pages.image_hd_url` + buckets.
+2. `useChapters` + `ChapterListPanel` + `ChapterEditorDialog` + integração na aba.
+3. Edge function `reprocess-pages-highres` + `useHighResPages` + dialog de progresso.
+4. `VideobookPlayer` com `page-flip` + áudio sincronizado + controles.
+5. `InterpreterPanel` (3 modos) + persistência em `chapters.interpreter_mode/url`.
+6. `useChapterVideoExport` + `VideobookExportDialog` novo + upload + status.
+7. QA visual + testes de sincronização áudio/virada e composição do frame final.
 
