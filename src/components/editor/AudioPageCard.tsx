@@ -462,6 +462,21 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           )}
         </div>
 
+        {onTtsEngineChange && (
+          <div>
+            <Label className="text-xs">Motor de Voz (TTS):</Label>
+            <Select value={ttsEngine} onValueChange={(v) => onTtsEngineChange(v as TtsEngine)}>
+              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gemini">🤖 Google Gemini TTS</SelectItem>
+                <SelectItem value="elevenlabs" disabled={!canUseElevenlabs}>
+                  ✨ ElevenLabs {!canUseElevenlabs && "(indisponível)"}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div>
           <div className="flex items-center gap-2">
             <Label className="text-xs">Voz:</Label>
