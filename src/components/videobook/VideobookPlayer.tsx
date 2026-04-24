@@ -252,13 +252,12 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
         {/* Flipbook (only mounts when dimensions are valid + status ready) */}
         {canRender && (
           <div className="flex justify-center items-start h-full">
-            {/* @ts-expect-error react-pageflip types are loose */}
             <HTMLFlipBook
               key={flipBookKey}
               ref={flipBookRef}
               width={dims.w}
               height={dims.h}
-              size="fixed"
+              size={"fixed" as any}
               minWidth={MIN_W}
               maxWidth={1600}
               minHeight={MIN_H}
