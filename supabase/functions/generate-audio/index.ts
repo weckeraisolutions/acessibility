@@ -365,7 +365,7 @@ async function generateWithElevenLabs(
         .eq("project_id", projectId)
         .eq("page_number", pageNumber - 1)
         .single();
-      const prevText = prevPage?.[textField];
+      const prevText = (prevPage as Record<string, unknown> | null)?.[textField];
       if (prevText && typeof prevText === "string" && prevText.length > 0) {
         previousText = prevText.slice(-200);
       }
