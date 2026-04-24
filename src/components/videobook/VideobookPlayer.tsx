@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useImperativeHandle, forwardRef }
 import { PageFlip } from "page-flip";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, SkipBack, SkipForward, Maximize, BookOpen, Book } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Maximize, BookOpen, Book, Loader2 } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Page = Tables<"pages"> & { image_hd_url?: string | null };
@@ -31,7 +31,9 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
   const [playing, setPlaying] = useState(false);
   const [audioTime, setAudioTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [reinitializing, setReinitializing] = useState(false);
   const accumulatedRef = useRef(0); // accumulated time of completed pages
+  const lastImgsKeyRef = useRef<string>("");
 
   const sortedPages = useMemo(
     () => [...pages].sort((a, b) => a.page_number - b.page_number),
@@ -41,15 +43,56 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
     () => sortedPages.reduce((s, p) => s + (Number(p.audiobook_audio_duration_seconds) || 0), 0),
     [sortedPages],
   );
+  const imgsKey = useMemo(
+    () => sortedPages.map(p => p.image_hd_url || p.image_url || "").join("|"),
+    [sortedPages],
+  );
 
   // init flipbook
   useEffect(() => {
     if (!containerRef.current || sortedPages.length === 0) return;
-    const w = containerRef.current.clientWidth;
-    const pageW = layout === "double" ? Math.floor(w / 2) : w;
+    if (lastImgsKeyRef.current === imgsKey + "::" + layout) return;
+    lastImgsKeyRef.current = imgsKey + "::" + layout;
+
+    // Pause audio before destroying instance to avoid stale callbacks
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setPlaying(false);
+    setReinitializing(true);
+
+    // Destroy any previous instance immediately
+    if (flipRef.current) {
+      try { flipRef.current.destroy(); } catch {}
+      flipRef.current = null;
+    }
+
+    const container = containerRef.current;
+    const w = container.clientWidth;
+    // In single layout, cap width to keep flipbook visually anchored to the left
+    // and leave breathing room for the interpreter panel area.
+    const pageW = layout === "double" ? Math.floor(w / 2) : Math.min(w, 600);
     const pageH = Math.floor(pageW * 1.4);
 
-    const pf = new PageFlip(containerRef.current, {
+    const imgs = sortedPages.map(p => p.image_hd_url || p.image_url).filter(Boolean) as string[];
+
+    // Preload images to avoid main-thread blocking inside loadFromImages
+    const preload = (src: string) => new Promise<void>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = src;
+    });
+
+    let cancelled = false;
+    let pf: PageFlip | null = null;
+
+    Promise.all(imgs.map(preload)).then(() => {
+      if (cancelled || !containerRef.current) return;
+      // Defer to next tick to release main thread
+      setTimeout(() => {
+        if (cancelled || !containerRef.current) return;
+        pf = new PageFlip(containerRef.current, {
       width: pageW,
       height: pageH,
       size: "stretch" as any,
@@ -69,23 +112,28 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
       useMouseEvents: true,
       disableFlipByClick: false,
     } as any);
-
-    const imgs = sortedPages.map(p => p.image_hd_url || p.image_url).filter(Boolean) as string[];
-    pf.loadFromImages(imgs);
-    flipRef.current = pf;
-
-    pf.on("flip", (e: any) => {
-      const idx = e.data as number;
-      setCurrentIdx(idx);
-      onPageChange?.(idx);
+        flipRef.current = pf;
+        pf.loadFromImages(imgs);
+        pf.on("flip", (e: any) => {
+          // Guard against stale events from destroyed instances
+          if (flipRef.current !== pf) return;
+          const idx = e.data as number;
+          setCurrentIdx(idx);
+          onPageChange?.(idx);
+        });
+        setReinitializing(false);
+      }, 50);
     });
 
     return () => {
-      try { pf.destroy(); } catch {}
-      flipRef.current = null;
+      cancelled = true;
+      if (pf) {
+        try { pf.destroy(); } catch {}
+      }
+      if (flipRef.current === pf) flipRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, sortedPages.length]);
+  }, [layout, imgsKey]);
 
   // load audio when page changes
   useEffect(() => {
@@ -114,7 +162,7 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
     const onMeta = () => setAudioDuration(a.duration || 0);
     const onEnd = () => {
       // auto-flip to next page
-      if (flipRef.current && currentIdx < sortedPages.length - 1) {
+      if (flipRef.current && !reinitializing && currentIdx < sortedPages.length - 1) {
         flipRef.current.flipNext();
       } else {
         setPlaying(false);
@@ -128,7 +176,7 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
       a.removeEventListener("loadedmetadata", onMeta);
       a.removeEventListener("ended", onEnd);
     };
-  }, [currentIdx, sortedPages.length, onTimeUpdate]);
+  }, [currentIdx, sortedPages.length, onTimeUpdate, reinitializing]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -157,7 +205,20 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={containerRef} className="flex-1 bg-black/5 rounded-lg overflow-hidden" style={{ minHeight: 400 }} />
+      <div className="relative flex-1">
+        <div
+          ref={containerRef}
+          className="h-full bg-black/5 rounded-lg overflow-hidden mx-auto"
+          style={{ minHeight: 400, maxWidth: layout === "single" ? 600 : "100%" }}
+        />
+        {reinitializing && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg z-10">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Reorganizando layout...
+            </div>
+          </div>
+        )}
+      </div>
 
       <audio ref={audioRef} preload="metadata" />
 
@@ -168,18 +229,24 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
           <span className="text-xs text-muted-foreground tabular-nums w-12">{formatTime(totalDuration)}</span>
         </div>
         <div className="flex items-center justify-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => flipRef.current?.flipPrev()}>
+          <Button size="sm" variant="ghost" disabled={reinitializing} onClick={() => flipRef.current?.flipPrev()}>
             <SkipBack className="h-4 w-4" />
           </Button>
-          <Button size="sm" onClick={togglePlay}>
+          <Button size="sm" disabled={reinitializing} onClick={togglePlay}>
             {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => flipRef.current?.flipNext()}>
+          <Button size="sm" variant="ghost" disabled={reinitializing} onClick={() => flipRef.current?.flipNext()}>
             <SkipForward className="h-4 w-4" />
           </Button>
           <span className="text-xs text-muted-foreground mx-2">Página {currentIdx + 1}/{sortedPages.length}</span>
           {onLayoutChange && (
-            <Button size="sm" variant="outline" onClick={() => onLayoutChange(layout === "single" ? "double" : "single")} title="Alternar layout">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={reinitializing}
+              onClick={() => onLayoutChange(layout === "single" ? "double" : "single")}
+              title="Alternar layout"
+            >
               {layout === "single" ? <Book className="h-4 w-4" /> : <BookOpen className="h-4 w-4" />}
             </Button>
           )}

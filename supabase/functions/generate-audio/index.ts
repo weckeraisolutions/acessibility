@@ -293,29 +293,43 @@ function deriveProjectSeed(projectId: string): number {
 async function generateWithElevenLabs(
   text: string, voiceId: string, modelId: string, apiKey: string,
   projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
+  narrationSpeed?: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const prepared = preprocessTextForPTBR(prepareText(text));
 
   const chunks: string[] = [];
-  if (prepared.length > 9500) {
+  // Smaller chunks (~3500 chars) ensure voice_settings.speed is applied
+  // consistently across the entire narration (not just the final lines).
+  const MAX_CHUNK = 3500;
+  if (prepared.length > MAX_CHUNK) {
     const paragraphs = prepared.split(/\n+/);
     let current = "";
+    const flush = () => { if (current.trim()) { chunks.push(current.trim()); current = ""; } };
     for (const p of paragraphs) {
-      if ((current + "\n" + p).length > 9000 && current) {
-        chunks.push(current.trim());
-        current = p;
-      } else {
-        current += (current ? "\n" : "") + p;
+      if (p.length > MAX_CHUNK) {
+        flush();
+        const sentences = p.split(/(?<=[.!?])\s+/);
+        for (const s of sentences) {
+          if ((current + " " + s).length > MAX_CHUNK && current) flush();
+          current += (current ? " " : "") + s;
+        }
+        continue;
       }
+      if ((current + "\n" + p).length > MAX_CHUNK && current) flush();
+      current += (current ? "\n" : "") + p;
     }
-    if (current.trim()) chunks.push(current.trim());
+    flush();
   } else {
     chunks.push(prepared);
   }
 
-  // Fetch previous page text for prosodic continuity
+  // Skip cross-context for "pausada" — context biases the model toward
+  // matching the previous chunk's pace, breaking the slow rhythm.
+  const skipContext = narrationSpeed === "pausada";
+
+  // Fetch previous page text for prosodic continuity (only if not pausada)
   let previousText: string | undefined;
-  if (projectId && pageNumber && pageNumber > 1) {
+  if (!skipContext && projectId && pageNumber && pageNumber > 1) {
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -350,7 +364,7 @@ async function generateWithElevenLabs(
       model_id: "eleven_multilingual_v2",
       language_code: "pt",
       voice_settings: {
-        stability: 0.85,
+        stability: 0.92,
         similarity_boost: 0.90,
         style: 0.20,
         use_speaker_boost: true,
@@ -365,15 +379,17 @@ async function generateWithElevenLabs(
       JSON.stringify((bodyObj as { voice_settings: unknown }).voice_settings),
     );
 
-    // For first chunk, use previous page context; for subsequent chunks, use previous chunk text
-    if (ci === 0 && previousText) {
-      bodyObj.previous_text = previousText;
-    } else if (ci > 0) {
-      bodyObj.previous_text = chunks[ci - 1].slice(-200);
-    }
-    // For non-last chunks, provide next chunk context
-    if (ci < chunks.length - 1) {
-      bodyObj.next_text = chunks[ci + 1].slice(0, 200);
+    if (!skipContext) {
+      // For first chunk, use previous page context; for subsequent chunks, use previous chunk text
+      if (ci === 0 && previousText) {
+        bodyObj.previous_text = previousText;
+      } else if (ci > 0) {
+        bodyObj.previous_text = chunks[ci - 1].slice(-200);
+      }
+      // For non-last chunks, provide next chunk context
+      if (ci < chunks.length - 1) {
+        bodyObj.next_text = chunks[ci + 1].slice(0, 200);
+      }
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -480,7 +496,7 @@ serve(async (req) => {
       if (!elApiKey) return respond({ success: false, error: "elevenlabs_credits", message: "ELEVENLABS_API_KEY não configurada no servidor" }, 500);
       const speedMap: Record<string, number> = { pausada: 0.80, educativo: 0.92, fluente: 1.00 };
       const elSpeed = (typeof narration_speed === "string" && speedMap[narration_speed]) ? speedMap[narration_speed] : 0.92;
-      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode, elSpeed);
+      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode, elSpeed, narration_speed);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
       engine = "elevenlabs";
@@ -525,7 +541,12 @@ serve(async (req) => {
       .from(bucket)
       .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
-    const audioUrl = signedUrlData?.signedUrl || "";
+    // Cache-buster: ensures clients fetch the freshly regenerated audio
+    // even when the storage path is identical (upsert overwrite).
+    const baseSignedUrl = signedUrlData?.signedUrl || "";
+    const audioUrl = baseSignedUrl
+      ? `${baseSignedUrl}${baseSignedUrl.includes("?") ? "&" : "?"}v=${Date.now()}`
+      : "";
 
     if (!skip_page_update) {
       const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";

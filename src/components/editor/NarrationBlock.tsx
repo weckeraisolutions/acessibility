@@ -52,7 +52,7 @@ const NarrationBlock = ({
     if (!narration.audio_url || narration.audio_url === prevAudioRef.current) return;
     prevAudioRef.current = narration.audio_url;
     let cancelled = false;
-    fetch(narration.audio_url)
+    fetch(narration.audio_url, { cache: "no-store" })
       .then((r) => r.arrayBuffer())
       .then((buf) => {
         if (cancelled) return;
@@ -229,7 +229,7 @@ const NarrationBlock = ({
 
       {blobUrl && (
         <>
-          <audio controls className="w-full h-7"><source src={blobUrl} type="audio/mpeg" /></audio>
+          <audio key={narration.audio_url || ""} controls className="w-full h-7"><source src={blobUrl} type="audio/mpeg" /></audio>
           <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={handleDownload}>
             <Download className="h-3 w-3 mr-1" /> Download MP3
           </Button>
