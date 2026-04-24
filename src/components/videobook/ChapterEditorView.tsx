@@ -70,7 +70,7 @@ const ChapterEditorView = ({ chapter, pages, projectId, projectName, onBack, onU
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-3 min-h-[600px]">
-        <div className="lg:col-span-7 border rounded-lg p-3 pr-4 bg-card">
+        <div className="lg:col-span-7 border rounded-lg p-3 pr-4 bg-card min-w-0 min-h-[640px]">
           <VideobookPlayer
             ref={playerRef}
             pages={chapterPages}
