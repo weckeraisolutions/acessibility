@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Loader2 } from "lucide-react";
 
@@ -14,12 +14,12 @@ const HighResPreparationDialog = ({ open, current, total, message }: Props) => {
   return (
     <Dialog open={open}>
       <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
+        <div className="flex flex-col space-y-1.5 text-center sm:text-left">
           <DialogTitle className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" /> Preparando páginas em alta resolução
           </DialogTitle>
           <DialogDescription>{message || "Isto pode levar alguns minutos…"}</DialogDescription>
-        </DialogHeader>
+        </div>
         <div className="space-y-2">
           <Progress value={pct} className="h-3" />
           <p className="text-xs text-muted-foreground text-center">
