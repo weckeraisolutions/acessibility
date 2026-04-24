@@ -286,6 +286,28 @@ function preprocessTextForPTBR(text: string): string {
     .trim();
 }
 
+/**
+ * Aggressive normalization for ElevenLabs only.
+ * Goal: present a single coherent prosodic context so the model applies
+ * voice_settings.speed uniformly from start to end. Prevents the model
+ * from "resetting" cadence on every short list item / line break.
+ */
+function normalizeForElevenLabs(text: string): string {
+  let t = text;
+  t = t.replace(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ ]{1,30}):\s+/g, "$1 — ");
+  t = t.replace(/\s*\n+\s*/g, " ");
+  t = t.replace(/\s+\/\s+/g, ", ");
+  t = t.replace(/\s{2,}/g, " ");
+  return t.trim();
+}
+
+/** Inline prosodic prefix that biases the model toward the requested cadence. */
+function rhythmPrefix(narrationSpeed?: string): string {
+  if (narrationSpeed === "pausada") return "... ";
+  if (narrationSpeed === "educativo") return ". ";
+  return "";
+}
+
 function deriveProjectSeed(projectId: string): number {
   return Math.abs(projectId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 4294967295;
 }
@@ -295,12 +317,13 @@ async function generateWithElevenLabs(
   projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
   narrationSpeed?: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
-  const prepared = preprocessTextForPTBR(prepareText(text));
+  // Apply ElevenLabs-specific aggressive normalization on top of standard prep
+  const prepared = normalizeForElevenLabs(preprocessTextForPTBR(prepareText(text)));
 
   const chunks: string[] = [];
-  // Smaller chunks (~3500 chars) ensure voice_settings.speed is applied
-  // consistently across the entire narration (not just the final lines).
-  const MAX_CHUNK = 3500;
+  // Smaller chunks (~1800 chars) re-anchor voice_settings frequently,
+  // preventing prosodic drift across long narrations.
+  const MAX_CHUNK = 1800;
   if (prepared.length > MAX_CHUNK) {
     const paragraphs = prepared.split(/\n+/);
     let current = "";
@@ -323,9 +346,10 @@ async function generateWithElevenLabs(
     chunks.push(prepared);
   }
 
-  // Skip cross-context for "pausada" — context biases the model toward
-  // matching the previous chunk's pace, breaking the slow rhythm.
-  const skipContext = narrationSpeed === "pausada";
+  // Skip cross-context for any non-fluent rhythm — context biases the model
+  // toward matching the previous chunk's pace, breaking the requested rhythm.
+  // Only "fluente" keeps cross-context for natural prosodic continuity.
+  const skipContext = narrationSpeed !== "fluente";
 
   // Fetch previous page text for prosodic continuity (only if not pausada)
   let previousText: string | undefined;
@@ -349,11 +373,12 @@ async function generateWithElevenLabs(
   }
 
   const seed = projectId ? deriveProjectSeed(projectId) : undefined;
+  const prefix = rhythmPrefix(narrationSpeed);
 
   const audioBuffers: Uint8Array[] = [];
 
   for (let ci = 0; ci < chunks.length; ci++) {
-    const chunk = chunks[ci];
+    const chunk = prefix + chunks[ci];
     let lastError: string | null = null;
 
     const controller = new AbortController();
@@ -364,18 +389,18 @@ async function generateWithElevenLabs(
       model_id: "eleven_multilingual_v2",
       language_code: "pt",
       voice_settings: {
-        stability: 0.92,
-        similarity_boost: 0.90,
-        style: 0.20,
-        use_speaker_boost: true,
+        stability: 1.0,
+        similarity_boost: 0.75,
+        style: 0.0,
+        use_speaker_boost: false,
         speed: speed,
       },
     };
     if (seed !== undefined) bodyObj.seed = seed;
 
-    // [TEMP] Verificação do parâmetro speed enviado ao ElevenLabs
+    // Validation log — confirms locked rhythm settings per chunk
     console.log(
-      `[ElevenLabs] chunk ${ci + 1}/${chunks.length} voice_settings:`,
+      `[ElevenLabs] chunk ${ci + 1}/${chunks.length} (rhythm=${narrationSpeed || "default"}) voice_settings:`,
       JSON.stringify((bodyObj as { voice_settings: unknown }).voice_settings),
     );
 
