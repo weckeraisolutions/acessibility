@@ -496,7 +496,7 @@ serve(async (req) => {
       if (!elApiKey) return respond({ success: false, error: "elevenlabs_credits", message: "ELEVENLABS_API_KEY não configurada no servidor" }, 500);
       const speedMap: Record<string, number> = { pausada: 0.80, educativo: 0.92, fluente: 1.00 };
       const elSpeed = (typeof narration_speed === "string" && speedMap[narration_speed]) ? speedMap[narration_speed] : 0.92;
-      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode, elSpeed);
+      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode, elSpeed, narration_speed);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
       engine = "elevenlabs";
