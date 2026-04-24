@@ -19,11 +19,17 @@ import ProcessingScreen from "@/components/editor/ProcessingScreen";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import ChapterListPanel from "@/components/videobook/ChapterListPanel";
 import ChapterEditorView from "@/components/videobook/ChapterEditorView";
+import VideobookComingSoon from "@/components/videobook/VideobookComingSoon";
+
+const VIDEOBOOK_ALLOWED_EMAILS = [
+  "andressa.rosset@escola.pr.gov.br",
+  "weckeraisolutions@gmail.com",
+];
 
 const ProjectDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
   const chaptersDB = useChaptersDB(id);
@@ -229,7 +235,9 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="videobook">
-            {openChapter ? (
+            {!VIDEOBOOK_ALLOWED_EMAILS.includes((user?.email || "").toLowerCase()) ? (
+              <VideobookComingSoon />
+            ) : openChapter ? (
               <ChapterEditorView
                 chapter={openChapter}
                 pages={pages}
