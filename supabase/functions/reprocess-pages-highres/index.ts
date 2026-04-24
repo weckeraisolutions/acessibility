@@ -1,14 +1,12 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import * as pdfjsLib from "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
+// Use mupdf-wasm in Deno — supports rendering PDFs to PNG without node-canvas
+import * as mupdf from "https://esm.sh/mupdf@1.3.0?bundle";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Polyfills for pdfjs in Deno
-(globalThis as any).DOMMatrix = (globalThis as any).DOMMatrix || class { a=1;b=0;c=0;d=1;e=0;f=0; constructor(){} };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -65,36 +63,34 @@ Deno.serve(async (req) => {
       pdfBytes = new Uint8Array(await blob.arrayBuffer());
     }
 
-    // Load PDF
-    const loadingTask = (pdfjsLib as any).getDocument({ data: pdfBytes, disableFontFace: true, useSystemFonts: false });
-    const pdf = await loadingTask.promise;
+    // Render with mupdf
+    const doc = (mupdf as any).Document.openDocument(pdfBytes, "application/pdf");
+    const numPages = doc.countPages();
+
+    // Target ~300dpi (pdf is 72dpi base). Use zoom matrix.
+    const zoom = 300 / 72;
+    const matrix = (mupdf as any).Matrix.scale(zoom, zoom);
 
     const updates: { page_number: number; hd_url: string }[] = [];
     for (let pageNum = chapter.start_page; pageNum <= chapter.end_page; pageNum++) {
-      if (pageNum < 1 || pageNum > pdf.numPages) continue;
-      const page = await pdf.getPage(pageNum);
-      // Target ~300dpi: pdf default is 72dpi → scale 300/72 ≈ 4.17, clamp width to ~2400px
-      const baseViewport = page.getViewport({ scale: 1 });
-      const targetWidth = 2400;
-      const scale = Math.min(targetWidth / baseViewport.width, 4.17);
-      const viewport = page.getViewport({ scale });
-
-      // OffscreenCanvas in Deno via globalThis
-      const canvas = new OffscreenCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-      const ctx = canvas.getContext("2d") as any;
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-      const blob = await canvas.convertToBlob({ type: "image/png" });
-      const buf = new Uint8Array(await blob.arrayBuffer());
+      if (pageNum < 1 || pageNum > numPages) continue;
+      const page = doc.loadPage(pageNum - 1);
+      const pixmap = page.toPixmap(matrix, (mupdf as any).ColorSpace.DeviceRGB, false, true);
+      const pngBytes: Uint8Array = pixmap.asPNG();
 
       const path = `${userId}/${project_id}/pag_${String(pageNum).padStart(4, "0")}.png`;
-      const up = await admin.storage.from("page-images-hd").upload(path, buf, { contentType: "image/png", upsert: true });
+      const up = await admin.storage.from("page-images-hd").upload(path, pngBytes, { contentType: "image/png", upsert: true });
       if (up.error) throw new Error(`Upload failed for page ${pageNum}: ${up.error.message}`);
       const { data: urlData } = admin.storage.from("page-images-hd").getPublicUrl(path);
       const hdUrl = urlData.publicUrl;
 
       await admin.from("pages").update({ image_hd_url: hdUrl } as any).eq("project_id", project_id).eq("page_number", pageNum);
       updates.push({ page_number: pageNum, hd_url: hdUrl });
+
+      pixmap.destroy?.();
+      page.destroy?.();
     }
+    doc.destroy?.();
 
     return new Response(JSON.stringify({ success: true, updated: updates.length, pages: updates }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
