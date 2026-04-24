@@ -7,17 +7,18 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { useProjectEditor } from "@/hooks/useProjectEditor";
 import { usePdfProcessor } from "@/hooks/usePdfProcessor";
 import { useVideoRegionDetector } from "@/hooks/useVideoRegionDetector";
+import { useChaptersDB, type ChapterRow } from "@/hooks/useChapters";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import EditorHeader from "@/components/editor/EditorHeader";
 import GlobalConfigPanel, { type TtsEngine } from "@/components/editor/GlobalConfigPanel";
-import VideoGlobalPanel from "@/components/editor/VideoGlobalPanel";
 import PageNavigator from "@/components/editor/PageNavigator";
-import VideoPageCard from "@/components/editor/VideoPageCard";
 import UnifiedPageCard from "@/components/editor/UnifiedPageCard";
 import ExportFooter from "@/components/editor/ExportFooter";
 import ProcessingScreen from "@/components/editor/ProcessingScreen";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
+import ChapterListPanel from "@/components/videobook/ChapterListPanel";
+import ChapterEditorView from "@/components/videobook/ChapterEditorView";
 
 const ProjectDetail = () => {
   const { id } = useParams();
@@ -25,7 +26,8 @@ const ProjectDetail = () => {
   const { profile } = useAuth();
   const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
-  const videoDetector = useVideoRegionDetector();
+  const chaptersDB = useChaptersDB(id);
+  const [openChapter, setOpenChapter] = useState<ChapterRow | null>(null);
   const [activeTab, setActiveTab] = useState("unified");
   const [pairIndex, setPairIndex] = useState(0);
   const [narrationTtsEngine, setNarrationTtsEngine] = useState<TtsEngine>("gemini");
@@ -227,30 +229,26 @@ const ProjectDetail = () => {
           </TabsContent>
 
           <TabsContent value="videobook">
-            <VideoGlobalPanel
-              visualStyle={project.videobook_global_visual_style || ""}
-              transition={project.videobook_global_transition || "fade"}
-              outputFormat={project.videobook_output_format || "16:9"}
-              onVisualStyleChange={(v) => updateProject({ videobook_global_visual_style: v || null })}
-              onTransitionChange={(v) => updateProject({ videobook_global_transition: v })}
-              onOutputFormatChange={(v) => updateProject({ videobook_output_format: v })}
-              detecting={videoDetector.detecting}
-              detectCurrentPage={videoDetector.currentPage}
-              detectTotalPages={videoDetector.totalPages}
-              onDetectAll={() => videoDetector.detectAll(pages, project.book_type, updatePage)}
-              onCancelDetect={videoDetector.cancel}
-            />
-            <PageNavigator
-              currentPair={pairIndex}
-              totalPairs={totalPairs}
-              onPrev={() => setPairIndex((i) => Math.max(0, i - 1))}
-              onNext={() => setPairIndex((i) => Math.min(totalPairs - 1, i + 1))}
-            />
-            <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
-              {currentPages.map((page) => (
-                <VideoPageCard key={page.id} page={page} bookType={project.book_type} onUpdate={updatePage} onDetectSingle={videoDetector.detectSingle} />
-              ))}
-            </div>
+            {openChapter ? (
+              <ChapterEditorView
+                chapter={openChapter}
+                pages={pages}
+                projectId={project.id}
+                projectName={project.name}
+                onBack={() => setOpenChapter(null)}
+                onUpdateChapter={chaptersDB.updateChapter}
+                onPagesRefetch={refetch}
+              />
+            ) : (
+              <ChapterListPanel
+                chapters={chaptersDB.chapters}
+                pages={pages}
+                onCreate={chaptersDB.createChapter}
+                onUpdate={chaptersDB.updateChapter}
+                onDelete={chaptersDB.deleteChapter}
+                onOpen={setOpenChapter}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </div>
