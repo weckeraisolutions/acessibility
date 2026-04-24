@@ -120,7 +120,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
     let cancelled = false;
     setLoadingAudio(true);
 
-    fetch(audioUrl)
+    fetch(audioUrl, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch audio");
         return res.arrayBuffer();
