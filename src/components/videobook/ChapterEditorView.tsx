@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Film } from "lucide-react";
 import VideobookPlayer, { type VideobookPlayerHandle } from "./VideobookPlayer";
@@ -28,18 +28,27 @@ const ChapterEditorView = ({ chapter, pages, projectId, projectName, onBack, onU
   const [currentPageIdx, setCurrentPageIdx] = useState(0);
   const hd = useHighResPages();
 
-  const chapterPages = pages
-    .filter(p => p.page_number >= chapter.start_page && p.page_number <= chapter.end_page)
-    .sort((a, b) => a.page_number - b.page_number);
+  const chapterPages = useMemo(
+    () => pages
+      .filter(p => p.page_number >= chapter.start_page && p.page_number <= chapter.end_page)
+      .sort((a, b) => a.page_number - b.page_number),
+    [pages, chapter.start_page, chapter.end_page],
+  );
 
-  const totalDuration = chapterPages.reduce((s, p) => s + (Number(p.audiobook_audio_duration_seconds) || 0), 0);
+  const totalDuration = useMemo(
+    () => chapterPages.reduce((s, p) => s + (Number(p.audiobook_audio_duration_seconds) || 0), 0),
+    [chapterPages],
+  );
 
-  // Trigger HD prep on mount
+  // Trigger HD prep once per chapter
+  const hdRanRef = useRef<string | null>(null);
   useEffect(() => {
+    if (hdRanRef.current === chapter.id) return;
+    hdRanRef.current = chapter.id;
     (async () => {
       try {
-        await hd.ensureHighResForChapter(projectId, chapter.id, pages, chapter.start_page, chapter.end_page);
-        onPagesRefetch?.();
+        const res = await hd.ensureHighResForChapter(projectId, chapter.id, pages, chapter.start_page, chapter.end_page);
+        if (res && !res.skipped) onPagesRefetch?.();
       } catch (e) {
         console.warn("HD prep failed", e);
       }
