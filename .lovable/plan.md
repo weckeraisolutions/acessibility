@@ -1,67 +1,58 @@
-# Correção definitiva da consistência de ritmo nas narrações ElevenLabs
+## Objetivo
+Eliminar definitivamente o travamento "Reorganizando layout..." no módulo Videobook, corrigir o erro `Invalid width or height` do page-flip, sanar o warning do `HighResPreparationDialog`, e deixar o player pronto para escala usando o wrapper oficial `react-pageflip`.
 
-## Problema confirmado
+## Causa raiz identificada
+1. `new PageFlip()` é chamado com `width=0/height=0` quando o container ainda não foi medido pelo browser (race entre layout do CSS grid e o `useEffect`). A exceção lançada não é capturada → `setReinitializing(false)` nunca executa → overlay fica para sempre.
+2. Guarda `lastImgsKeyRef` cria deadlock: marca a key antes de saber se o init terminou. Em re-render/StrictMode, próximas tentativas são ignoradas.
+3. `HighResPreparationDialog` recebe ref implícita do Radix em uma render path que dispara warning.
+4. Configuração do PageFlip mistura `size:"stretch"` + `width/height` fixos + `autoSize` (contraditório).
+5. Sem `ResizeObserver` → não recalcula em mudanças do layout.
 
-Na página 14, com voz "Elena Vinter" e ritmo "Pausada", o áudio inicia em ritmo fluido (~educativo) e só a partir da metade adota o ritmo pausado. Os logs da edge function confirmam que `voice_settings.speed: 0.8` está sendo enviado, mas o modelo `eleven_multilingual_v2` está derivando a cadência ao longo da geração porque:
+## Implementação
 
-1. **Quebras de linha em listas** (Constelação:, Período:, Região:) fazem o modelo "resetar" a prosódia a cada item, ignorando parcialmente o `speed`.
-2. **`stability: 0.92`** ainda permite variação prosódica suficiente para drift de ritmo.
-3. **`style: 0.20`** introduz expressividade que compete com o `speed` solicitado.
-4. **`similarity_boost: 0.90`** força o modelo a replicar a prosódia natural da voz original (que é fluida), neutralizando o `speed`.
-5. O texto chega ao modelo com estrutura fragmentada que ele interpreta como múltiplos contextos prosódicos independentes.
+### 1. Instalar dependência
+- `bun add react-pageflip` (wrapper React oficial e mantido da mesma lib base, com lifecycle correto, tipagem TS e ref API).
 
-## Correções no `supabase/functions/generate-audio/index.ts`
+### 2. Reescrever `src/components/videobook/VideobookPlayer.tsx`
+- Substituir uso vanilla de `PageFlip` por `<HTMLFlipBook>` de `react-pageflip`.
+- Estado-máquina explícito: `idle | preloading | ready | error`.
+- Pré-carregar todas as imagens com `Promise.all` antes de montar o componente.
+- Usar `ResizeObserver` com debounce (150ms) para recalcular `width/height` quando o container muda.
+- **Guarda dimensional**: só renderiza `<HTMLFlipBook>` quando `width >= 200 && height >= 280`.
+- Try/catch + `finally` em todos os pontos de risco — overlay sempre desaparece.
+- Estado `error` mostra botão "Tentar novamente".
+- Manter `useImperativeHandle` expondo a mesma API pública (`getCurrentTime`, `getTotalDuration`, `goToPage`, `flipNext`, `getContainer`) — zero breaking change para consumidores.
+- Toggle de layout: muda apenas `usePortrait` prop, sem destruir/recriar manualmente — o wrapper cuida.
+- Listeners de áudio reescritos com cleanup correto e guard contra instância stale.
+- Logs `console.debug("[VideobookPlayer]", ...)` para diagnóstico futuro.
 
-### 1. Normalização agressiva do texto antes do envio
-Nova função `normalizeForElevenLabs(text)` aplicada **somente** ao input do ElevenLabs (não afeta Gemini):
-- Colapsa todas as quebras de linha (`\n+`) em espaço único
-- Converte `Palavra: ` (rótulos de lista) em `Palavra — ` para virar fluxo contínuo
-- Garante pontuação terminal entre itens (`.` antes de cada novo `Constelação`, `Período`, etc.)
-- Remove espaços duplicados
-- Resultado: o modelo recebe um único parágrafo coeso, não uma lista fragmentada
+### 3. Corrigir `src/components/videobook/HighResPreparationDialog.tsx`
+- Garantir estrutura limpa do `DialogContent` (envolver `DialogHeader`/`DialogTitle`/`DialogDescription` corretamente, remover qualquer ref implícita).
+- Verificar se algum prop está vazando ref para `DialogHeader` (componente function sem forwardRef). Ajustar import/estrutura.
 
-### 2. Recalibrar `voice_settings` para travar o ritmo
-```ts
-voice_settings: {
-  stability: 1.0,           // máximo — elimina variação prosódica
-  similarity_boost: 0.75,   // reduz a "puxada" para a prosódia natural da voz
-  style: 0.0,               // zero estilo — sem expressividade competindo com speed
-  use_speaker_boost: false, // remove boost que pode acelerar finais de frase
-  speed: <mapeado>,         // 0.80 pausada / 0.92 educativo / 1.00 fluente
-}
-```
+### 4. Ajustar `src/components/videobook/ChapterEditorView.tsx`
+- Garantir `min-h-[600px]` E `min-w-[320px]` no container do player (`lg:col-span-7`), evitando width:0 em transições do grid.
+- Remover qualquer wrapper que possa colapsar dimensões durante mount.
 
-### 3. Reduzir `MAX_CHUNK` de 3500 → 1800 caracteres
-Chunks menores garantem que `voice_settings` seja reavaliado com mais frequência, mantendo o ritmo uniforme em todo o áudio. Com 1800 chars, mesmo textos longos terão múltiplos chunks pequenos onde o `speed` é aplicado de forma consistente.
+### 5. QA pós-implementação
+- Build TypeScript limpo (`bunx tsc --noEmit`).
+- Verificar console sem warnings de ref ou erros de page-flip.
+- Testar toggle de layout 1↔2 páginas várias vezes seguidas.
+- Testar resize da janela com flipbook ativo.
+- Testar em viewport mobile (911px atual do usuário).
 
-### 4. Remover **completamente** `previous_text` e `next_text` para qualquer ritmo não-fluente
-Hoje só removemos para "pausada". O ritmo "educativo" (0.92) também sofre contaminação prosódica do contexto anterior. Regra nova:
-- `fluente` (1.00): mantém contexto (cadência natural)
-- `educativo` (0.92): **remove** contexto
-- `pausada` (0.80): **remove** contexto (já era assim)
+## Arquivos afetados
+- `package.json` (+ react-pageflip)
+- `src/components/videobook/VideobookPlayer.tsx` (reescrita)
+- `src/components/videobook/HighResPreparationDialog.tsx` (ajuste pequeno)
+- `src/components/videobook/ChapterEditorView.tsx` (CSS dimensional)
 
-### 5. Adicionar instrução prosódica inline no início de cada chunk
-Prefixar cada chunk com uma marca contextual curta que o `eleven_multilingual_v2` interpreta como pista de ritmo:
-- `pausada`: prefixo `"... "` (reticências longas) — induz cadência lenta
-- `educativo`: prefixo `". "` — pausa curta neutra
-- `fluente`: sem prefixo
+## Garantias
+- Zero breaking change na API pública do `VideobookPlayer` (ChapterEditorView e exportadores continuam funcionando).
+- Overlay "Reorganizando layout" terá timeout máximo garantido pela state machine.
+- Todas as exceções no init do flipbook serão capturadas e exibidas como erro recuperável.
+- Pronto para escala: lib mantida, lifecycle React-nativo, sem hacks de setTimeout.
 
-Isso é uma técnica documentada para `eleven_multilingual_v2` quando `voice_settings.speed` sozinho não basta.
-
-## Validação
-- Redeploy da edge function `generate-audio`.
-- Testar regenerando a narração da página 14 com Elena Vinter + Pausada.
-- Verificar nos logs que `[ElevenLabs] chunk N/M voice_settings` mostra `stability:1, style:0, similarity_boost:0.75, speed:0.8` para todos os chunks.
-- Confirmar auditivamente que o ritmo pausado se mantém do primeiro ao último segundo.
-
-## O que NÃO muda
-- Pipeline Gemini (intacto).
-- Estrutura de tabelas, buckets, signed URLs, cache-buster.
-- UI de NarrationBlock / AudioPageCard / GlobalConfigPanel.
-- Lógica de Videobook, capítulos, export.
-- Qualquer outro módulo do sistema.
-
-## Ordem de implementação
-1. Editar `supabase/functions/generate-audio/index.ts` com as 5 correções acima.
-2. Redeploy via `supabase--deploy_edge_functions`.
-3. Confirmar logs limpos e pedir ao usuário para regerar a narração problemática.
+## Fora de escopo (esta iteração)
+- Implementação do seek funcional no Slider de progresso (atualmente noop).
+- Suporte a vídeo de intérprete sobreposto ao flipbook (já existe em painel separado).
