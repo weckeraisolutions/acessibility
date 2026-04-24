@@ -569,7 +569,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Carregando áudio...
                 </div>
               ) : (
-                <audio ref={audioRef} controls className="w-full h-8">
+                <audio key={audioUrl || ""} ref={audioRef} controls className="w-full h-8">
                   <source src={blobUrl!} type={audioUrl?.includes(".mp3") ? "audio/mpeg" : "audio/wav"} />
                 </audio>
               )}
