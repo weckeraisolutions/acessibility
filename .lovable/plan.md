@@ -1,130 +1,72 @@
 
+# Correções: Narração ElevenLabs + Videobook (layout/estabilidade)
 
-# Refinamento Completo do Módulo Videobook (Flipbook + Capítulos + Libras)
+Quatro correções pontuais sem alterar o pipeline geral. Tudo client-side + 1 ajuste na edge function `generate-audio`.
 
-Reformulação do módulo Videobook em um fluxo autocontido: capítulos → reprocessamento HD → flipbook interativo com áudio sincronizado → painel de Libras → exportação MP4 H.264 por capítulo. Todo o pipeline de upload, extração e geração de áudio permanece intacto.
+## 1. Ritmo ElevenLabs aplicado em 100% da narração
 
-## Visão geral do fluxo
+**Causa:** chunks longos (até 9500 caracteres) + uso de `previous_text`/`next_text` entre chunks fazem o modelo perder a referência prosódica do `voice_settings.speed` no início e só "estabilizar" no fim. Além disso, `stability: 0.85` deixa margem para o modelo derivar.
 
-```text
-[Aba Videobook]
-   │
-   ▼
-1. Definir Capítulos (lista + intervalo de páginas + interpreter_mode)
-   │
-   ▼
-2. Selecionar capítulo → checa resolução das imagens
-   │       └── < 2000px? chama reprocess-pages-highres (300dpi → page-images-hd)
-   ▼
-3. Editor do Capítulo
-   ┌─────────────────────────┬───────────────────┐
-   │  Flipbook (StPageFlip)  │  Painel Libras    │
-   │  + áudio sincronizado   │  (VLibras / vídeo │
-   │  + 1 ou 2 páginas       │   humano / vazio) │
-   └─────────────────────────┴───────────────────┘
-   │
-   ▼
-4. Gerar Vídeo (FFmpeg.wasm)
-   - ffprobe duração de cada MP3 → mapa de viradas
-   - captura canvas 30fps + composição esquerda/direita
-   - concat MP3 + encode H.264 (Full HD ou 4K)
-   - upload videobook-final/{user}/{project}/{chapter}_{res}.mp4
-```
+**Correção em `supabase/functions/generate-audio/index.ts` (`generateWithElevenLabs`):**
+- Reduzir limite de chunk de **9500 → 3500 caracteres** (split por parágrafo, depois por sentença se necessário). Chunks menores = `voice_settings.speed` aplicado consistentemente do início ao fim de cada chunk.
+- Mapear `narration_speed` (novo parâmetro recebido do frontend) → `speed` numérico determinístico:
+  - `pausada` → `0.85`
+  - `educativo` → `0.95`
+  - `fluente` → `1.05`
+- Aumentar `stability: 0.85 → 0.92` para travar a entrega do ritmo.
+- **Remover** `previous_text` e `next_text` quando `narration_speed === "pausada"` (contexto de chunk anterior contamina o ritmo lento — modelo "acelera" para combinar). Manter para `educativo`/`fluente`.
+- Aceitar `narration_speed` no body do handler HTTP e propagar para `generateWithElevenLabs`.
 
-## Mudanças no banco
+**Ajuste em `src/components/editor/NarrationBlock.tsx` e `AudioPageCard.tsx`:**
+- Já enviam `narration_speed` — apenas garantir que vai sempre presente (default `"educativo"`).
 
-**Nova tabela `chapters`**
-- `id uuid PK`, `project_id uuid` (FK projects), `title text`
-- `start_page int`, `end_page int`, `order int`
-- `interpreter_mode text` (`vlibras` | `human_video` | `none`)
-- `interpreter_video_url text` (path no bucket interpreter-videos)
-- `videobook_url text`, `videobook_status text` default `'draft'`
-- `videobook_resolution text`, `videobook_layout text` (`single` | `double`)
-- `created_at`, `updated_at`
-- RLS: SELECT/INSERT/UPDATE/DELETE permitidos quando `EXISTS project com user_id = auth.uid()`
-- Índice em `(project_id, "order")`
-- Validação de sobreposição via trigger `BEFORE INSERT/UPDATE` que rejeita se `[start_page,end_page]` intersectar outro capítulo do mesmo projeto
+## 2. Áudio não atualiza após regerar com nova voz/motor
 
-**Coluna nova em `pages`**
-- `image_hd_url text NULL` — URL da imagem em alta resolução (preenchida sob demanda)
+**Causa:** O `audio_url` retornado mantém o mesmo path (sobrescrito com `upsert: true`), então o `<audio>` e o `fetch()` do blob retornam a versão cacheada pelo browser/CDN.
 
-**Novos buckets de Storage**
-- `page-images-hd` (público) — imagens 300dpi
-- `interpreter-videos` (privado) — vídeos do intérprete humano
-- Políticas: usuário só lê/escreve em pasta `{user_id}/...`
+**Correções:**
+- **`supabase/functions/generate-audio/index.ts`**: ao gerar a signed URL, anexar `&v=${Date.now()}` no retorno (`audio_url`) — força nova URL única a cada geração mesmo com mesmo path no Storage.
+- **`src/components/editor/NarrationBlock.tsx`**:
+  - No `useEffect` que busca o blob: trocar `prevAudioRef.current === narration.audio_url` por comparação ignorando query string, mas **sempre** refazer fetch quando a URL muda (já feito; o problema é o cache HTTP).
+  - Adicionar `cache: "no-store"` no `fetch(narration.audio_url)`.
+  - Adicionar `key={narration.audio_url}` no elemento `<audio>` para forçar remount.
+- **`src/components/editor/AudioPageCard.tsx`**: mesmo tratamento — `cache: "no-store"` no fetch do blob principal e `key` no `<audio>`.
 
-A tabela `projects.videobook_url` permanece (legado/compat), mas o vídeo passa a viver em `chapters.videobook_url`.
+## 3. Videobook: deslocar flipbook para a esquerda (75% / 25%)
 
-## Edge Functions (novas)
+**Estado atual em `src/components/videobook/ChapterEditorView.tsx`:** `lg:grid-cols-10` com player em `col-span-7` (70%) e intérprete em `col-span-3` (30%).
 
-**`reprocess-pages-highres`** (`supabase/functions/reprocess-pages-highres/index.ts`)
-- Input: `{ project_id, chapter_id }`
-- Baixa o PDF do bucket `pdfs`, renderiza apenas as páginas `start_page..end_page` em 300dpi usando `pdfjs-dist` em Deno (mesma estratégia do worker client) ou via `pdf-lib` + render canvas-server.
-- Faz upload em `page-images-hd/{user_id}/{project_id}/pag_NNN.png` e atualiza `pages.image_hd_url`.
-- Retorna progresso em streaming (SSE) ou polling de uma tabela auxiliar.
-- Skip automático se a imagem atual já tiver largura ≥ 2000px (verificado client-side antes de chamar).
+**Correção:** Manter 70/30 mas garantir que o flipbook **interno** ao player respeite o espaço:
+- Em `VideobookPlayer.tsx`, o cálculo `pageW = layout === "double" ? Math.floor(w / 2) : w` usa `containerRef.current.clientWidth` — está correto, mas o container atualmente não limita largura do flipbook ao layout `single`, fazendo a página única ocupar 100% e empurrar visualmente o painel.
+- Ajuste: em layout `single`, limitar `pageW` a `Math.min(w, 600)` e centralizar com `mx-auto` — assim o flipbook fica visualmente alinhado à esquerda dentro do seu próprio container e o painel à direita ganha respiro real.
+- Adicionar `padding-right` no container do player (`pr-4`) e `padding-left` no painel (`pl-2`) para separação visual.
 
-## Componentes / Hooks novos
+## 4. Toggle de layout (1↔2 páginas) trava o módulo
 
-**Hooks**
-- `src/hooks/useChapters.ts` (CRUD: list/create/update/delete + validação de sobreposição local antes de persistir)
-- `src/hooks/useHighResPages.ts` (verifica largura via `Image()` natural, dispara edge function, mostra progresso)
-- `src/hooks/useFlipbookPlayback.ts` (controla play/pause, página atual, ouve `audio.ended` para virar; calcula mapa `pageId → duration` via `<audio>.duration` ou ffprobe)
-- `src/hooks/useChapterVideoExport.ts` (substitui o uso atual de `useVideobookExport` para capítulos; reaproveita helpers `loadImage`, `easeInOut`, init FFmpeg do hook existente)
+**Causa raiz no `VideobookPlayer.tsx`:** o `useEffect` de inicialização do `PageFlip` depende de `[layout, sortedPages.length]`. Ao alternar layout:
+1. `pf.destroy()` é chamado, mas a instância anterior ainda tem listeners ativos (`flip` event) que disparam `setCurrentIdx` em uma instância destruída.
+2. `loadFromImages(imgs)` é chamado **síncronamente** com 31 imagens HD (~10–30MB cada) → bloqueia a main thread por vários segundos.
+3. O áudio continua tocando e o evento `ended` tenta chamar `flipRef.current.flipNext()` em referência stale.
 
-**Componentes**
-- `src/components/videobook/ChapterListPanel.tsx` — grid de capítulos + botão "+ Definir Capítulos"
-- `src/components/videobook/ChapterEditorDialog.tsx` — formulário título + range de páginas + atalho "Capítulo Único"
-- `src/components/videobook/PageGridSelector.tsx` — grid de cards de páginas para selecionar intervalo
-- `src/components/videobook/HighResPreparationDialog.tsx` — barra de progresso do reprocessamento
-- `src/components/videobook/VideobookPlayer.tsx` — wrapper do `page-flip` (StPageFlip) + áudio + controles (play/pause, prev/next, fullscreen, toggle 1/2 páginas, barra de progresso do capítulo)
-- `src/components/videobook/InterpreterPanel.tsx` — 3 abas: VLibras (`@djpfs/react-vlibras`), upload MP4 humano (com validação de duração ≈ duração do capítulo), "Sem intérprete"
-- `src/components/videobook/ChapterEditorView.tsx` — layout 70/30 com Player + InterpreterPanel
-- `src/components/videobook/VideobookExportDialog.tsx` — modal nova versão: seleção Full HD/4K, layout 1/2 páginas, barra de progresso detalhada, preview e download
-
-## Mudanças de UI na aba Videobook (`src/pages/ProjectDetail.tsx`)
-
-A aba `videobook` atual é substituída por:
-
-1. **Estado vazio**: card "Nenhum capítulo definido" + CTA "+ Definir Capítulos".
-2. **Lista de capítulos**: grid de cards (`title`, `N páginas`, status badge, botão "Abrir editor", botão "Editar capítulo"). Botão flutuante "+ Novo Capítulo".
-3. **Editor de capítulo** (rota interna ou modal full-screen): renderiza `ChapterEditorView`.
-4. **Modal de exportação** acionado por "Gerar Videobook" dentro do editor.
-
-Os componentes legados `VideoGlobalPanel`, `VideoPageCard`, `useVideoRegionDetector`, `useVideobookExport`, `VideobookExportDialog` antigos permanecem no repo mas deixam de ser montados (mantidos para compat caso reativados — sem quebrar build).
-
-## Pipeline de exportação por capítulo (FFmpeg.wasm)
-
-1. **Pré-cálculo**: para cada página do capítulo, baixa o MP3 de `audiobook_audio_url`, escreve em FS virtual e roda `ffprobe` (`-i in.mp3 -show_entries format=duration`) → constrói `{ pageId: durationSec }`. Soma = duração total do capítulo.
-2. **Captura de frames**: instancia `StPageFlip` num `<canvas>` headless (mesma config do player). Em loop a 30fps:
-   - tempo `t` cresce; quando `t ≥ accumulatedDuration[i] - 0.3` → dispara `flipNext()` para a próxima página.
-   - `canvas.toBlob('image/png')` → grava `frame_NNNNNN.png` no FS do FFmpeg.
-   - Compõe **frame final** num segundo canvas com layout `[Flipbook | Interpreter]` (70/30): se `vlibras` → captura do widget DOM via `html2canvas`; se `human_video` → desenha `<video>` no instante `t`; se `none` → fundo neutro.
-3. **Áudio**: concat dos MP3s na ordem do capítulo (`-f concat`), gera `audio_chapter.mp3`.
-4. **Encode**: `libx264 -preset medium -crf 20 -pix_fmt yuv420p` em 1920×1080 ou 3840×2160; `-c:a aac -b:a 192k`; `-movflags +faststart`. Aviso ao usuário de 30–60min para 4K.
-5. **Upload**: `videobook-final/{user_id}/{project_id}/{chapter_slug}_{res}.mp4`, atualiza `chapters.videobook_url` + `videobook_status='ready'`.
-6. **Progresso detalhado**: hook expõe `{ phase, currentPage, totalPages, percent, etaSec, partialBytes }` consumido pelo modal.
-
-## Dependências
-
-- `npm install page-flip` (StPageFlip)
-- Reaproveita `@ffmpeg/ffmpeg`, `@ffmpeg/util`, `pdfjs-dist`, `@djpfs/react-vlibras`, `html2canvas` (verificar se já existe — caso contrário adicionar para captura do VLibras).
+**Correções em `src/components/videobook/VideobookPlayer.tsx`:**
+- Antes do `pf.destroy()`: pausar áudio (`audioRef.current?.pause(); setPlaying(false);`).
+- Adicionar estado `reinitializing: boolean` — durante a troca, mostrar overlay "Reorganizando layout..." e desabilitar todos os controles (play, prev, next, toggle).
+- Envolver a re-criação em `setTimeout(() => { ... }, 50)` para liberar a main thread entre destroy e load.
+- Trocar dependência do effect para `[layout]` apenas (remover `sortedPages.length` que recriava sem necessidade) e usar `imgsKey` (string concatenada de URLs) num ref para detectar mudança real de páginas.
+- No handler `flip`: validar `if (flipRef.current !== pf) return;` (ignora eventos de instâncias antigas).
+- No `onEnd` do áudio: validar `if (!flipRef.current || reinitializing) return;`.
+- Pré-carregar imagens HD via `Promise.all(imgs.map(loadImg))` **antes** de chamar `loadFromImages` para evitar repaints em cascata.
 
 ## O que NÃO muda
 
-- `usePdfProcessor`, `useTextExtractor`, `useProjectEditor`
-- Edge Functions: `extract-text`, `generate-audio`, `get-elevenlabs-voices`, `preview-elevenlabs-voice`, `detect-video-regions`
-- Tabelas `pages`, `projects`, `profiles`, `page_narrations` (apenas adição de `pages.image_hd_url`)
-- Aba "Narração + AD" e seus componentes
-- Landing page, Auth, Dashboard, sistema de planos
+- Pipeline de upload, extração, fragmentação Gemini, geração de capítulos.
+- Schema do banco, RLS, buckets.
+- `useChapterVideoExport`, `VideobookExportDialog`, `InterpreterPanel`.
+- Demais hooks e componentes do módulo Audiobook/AD.
 
-## Ordem de implementação (incremental)
+## Ordem de implementação
 
-1. Migração DB: tabela `chapters` + trigger de sobreposição + coluna `pages.image_hd_url` + buckets.
-2. `useChapters` + `ChapterListPanel` + `ChapterEditorDialog` + integração na aba.
-3. Edge function `reprocess-pages-highres` + `useHighResPages` + dialog de progresso.
-4. `VideobookPlayer` com `page-flip` + áudio sincronizado + controles.
-5. `InterpreterPanel` (3 modos) + persistência em `chapters.interpreter_mode/url`.
-6. `useChapterVideoExport` + `VideobookExportDialog` novo + upload + status.
-7. QA visual + testes de sincronização áudio/virada e composição do frame final.
-
+1. `supabase/functions/generate-audio/index.ts` — chunks 3500, mapear speed, condicional de `previous_text`, query `&v=` na signed URL.
+2. `NarrationBlock.tsx` + `AudioPageCard.tsx` — `cache: "no-store"` + `key={audio_url}`.
+3. `VideobookPlayer.tsx` — pausa antes do destroy, `reinitializing` state, setTimeout entre destroy/load, guards nos handlers, pré-carregamento de imagens, ajuste de `pageW` em single.
+4. `ChapterEditorView.tsx` — `pr-4` no player, `pl-2` no painel.
