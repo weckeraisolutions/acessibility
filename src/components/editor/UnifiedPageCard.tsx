@@ -78,6 +78,7 @@ const UnifiedPageCard = ({
       </Card>
 
       {/* Narration block */}
+      <div className="rounded-lg border-l-4 border-l-[hsl(217_91%_60%)] bg-[hsl(217_91%_60%/0.04)] p-1.5">
       <AudioPageCard
         page={page}
         mode="audiobook"
@@ -96,8 +97,10 @@ const UnifiedPageCard = ({
         hideImage
         sectionTitle="🔊 Narração"
       />
+      </div>
 
       {/* Audio description block */}
+      <div className="rounded-lg border-l-4 border-l-[hsl(280_70%_60%)] bg-[hsl(280_70%_60%/0.04)] p-1.5">
       <AudioPageCard
         page={page}
         mode="audiodesc"
@@ -116,6 +119,7 @@ const UnifiedPageCard = ({
         hideImage
         sectionTitle="🖼️ Audiodescrição"
       />
+      </div>
     </div>
   );
 };
