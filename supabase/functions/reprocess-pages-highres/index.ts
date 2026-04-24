@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-// Use mupdf-wasm in Deno — supports rendering PDFs to PNG without node-canvas
-import * as mupdf from "https://esm.sh/mupdf@1.3.0?bundle";
+// mupdf-wasm renders PDFs to PNG without native node-canvas
+import * as mupdf from "npm:mupdf@1.3.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
