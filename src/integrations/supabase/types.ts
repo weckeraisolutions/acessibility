@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      chapters: {
+        Row: {
+          created_at: string
+          end_page: number
+          id: string
+          interpreter_mode: string
+          interpreter_video_url: string | null
+          order: number
+          project_id: string
+          start_page: number
+          title: string
+          updated_at: string
+          videobook_layout: string | null
+          videobook_resolution: string | null
+          videobook_status: string
+          videobook_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          end_page: number
+          id?: string
+          interpreter_mode?: string
+          interpreter_video_url?: string | null
+          order?: number
+          project_id: string
+          start_page: number
+          title: string
+          updated_at?: string
+          videobook_layout?: string | null
+          videobook_resolution?: string | null
+          videobook_status?: string
+          videobook_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          end_page?: number
+          id?: string
+          interpreter_mode?: string
+          interpreter_video_url?: string | null
+          order?: number
+          project_id?: string
+          start_page?: number
+          title?: string
+          updated_at?: string
+          videobook_layout?: string | null
+          videobook_resolution?: string | null
+          videobook_status?: string
+          videobook_url?: string | null
+        }
+        Relationships: []
+      }
       page_narrations: {
         Row: {
           audio_duration_seconds: number | null
@@ -99,6 +150,7 @@ export type Database = {
           audiodesc_voice: string | null
           created_at: string
           id: string
+          image_hd_url: string | null
           image_url: string | null
           page_number: number
           project_id: string
@@ -126,6 +178,7 @@ export type Database = {
           audiodesc_voice?: string | null
           created_at?: string
           id?: string
+          image_hd_url?: string | null
           image_url?: string | null
           page_number: number
           project_id: string
@@ -153,6 +206,7 @@ export type Database = {
           audiodesc_voice?: string | null
           created_at?: string
           id?: string
+          image_hd_url?: string | null
           image_url?: string | null
           page_number?: number
           project_id?: string
