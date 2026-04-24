@@ -26,7 +26,7 @@ const ChapterEditorDialog = ({ open, onOpenChange, pages, editing, onSubmit }: P
 
   useEffect(() => {
     if (open) {
-      setTitle(editing?.title ?? `Capítulo ${editing ? "" : ""}`.trim() || "Capítulo");
+      setTitle(editing?.title || "Capítulo");
       setStart(editing?.start_page ?? 1);
       setEnd(editing?.end_page ?? Math.min(total, 1));
     }
