@@ -286,6 +286,28 @@ function preprocessTextForPTBR(text: string): string {
     .trim();
 }
 
+/**
+ * Aggressive normalization for ElevenLabs only.
+ * Goal: present a single coherent prosodic context so the model applies
+ * voice_settings.speed uniformly from start to end. Prevents the model
+ * from "resetting" cadence on every short list item / line break.
+ */
+function normalizeForElevenLabs(text: string): string {
+  let t = text;
+  t = t.replace(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ ]{1,30}):\s+/g, "$1 — ");
+  t = t.replace(/\s*\n+\s*/g, " ");
+  t = t.replace(/\s+\/\s+/g, ", ");
+  t = t.replace(/\s{2,}/g, " ");
+  return t.trim();
+}
+
+/** Inline prosodic prefix that biases the model toward the requested cadence. */
+function rhythmPrefix(narrationSpeed?: string): string {
+  if (narrationSpeed === "pausada") return "... ";
+  if (narrationSpeed === "educativo") return ". ";
+  return "";
+}
+
 function deriveProjectSeed(projectId: string): number {
   return Math.abs(projectId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 4294967295;
 }
