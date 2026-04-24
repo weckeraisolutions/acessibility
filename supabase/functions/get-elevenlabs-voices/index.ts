@@ -93,11 +93,12 @@ serve(async (req) => {
     );
   } catch (e) {
     console.error("[ElevenLabs] Exceção não tratada:", e);
+    const errMsg = e instanceof Error ? e.message : String(e);
     return new Response(
       JSON.stringify({
         success: false,
         error: "unexpected_error",
-        message: `Erro inesperado ao buscar vozes: ${e.message}`,
+        message: `Erro inesperado ao buscar vozes: ${errMsg}`,
         voices: FALLBACK_VOICES,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
