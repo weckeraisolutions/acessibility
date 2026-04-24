@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useImperativeHandle, forwardRef, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useImperativeHandle, forwardRef } from "react";
 import { PageFlip } from "page-flip";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -33,8 +33,14 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
   const [audioDuration, setAudioDuration] = useState(0);
   const accumulatedRef = useRef(0); // accumulated time of completed pages
 
-  const sortedPages = [...pages].sort((a, b) => a.page_number - b.page_number);
-  const totalDuration = sortedPages.reduce((s, p) => s + (Number(p.audiobook_audio_duration_seconds) || 0), 0);
+  const sortedPages = useMemo(
+    () => [...pages].sort((a, b) => a.page_number - b.page_number),
+    [pages],
+  );
+  const totalDuration = useMemo(
+    () => sortedPages.reduce((s, p) => s + (Number(p.audiobook_audio_duration_seconds) || 0), 0),
+    [sortedPages],
+  );
 
   // init flipbook
   useEffect(() => {
@@ -85,16 +91,17 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
   useEffect(() => {
     const page = sortedPages[currentIdx];
     if (!page || !audioRef.current) return;
-    if (page.audiobook_audio_url && audioRef.current.src !== page.audiobook_audio_url) {
-      audioRef.current.src = page.audiobook_audio_url;
+    const nextSrc = page.audiobook_audio_url || "";
+    if (nextSrc && audioRef.current.src !== nextSrc) {
+      audioRef.current.src = nextSrc;
       audioRef.current.load();
       if (playing) audioRef.current.play().catch(() => {});
     }
-    // recompute accumulated time up to current page start
     accumulatedRef.current = sortedPages
       .slice(0, currentIdx)
       .reduce((s, p) => s + (Number(p.audiobook_audio_duration_seconds) || 0), 0);
-  }, [currentIdx, sortedPages, playing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIdx, sortedPages]);
 
   // audio listeners
   useEffect(() => {
