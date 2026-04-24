@@ -541,7 +541,12 @@ serve(async (req) => {
       .from(bucket)
       .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
-    const audioUrl = signedUrlData?.signedUrl || "";
+    // Cache-buster: ensures clients fetch the freshly regenerated audio
+    // even when the storage path is identical (upsert overwrite).
+    const baseSignedUrl = signedUrlData?.signedUrl || "";
+    const audioUrl = baseSignedUrl
+      ? `${baseSignedUrl}${baseSignedUrl.includes("?") ? "&" : "?"}v=${Date.now()}`
+      : "";
 
     if (!skip_page_update) {
       const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
