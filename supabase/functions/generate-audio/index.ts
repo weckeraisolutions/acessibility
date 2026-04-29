@@ -42,10 +42,10 @@ const GEMINI_PCM_BITS_PER_SAMPLE = 16;
  * Tolerant to legacy / mistyped presets. Always returns a valid number in [0.7, 1.2].
  */
 const SPEED_PRESET_MAP: Record<string, number> = {
-  pausada: 0.80,
-  educativo: 0.92,
-  educativa: 0.92, // alias tolerated
-  educational: 0.92, // alias tolerated
+  pausada: 0.85,
+  educativo: 0.95,
+  educativa: 0.95, // alias tolerated
+  educational: 0.95, // alias tolerated
   fluente: 1.00,
   fluido: 1.00, // alias tolerated
 };
@@ -57,7 +57,7 @@ function resolveSpeed(preset: unknown): { preset: string; value: number; fallbac
     const clamped = Math.min(1.2, Math.max(0.7, mapped));
     return { preset: raw, value: clamped, fallback_used: false };
   }
-  return { preset: "educativo", value: 0.92, fallback_used: true };
+  return { preset: "educativo", value: 0.95, fallback_used: true };
 }
 
 function splitTextForTts(text: string, maxChars = GEMINI_CHUNK_CHAR_LIMIT): string[] {
