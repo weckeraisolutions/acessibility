@@ -36,6 +36,30 @@ const GEMINI_PCM_SAMPLE_RATE = 24000;
 const GEMINI_PCM_CHANNELS = 1;
 const GEMINI_PCM_BITS_PER_SAMPLE = 16;
 
+/**
+ * Centralized speed resolver.
+ * Single source of truth: frontend sends a STRING preset; backend converts to number.
+ * Tolerant to legacy / mistyped presets. Always returns a valid number in [0.7, 1.2].
+ */
+const SPEED_PRESET_MAP: Record<string, number> = {
+  pausada: 0.80,
+  educativo: 0.92,
+  educativa: 0.92, // alias tolerated
+  educational: 0.92, // alias tolerated
+  fluente: 1.00,
+  fluido: 1.00, // alias tolerated
+};
+
+function resolveSpeed(preset: unknown): { preset: string; value: number; fallback_used: boolean } {
+  const raw = typeof preset === "string" ? preset.trim().toLowerCase() : "";
+  const mapped = SPEED_PRESET_MAP[raw];
+  if (typeof mapped === "number") {
+    const clamped = Math.min(1.2, Math.max(0.7, mapped));
+    return { preset: raw, value: clamped, fallback_used: false };
+  }
+  return { preset: "educativo", value: 0.92, fallback_used: true };
+}
+
 function splitTextForTts(text: string, maxChars = GEMINI_CHUNK_CHAR_LIMIT): string[] {
   const normalized = text.trim();
   if (!normalized) return [];
@@ -502,6 +526,19 @@ serve(async (req) => {
       skip_page_update, narration_id,
     } = await req.json();
 
+    // ---- [AUDIO-DEBUG] Permanent diagnostic logs (do not remove) ----
+    const callOrigin = skip_page_update && narration_id ? "multi-narration" : "page-main";
+    const textPreview = typeof text === "string"
+      ? `${text.slice(0, 80).replace(/\n/g, " ")}${text.length > 80 ? "…" : ""} (len=${text.length})`
+      : `(invalid type: ${typeof text})`;
+    console.log(
+      `[AUDIO-DEBUG] payload received: origin=${callOrigin} mode=${mode} use_elevenlabs=${!!use_elevenlabs} ` +
+      `page_id=${page_id} project_id=${project_id} page_number=${page_number} narration_id=${narration_id || "-"} ` +
+      `voice=${voice || "-"} elevenlabs_voice_id=${elevenlabs_voice_id || "-"} text="${textPreview}"`
+    );
+    console.log(`[AUDIO-DEBUG] speed_preset received (raw): ${JSON.stringify(narration_speed)}`);
+    // ----------------------------------------------------------------
+
     if (!page_id || !project_id || !text || !mode) {
       return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios faltando" }, 400);
     }
@@ -519,9 +556,15 @@ serve(async (req) => {
     if (use_elevenlabs) {
       const elApiKey = Deno.env.get("ELEVENLABS_API_KEY");
       if (!elApiKey) return respond({ success: false, error: "elevenlabs_credits", message: "ELEVENLABS_API_KEY não configurada no servidor" }, 500);
-      const speedMap: Record<string, number> = { pausada: 0.80, educativo: 0.92, fluente: 1.00 };
-      const elSpeed = (typeof narration_speed === "string" && speedMap[narration_speed]) ? speedMap[narration_speed] : 0.92;
-      const result = await generateWithElevenLabs(text, elevenlabs_voice_id, elevenlabs_model, elApiKey, project_id, page_number, mode, elSpeed, narration_speed);
+      const resolved = resolveSpeed(narration_speed);
+      console.log(
+        `[AUDIO-DEBUG] speed resolved: origin=${callOrigin} preset_in=${JSON.stringify(narration_speed)} ` +
+        `preset_used=${resolved.preset} speed_numeric=${resolved.value} fallback_used=${resolved.fallback_used}`
+      );
+      const result = await generateWithElevenLabs(
+        text, elevenlabs_voice_id, elevenlabs_model, elApiKey,
+        project_id, page_number, mode, resolved.value, resolved.preset,
+      );
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
       engine = "elevenlabs";
