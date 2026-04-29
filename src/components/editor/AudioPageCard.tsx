@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square, Plus, Package, X } from "lucide-react";
+import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square, Plus, Package, X, Eye, Pencil } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
@@ -18,6 +18,7 @@ import { useTextExtractor } from "@/hooks/useTextExtractor";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import { usePageNarrations } from "@/hooks/usePageNarrations";
 import NarrationBlock from "@/components/editor/NarrationBlock";
+import RhythmPreviewDialog from "@/components/editor/RhythmPreviewDialog";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
@@ -89,6 +90,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   );
   const [characterSuggestion, setCharacterSuggestion] = useState<Array<{ label: string; text: string }> | null>(null);
   const [zipping, setZipping] = useState(false);
+  const [showRhythmPreview, setShowRhythmPreview] = useState(false);
+  const [advancedRhythm, setAdvancedRhythm] = useState(false);
 
   const handlePreviewVoice = useCallback((voiceId: string, previewUrl?: string) => {
     if (!previewUrl) return;
@@ -312,6 +315,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           elevenlabs_voice_id: currentElevenlabsVoice,
           elevenlabs_model: "eleven_multilingual_v2",
           narration_speed: pageNarrationSpeed || globalNarrationSpeed || "educativo",
+          advanced_mode: advancedRhythm,
         },
       });
 
@@ -393,6 +397,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const isApproved = currentStatus === "approved";
 
   return (
+    <>
     <Card className="overflow-hidden">
       {!hideImage && (
         <div className="relative bg-muted aspect-[3/4] flex items-center justify-center">
@@ -550,6 +555,34 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                 <SelectItem value="fluente">⚡ Fluente</SelectItem>
               </SelectContent>
             </Select>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] flex-1"
+                onClick={() => setShowRhythmPreview(true)}
+              >
+                <Eye className="h-3 w-3 mr-1" /> Ver texto com pausas
+              </Button>
+              <Button
+                type="button"
+                variant={advancedRhythm ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-[11px] flex-1"
+                onClick={() => setAdvancedRhythm((v) => !v)}
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                {advancedRhythm ? "Modo avançado: ON" : "Editar pausas manualmente"}
+              </Button>
+            </div>
+            {advancedRhythm && (
+              <p className="mt-1 text-[10px] text-muted-foreground leading-snug">
+                Modo avançado ativo: o texto vai direto à API.
+                Use <code>{`<break time="1s" />`}</code> para inserir pausas (0.1s a 3s).
+              </p>
+            )}
           </div>
         )}
 
@@ -662,6 +695,14 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         )}
       </CardContent>
     </Card>
+    <RhythmPreviewDialog
+      open={showRhythmPreview}
+      onClose={() => setShowRhythmPreview(false)}
+      text={localText}
+      preset={pageNarrationSpeed || globalNarrationSpeed || "educativo"}
+      advancedMode={advancedRhythm}
+    />
+    </>
   );
 };
 

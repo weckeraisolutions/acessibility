@@ -4,13 +4,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Download, Trash2, Pencil, Check } from "lucide-react";
+import { Loader2, Play, Download, Trash2, Pencil, Check, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VOICES } from "@/constants/voices";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
+import RhythmPreviewDialog from "@/components/editor/RhythmPreviewDialog";
 import type { PageNarration } from "@/hooks/usePageNarrations";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -42,6 +43,8 @@ const NarrationBlock = ({
   const [editingLabel, setEditingLabel] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [showRhythmPreview, setShowRhythmPreview] = useState(false);
+  const [advancedRhythm, setAdvancedRhythm] = useState(false);
   const prevAudioRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -120,6 +123,7 @@ const NarrationBlock = ({
           // Hint to backend (ignored if not supported) — keeps DB row write here, not on `pages`.
           skip_page_update: true,
           narration_id: narration.id,
+          advanced_mode: advancedRhythm,
         },
       });
       if (error || !data?.success) {
@@ -239,6 +243,35 @@ const NarrationBlock = ({
         </div>
       </div>
 
+      {isElevenlabs && (
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[10px] flex-1"
+            onClick={() => setShowRhythmPreview(true)}
+          >
+            <Eye className="h-2.5 w-2.5 mr-1" /> Ver pausas
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={advancedRhythm ? "default" : "outline"}
+            className="h-6 px-2 text-[10px] flex-1"
+            onClick={() => setAdvancedRhythm((v) => !v)}
+          >
+            <Pencil className="h-2.5 w-2.5 mr-1" />
+            {advancedRhythm ? "Manual ON" : "Editar manual"}
+          </Button>
+        </div>
+      )}
+      {advancedRhythm && (
+        <p className="text-[9px] text-muted-foreground leading-snug">
+          Use <code>{`<break time="1s" />`}</code> para pausa (0.1s a 3s).
+        </p>
+      )}
+
       <Button size="sm" className="w-full h-7 text-xs" disabled={!localText.trim() || generating} onClick={handleGenerate}>
         {generating ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Gerando...</> : <><Play className="h-3 w-3 mr-1" /> Gerar áudio</>}
       </Button>
@@ -259,6 +292,14 @@ const NarrationBlock = ({
           </Button>
         </>
       )}
+
+      <RhythmPreviewDialog
+        open={showRhythmPreview}
+        onClose={() => setShowRhythmPreview(false)}
+        text={localText}
+        preset={currentSpeed || "educativo"}
+        advancedMode={advancedRhythm}
+      />
     </div>
   );
 };
