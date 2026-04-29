@@ -332,6 +332,101 @@ function rhythmPrefix(narrationSpeed?: string): string {
   return "";
 }
 
+/**
+ * ── Professional rhythm control via SSML-style <break> tags ──
+ * Inserts explicit pause markers based on the chosen preset. The numeric
+ * `speed` setting still applies on top of these tags, but the bulk of the
+ * cadence comes from the explicit pauses — far more reliable than relying
+ * on speed alone, which drifts across long chunks.
+ *
+ * Detected events:
+ *   - paragraph break (\n\n)
+ *   - heading (ALL-CAPS line OR line ending with ":" then blank line)
+ *   - ellipsis ("..." or "…")
+ *   - long sentence (>25 words without comma) → mid-sentence micro-break
+ */
+type RhythmPreset = "pausada" | "educativo" | "fluente";
+const RHYTHM_TABLE: Record<RhythmPreset, { paragraph: string; heading: string; ellipsis: string; longSentence: string }> = {
+  pausada:   { paragraph: '<break time="1.2s" />', heading: '<break time="0.8s" />', ellipsis: '<break time="1.5s" />', longSentence: '<break time="0.3s" />' },
+  educativo: { paragraph: '<break time="0.8s" />', heading: '<break time="0.5s" />', ellipsis: '<break time="1.0s" />', longSentence: '<break time="0.3s" />' },
+  fluente:   { paragraph: '<break time="0.4s" />', heading: '<break time="0.3s" />', ellipsis: '<break time="0.6s" />', longSentence: '<break time="0.3s" />' },
+};
+
+function applyRhythmTags(
+  text: string,
+  preset: string,
+): { text: string; counts: { paragraph: number; heading: number; ellipsis: number; longSentence: number; total: number } } {
+  const key = (["pausada", "educativo", "fluente"].includes(preset) ? preset : "educativo") as RhythmPreset;
+  const tags = RHYTHM_TABLE[key];
+  const counts = { paragraph: 0, heading: 0, ellipsis: 0, longSentence: 0, total: 0 };
+
+  // 1. Ellipsis
+  let out = text.replace(/(\.{3,}|…)/g, () => {
+    counts.ellipsis++;
+    return ` ${tags.ellipsis} `;
+  });
+
+  // 2. Heading detection — process line-by-line, then re-join.
+  //    A line is a heading when it's ALL CAPS (≥3 chars, letters+spaces only)
+  //    OR ends with ':' and is followed by a blank line.
+  const lines = out.split(/\n/);
+  const processedLines: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const nextBlank = i + 1 < lines.length && lines[i + 1].trim() === "";
+    const isAllCaps = trimmed.length >= 3 &&
+      /^[A-ZÀ-Ý0-9\s\-:.,!?()]+$/.test(trimmed) &&
+      /[A-ZÀ-Ý]/.test(trimmed) &&
+      !/[a-zà-ÿ]/.test(trimmed);
+    const isColonHeading = trimmed.endsWith(":") && nextBlank && trimmed.length <= 80;
+    if ((isAllCaps || isColonHeading) && trimmed.length > 0) {
+      processedLines.push(`${line} ${tags.heading}`);
+      counts.heading++;
+    } else {
+      processedLines.push(line);
+    }
+  }
+  out = processedLines.join("\n");
+
+  // 3. Paragraph breaks (\n\n+) → inject paragraph tag between blocks
+  out = out.replace(/\n{2,}/g, () => {
+    counts.paragraph++;
+    return `\n\n${tags.paragraph}\n\n`;
+  });
+
+  // 4. Long sentence handling — split text into sentences and insert a
+  //    micro-break in the middle of any sentence with >25 words and no comma.
+  const sentenceParts = out.split(/(?<=[.!?])\s+/);
+  const enriched = sentenceParts.map((sentence) => {
+    const cleaned = sentence.replace(/<break[^>]*\/>/g, "").trim();
+    if (!cleaned || cleaned.includes(",")) return sentence;
+    const words = cleaned.split(/\s+/);
+    if (words.length <= 25) return sentence;
+    // Find a natural midpoint: prefer breaking after preposition/conjunction
+    const conjunctions = new Set([
+      "e", "ou", "mas", "porém", "contudo", "todavia", "entretanto",
+      "que", "porque", "pois", "como", "quando", "se", "embora",
+      "para", "por", "com", "sem", "sobre", "entre", "após",
+      "de", "da", "do", "das", "dos", "em", "na", "no", "nas", "nos",
+    ]);
+    const mid = Math.floor(words.length / 2);
+    let cut = mid;
+    for (let off = 0; off <= 4; off++) {
+      if (conjunctions.has(words[mid + off]?.toLowerCase())) { cut = mid + off; break; }
+      if (conjunctions.has(words[mid - off]?.toLowerCase())) { cut = mid - off; break; }
+    }
+    const left = words.slice(0, cut + 1).join(" ");
+    const right = words.slice(cut + 1).join(" ");
+    counts.longSentence++;
+    return `${left} ${tags.longSentence} ${right}`;
+  });
+  out = enriched.join(" ");
+
+  counts.total = counts.paragraph + counts.heading + counts.ellipsis + counts.longSentence;
+  return { text: out, counts };
+}
+
 function deriveProjectSeed(projectId: string): number {
   return Math.abs(projectId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % 4294967295;
 }
@@ -339,10 +434,31 @@ function deriveProjectSeed(projectId: string): number {
 async function generateWithElevenLabs(
   text: string, voiceId: string, modelId: string, apiKey: string,
   projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
-  narrationSpeed?: string,
+  narrationSpeed?: string, advancedMode: boolean = false,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   // Apply ElevenLabs-specific aggressive normalization on top of standard prep
-  const prepared = normalizeForElevenLabs(preprocessTextForPTBR(prepareText(text)));
+  let prepared = normalizeForElevenLabs(preprocessTextForPTBR(prepareText(text)));
+
+  // ── RHYTHM TAGS ──
+  // Inject explicit <break> markers BEFORE chunking so each chunk inherits
+  // its own pause cues. Skipped in advanced mode (user-authored tags).
+  if (advancedMode) {
+    console.log(
+      `[RHYTHM-DEBUG] advanced_mode=true preset=${narrationSpeed || "-"} text_length=${prepared.length} ` +
+      `user_tags_in_text=${(prepared.match(/<break[^>]*\/>/g) || []).length}`,
+    );
+  } else {
+    const before = prepared.length;
+    const result = applyRhythmTags(prepared, narrationSpeed || "educativo");
+    prepared = result.text;
+    console.log(
+      `[RHYTHM-DEBUG] preset=${narrationSpeed || "educativo"} ` +
+      `tags_inserted=${result.counts.total} ` +
+      `(paragraph=${result.counts.paragraph} heading=${result.counts.heading} ` +
+      `ellipsis=${result.counts.ellipsis} long_sentence=${result.counts.longSentence}) ` +
+      `text_length_before=${before} text_length_after=${prepared.length}`,
+    );
+  }
 
   // ── SPEED LOCK ──
   // Single source of truth for speed during the entire ElevenLabs run.
