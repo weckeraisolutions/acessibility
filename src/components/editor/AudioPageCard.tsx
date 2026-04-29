@@ -694,6 +694,14 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         )}
       </CardContent>
     </Card>
+    <RhythmPreviewDialog
+      open={showRhythmPreview}
+      onClose={() => setShowRhythmPreview(false)}
+      text={localText}
+      preset={pageNarrationSpeed || globalNarrationSpeed || "educativo"}
+      advancedMode={advancedRhythm}
+    />
+    </>
   );
 };
 
