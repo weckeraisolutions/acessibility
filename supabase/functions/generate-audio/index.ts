@@ -247,7 +247,16 @@ ${chunkText}`;
     const errText = await geminiResponse.text();
     console.error("Gemini TTS error:", status, errText);
     if (status === 400 || status === 403) throw { status: 400, error: "invalid_api_key", message: "Chave da API Gemini inválida" };
-    if (status === 429) throw { status: 429, error: "rate_limit", message: "Limite de requisições atingido" };
+    if (status === 429) {
+      const isQuotaExceeded = errText.includes("RESOURCE_EXHAUSTED") || errText.includes("quota");
+      throw {
+        status: 429,
+        error: "gemini_quota_exceeded",
+        message: isQuotaExceeded
+          ? "Quota diária do Gemini TTS excedida (limite gratuito de 50 áudios/dia). Troque o motor de voz para ElevenLabs no painel acima ou aguarde ~24h para o reset da cota Google."
+          : "Limite de requisições do Gemini atingido. Aguarde alguns segundos e tente novamente, ou use ElevenLabs.",
+      };
+    }
     throw { status: 500, error: "api_error", message: errText };
   }
 
