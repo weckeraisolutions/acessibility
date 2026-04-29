@@ -4,13 +4,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, Download, Trash2, Pencil, Check } from "lucide-react";
+import { Loader2, Play, Download, Trash2, Pencil, Check, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VOICES } from "@/constants/voices";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
+import RhythmPreviewDialog from "@/components/editor/RhythmPreviewDialog";
 import type { PageNarration } from "@/hooks/usePageNarrations";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -42,6 +43,8 @@ const NarrationBlock = ({
   const [editingLabel, setEditingLabel] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [showRhythmPreview, setShowRhythmPreview] = useState(false);
+  const [advancedRhythm, setAdvancedRhythm] = useState(false);
   const prevAudioRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -120,6 +123,7 @@ const NarrationBlock = ({
           // Hint to backend (ignored if not supported) — keeps DB row write here, not on `pages`.
           skip_page_update: true,
           narration_id: narration.id,
+          advanced_mode: advancedRhythm,
         },
       });
       if (error || !data?.success) {
