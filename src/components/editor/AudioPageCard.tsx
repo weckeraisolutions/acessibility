@@ -397,6 +397,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const isApproved = currentStatus === "approved";
 
   return (
+    <>
     <Card className="overflow-hidden">
       {!hideImage && (
         <div className="relative bg-muted aspect-[3/4] flex items-center justify-center">
