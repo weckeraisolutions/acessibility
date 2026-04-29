@@ -36,6 +36,30 @@ const GEMINI_PCM_SAMPLE_RATE = 24000;
 const GEMINI_PCM_CHANNELS = 1;
 const GEMINI_PCM_BITS_PER_SAMPLE = 16;
 
+/**
+ * Centralized speed resolver.
+ * Single source of truth: frontend sends a STRING preset; backend converts to number.
+ * Tolerant to legacy / mistyped presets. Always returns a valid number in [0.7, 1.2].
+ */
+const SPEED_PRESET_MAP: Record<string, number> = {
+  pausada: 0.80,
+  educativo: 0.92,
+  educativa: 0.92, // alias tolerated
+  educational: 0.92, // alias tolerated
+  fluente: 1.00,
+  fluido: 1.00, // alias tolerated
+};
+
+function resolveSpeed(preset: unknown): { preset: string; value: number; fallback_used: boolean } {
+  const raw = typeof preset === "string" ? preset.trim().toLowerCase() : "";
+  const mapped = SPEED_PRESET_MAP[raw];
+  if (typeof mapped === "number") {
+    const clamped = Math.min(1.2, Math.max(0.7, mapped));
+    return { preset: raw, value: clamped, fallback_used: false };
+  }
+  return { preset: "educativo", value: 0.92, fallback_used: true };
+}
+
 function splitTextForTts(text: string, maxChars = GEMINI_CHUNK_CHAR_LIMIT): string[] {
   const normalized = text.trim();
   if (!normalized) return [];
