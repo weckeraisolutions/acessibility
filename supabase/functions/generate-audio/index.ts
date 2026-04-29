@@ -676,7 +676,7 @@ serve(async (req) => {
       page_id, project_id, page_number, text, voice,
       global_style, page_style, mode, plan,
       use_elevenlabs, elevenlabs_voice_id, elevenlabs_model, narration_speed,
-      skip_page_update, narration_id,
+      skip_page_update, narration_id, advanced_mode,
     } = await req.json();
 
     // ---- [AUDIO-DEBUG] Permanent diagnostic logs (do not remove) ----
@@ -716,7 +716,7 @@ serve(async (req) => {
       );
       const result = await generateWithElevenLabs(
         text, elevenlabs_voice_id, elevenlabs_model, elApiKey,
-        project_id, page_number, mode, resolved.value, resolved.preset,
+        project_id, page_number, mode, resolved.value, resolved.preset, !!advanced_mode,
       );
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
