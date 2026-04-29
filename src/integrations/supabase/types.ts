@@ -147,6 +147,10 @@ export type Database = {
           audiodesc_status: string
           audiodesc_style: string | null
           audiodesc_text: string | null
+          audiodesc_text_original: string | null
+          audiodesc_validated: boolean
+          audiodesc_validation_score: number | null
+          audiodesc_validation_violations: Json | null
           audiodesc_voice: string | null
           created_at: string
           id: string
@@ -175,6 +179,10 @@ export type Database = {
           audiodesc_status?: string
           audiodesc_style?: string | null
           audiodesc_text?: string | null
+          audiodesc_text_original?: string | null
+          audiodesc_validated?: boolean
+          audiodesc_validation_score?: number | null
+          audiodesc_validation_violations?: Json | null
           audiodesc_voice?: string | null
           created_at?: string
           id?: string
@@ -203,6 +211,10 @@ export type Database = {
           audiodesc_status?: string
           audiodesc_style?: string | null
           audiodesc_text?: string | null
+          audiodesc_text_original?: string | null
+          audiodesc_validated?: boolean
+          audiodesc_validation_score?: number | null
+          audiodesc_validation_violations?: Json | null
           audiodesc_voice?: string | null
           created_at?: string
           id?: string
@@ -284,6 +296,7 @@ export type Database = {
           book_type: string
           chapters_config: Json | null
           created_at: string
+          enable_dual_validation: boolean
           id: string
           name: string
           pdf_url: string | null
@@ -305,6 +318,7 @@ export type Database = {
           book_type?: string
           chapters_config?: Json | null
           created_at?: string
+          enable_dual_validation?: boolean
           id?: string
           name: string
           pdf_url?: string | null
@@ -326,6 +340,7 @@ export type Database = {
           book_type?: string
           chapters_config?: Json | null
           created_at?: string
+          enable_dual_validation?: boolean
           id?: string
           name?: string
           pdf_url?: string | null
