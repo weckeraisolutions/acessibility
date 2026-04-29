@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square, Plus, Package, X } from "lucide-react";
+import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square, Plus, Package, X, Eye, Pencil } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
@@ -18,6 +18,7 @@ import { useTextExtractor } from "@/hooks/useTextExtractor";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import { usePageNarrations } from "@/hooks/usePageNarrations";
 import NarrationBlock from "@/components/editor/NarrationBlock";
+import RhythmPreviewDialog from "@/components/editor/RhythmPreviewDialog";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
@@ -89,6 +90,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   );
   const [characterSuggestion, setCharacterSuggestion] = useState<Array<{ label: string; text: string }> | null>(null);
   const [zipping, setZipping] = useState(false);
+  const [showRhythmPreview, setShowRhythmPreview] = useState(false);
+  const [advancedRhythm, setAdvancedRhythm] = useState(false);
 
   const handlePreviewVoice = useCallback((voiceId: string, previewUrl?: string) => {
     if (!previewUrl) return;
@@ -312,6 +315,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           elevenlabs_voice_id: currentElevenlabsVoice,
           elevenlabs_model: "eleven_multilingual_v2",
           narration_speed: pageNarrationSpeed || globalNarrationSpeed || "educativo",
+          advanced_mode: advancedRhythm,
         },
       });
 
