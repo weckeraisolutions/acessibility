@@ -1,58 +1,78 @@
-## Objetivo
-Eliminar definitivamente o travamento "Reorganizando layout..." no módulo Videobook, corrigir o erro `Invalid width or height` do page-flip, sanar o warning do `HighResPreparationDialog`, e deixar o player pronto para escala usando o wrapper oficial `react-pageflip`.
 
-## Causa raiz identificada
-1. `new PageFlip()` é chamado com `width=0/height=0` quando o container ainda não foi medido pelo browser (race entre layout do CSS grid e o `useEffect`). A exceção lançada não é capturada → `setReinitializing(false)` nunca executa → overlay fica para sempre.
-2. Guarda `lastImgsKeyRef` cria deadlock: marca a key antes de saber se o init terminou. Em re-render/StrictMode, próximas tentativas são ignoradas.
-3. `HighResPreparationDialog` recebe ref implícita do Radix em uma render path que dispara warning.
-4. Configuração do PageFlip mistura `size:"stretch"` + `width/height` fixos + `autoSize` (contraditório).
-5. Sem `ResizeObserver` → não recalcula em mudanças do layout.
+## Auditoria — Divergências encontradas vs. descrição da tarefa
 
-## Implementação
+Antes do plano, registro 4 divergências do código real vs. a descrição:
 
-### 1. Instalar dependência
-- `bun add react-pageflip` (wrapper React oficial e mantido da mesma lib base, com lifecycle correto, tipagem TS e ref API).
+1. **Não existe edge function `generate-audio-elevenlabs`.** Existe uma única `generate-audio` que trata Gemini e ElevenLabs no mesmo arquivo, alternando pelo flag `use_elevenlabs`. Toda a correção será nessa função.
+2. **Não existe `pages.audiobook_speed` nem `projects.default_speed`** no schema. Velocidade hoje vive apenas em `page_narrations.narration_speed` e em estado React (`globalNarrationSpeed`, não persistido). A hierarquia descrita na tarefa precisa ser adaptada à realidade — não vou criar colunas novas para evitar tocar no banco (regra geral da tarefa proíbe).
+3. **O preset usado no código é `"educativo"` (masculino), não `"educativa"`.** Vou aceitar ambos no backend para tolerância.
+4. **O campo no DB é `narration_speed`**, não `speed`.
 
-### 2. Reescrever `src/components/videobook/VideobookPlayer.tsx`
-- Substituir uso vanilla de `PageFlip` por `<HTMLFlipBook>` de `react-pageflip`.
-- Estado-máquina explícito: `idle | preloading | ready | error`.
-- Pré-carregar todas as imagens com `Promise.all` antes de montar o componente.
-- Usar `ResizeObserver` com debounce (150ms) para recalcular `width/height` quando o container muda.
-- **Guarda dimensional**: só renderiza `<HTMLFlipBook>` quando `width >= 200 && height >= 280`.
-- Try/catch + `finally` em todos os pontos de risco — overlay sempre desaparece.
-- Estado `error` mostra botão "Tentar novamente".
-- Manter `useImperativeHandle` expondo a mesma API pública (`getCurrentTime`, `getTotalDuration`, `goToPage`, `flipNext`, `getContainer`) — zero breaking change para consumidores.
-- Toggle de layout: muda apenas `usePortrait` prop, sem destruir/recriar manualmente — o wrapper cuida.
-- Listeners de áudio reescritos com cleanup correto e guard contra instância stale.
-- Logs `console.debug("[VideobookPlayer]", ...)` para diagnóstico futuro.
+## Causas raiz confirmadas
 
-### 3. Corrigir `src/components/videobook/HighResPreparationDialog.tsx`
-- Garantir estrutura limpa do `DialogContent` (envolver `DialogHeader`/`DialogTitle`/`DialogDescription` corretamente, remover qualquer ref implícita).
-- Verificar se algum prop está vazando ref para `DialogHeader` (componente function sem forwardRef). Ajustar import/estrutura.
+### Bug 1 — Speed intermitente
 
-### 4. Ajustar `src/components/videobook/ChapterEditorView.tsx`
-- Garantir `min-h-[600px]` E `min-w-[320px]` no container do player (`lg:col-span-7`), evitando width:0 em transições do grid.
-- Remover qualquer wrapper que possa colapsar dimensões durante mount.
+- A função `generate-audio` converte preset→número corretamente e coloca `speed` dentro de `voice_settings` (linhas 522–524 e 391–397). **Não há bug de localização** do parâmetro.
+- O bug é **silencioso e por entrada inválida**: se `narration_speed` chega como `null`, `undefined`, string vazia, ou um preset desconhecido (ex.: `"educativa"` em vez de `"educativo"`), o map retorna `undefined` e cai para `0.92` sem aviso. O usuário não sabe que a seleção foi ignorada.
+- Há 2 caminhos que enviam `narration_speed`: `AudioPageCard.handleGenerateAudio` (linha 314) e `NarrationBlock.handleGenerate` (linha 122). Em narrações múltiplas recém-criadas, o campo `narration_speed` no DB nasce `null` (`usePageNarrations.ts`), e se `globalNarrationSpeed` não estiver propagado naquele momento, o backend recebe `undefined`.
+- Não existem logs informando o valor cru recebido nem o valor numérico final aplicado — apenas o `voice_settings` final por chunk. Impossível diagnosticar pós-fato.
 
-### 5. QA pós-implementação
-- Build TypeScript limpo (`bunx tsc --noEmit`).
-- Verificar console sem warnings de ref ou erros de page-flip.
-- Testar toggle de layout 1↔2 páginas várias vezes seguidas.
-- Testar resize da janela com flipbook ativo.
-- Testar em viewport mobile (911px atual do usuário).
+### Bug 2 — Player não atualiza
 
-## Arquivos afetados
-- `package.json` (+ react-pageflip)
-- `src/components/videobook/VideobookPlayer.tsx` (reescrita)
-- `src/components/videobook/HighResPreparationDialog.tsx` (ajuste pequeno)
-- `src/components/videobook/ChapterEditorView.tsx` (CSS dimensional)
+- A edge function **já adiciona cache-buster** `?v=${Date.now()}` à signed URL (linhas 569–574). Bom.
+- `AudioPageCard` já tem `audioRef` + `audio.load()` quando `blobUrl` muda (linhas 152–156). Funciona.
+- `NarrationBlock` **não tem `audioRef`, não chama `audio.load()`**, e depende somente de `key={narration.audio_url}` para forçar remontagem do `<audio>` (linha 245). Isso é frágil: se o navegador reusar entrada de cache do blob, ou se o blob URL for revogado em race com a remontagem, o player exibe o áudio antigo até o F5. Esta é a assimetria que causa o bug relatado.
 
-## Garantias
-- Zero breaking change na API pública do `VideobookPlayer` (ChapterEditorView e exportadores continuam funcionando).
-- Overlay "Reorganizando layout" terá timeout máximo garantido pela state machine.
-- Todas as exceções no init do flipbook serão capturadas e exibidas como erro recuperável.
-- Pronto para escala: lib mantida, lifecycle React-nativo, sem hacks de setTimeout.
+## Correções planejadas
 
-## Fora de escopo (esta iteração)
-- Implementação do seek funcional no Slider de progresso (atualmente noop).
-- Suporte a vídeo de intérprete sobreposto ao flipbook (já existe em painel separado).
+### A. Edge function `generate-audio` (`supabase/functions/generate-audio/index.ts`)
+
+1. **Centralizar resolução de speed** numa única função `resolveSpeed(preset)`:
+   - Aceitar variações: `pausada`, `educativo`, `educativa` (alias → `educativo`), `fluente`.
+   - Se inválido/vazio → fallback `educativo` (0.92).
+   - Validar range [0.7, 1.2] (clamp).
+   - Retornar `{ preset: string, value: number, fallback_used: boolean }`.
+2. **Logs `[AUDIO-DEBUG]` permanentes** (não remover):
+   - Payload recebido (sanitizado, sem o `text` completo — só primeiros 80 chars + tamanho).
+   - Origem da chamada: derivada de `skip_page_update && narration_id` ⇒ `multi-narration`; senão `page-main`.
+   - `speed_preset` cru recebido.
+   - `speed_numeric` resolvido + flag `fallback_used`.
+   - `voice_settings` final.
+3. **Garantia estrutural**: `speed` continua dentro de `voice_settings` (já está); confirmação por log a cada chunk.
+
+### B. `NarrationBlock.tsx`
+
+1. Adicionar `audioRef = useRef<HTMLAudioElement>(null)` e attach no `<audio ref={audioRef}>`.
+2. `useEffect` que dispara em `[blobUrl, narration.updated_at]` chamando `audioRef.current.load()` e resetando `currentTime = 0`.
+3. Trocar `key={narration.audio_url || ""}` por `key={`${narration.id}-${narration.updated_at}`}` para remontagem garantida quando regerado.
+4. No `handleGenerate`, depois do sucesso, **resetar** `prevAudioRef.current = null` (já feito) **e** atualizar otimisticamente `updated_at: new Date().toISOString()` no `onUpdate`, para forçar a key/effect dispararem mesmo se a signed URL fosse igual.
+
+### C. Garantir que speed da narração múltipla é enviado
+
+Já é (linha 122 do `NarrationBlock`). Vou apenas adicionar fallback explícito: `narration.narration_speed || globalNarrationSpeed || "educativo"` para nunca enviar `null/undefined`.
+
+### D. Tipagem auxiliar
+
+`AudioPageCard.tsx` linha 314 passa `pageNarrationSpeed || globalNarrationSpeed` — manter, mas garantir fallback final `"educativo"` na call.
+
+## Não-tocados (regra da tarefa)
+
+- Schema do banco (não criar coluna `audiobook_speed` nem `default_speed`).
+- Fluxo Gemini.
+- Audiodescrição.
+- Videobook, landing, auth, storage.
+- Lógica de seed/normalização de texto da ElevenLabs (não foi pedido).
+
+## Arquivos a modificar
+
+- `supabase/functions/generate-audio/index.ts`
+- `src/components/editor/NarrationBlock.tsx`
+- `src/components/editor/AudioPageCard.tsx` (apenas a linha do fallback final do `narration_speed`)
+
+## Verificação pós-correção
+
+- `tsc --noEmit` para garantir build verde.
+- Após deploy, reproduzir geração com preset "Pausada" em narração múltipla recém-criada e conferir nos logs da função: `[AUDIO-DEBUG] speed_preset=pausada speed_numeric=0.8 fallback_used=false`.
+- Regenerar áudio em bloco de narração e confirmar que player toca a versão nova sem F5.
+
+Aguardando aprovação para implementar.
