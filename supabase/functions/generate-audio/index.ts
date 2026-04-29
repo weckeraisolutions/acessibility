@@ -344,10 +344,33 @@ async function generateWithElevenLabs(
   // Apply ElevenLabs-specific aggressive normalization on top of standard prep
   const prepared = normalizeForElevenLabs(preprocessTextForPTBR(prepareText(text)));
 
+  // ── SPEED LOCK ──
+  // Single source of truth for speed during the entire ElevenLabs run.
+  // Captured ONCE at function entry and never mutated. All chunks reference
+  // the same numeric value via the frozen VOICE_SETTINGS object below.
+  const SPEED_LOCKED: number = speed;
+
+  // ── VOICE_SETTINGS LOCK ──
+  // Built ONCE outside the loop and frozen so no chunk iteration can mutate
+  // it. The exact same object reference is sent in every API call.
+  const VOICE_SETTINGS = Object.freeze({
+    stability: 1.0,
+    similarity_boost: 0.75,
+    style: 0.0,
+    use_speaker_boost: false,
+    speed: SPEED_LOCKED,
+  });
+
   const chunks: string[] = [];
-  // Smaller chunks (~1800 chars) re-anchor voice_settings frequently,
-  // preventing prosodic drift across long narrations.
-  const MAX_CHUNK = 1800;
+  // Larger chunks (~4500 chars) give the ElevenLabs Multilingual v2 model
+  // enough text to converge to the requested `speed` target. Chunks that
+  // are too small (~1800) cause perceived rhythm drift — each chunk starts
+  // at near-natural pace and only converges to the target by its end,
+  // producing audio that sounds fluid in the middle and only becomes
+  // pausada at the very end of the narration. 4500 keeps comfortable
+  // headroom under the ~10k API limit while preserving paragraph/sentence
+  // boundary cuts (we never break mid-sentence).
+  const MAX_CHUNK = 4500;
   if (prepared.length > MAX_CHUNK) {
     const paragraphs = prepared.split(/\n+/);
     let current = "";
@@ -412,21 +435,10 @@ async function generateWithElevenLabs(
       text: chunk,
       model_id: "eleven_multilingual_v2",
       language_code: "pt",
-      voice_settings: {
-        stability: 1.0,
-        similarity_boost: 0.75,
-        style: 0.0,
-        use_speaker_boost: false,
-        speed: speed,
-      },
+      // Same frozen reference in every chunk — guarantees speed immutability.
+      voice_settings: VOICE_SETTINGS,
     };
     if (seed !== undefined) bodyObj.seed = seed;
-
-    // Validation log — confirms locked rhythm settings per chunk
-    console.log(
-      `[ElevenLabs] chunk ${ci + 1}/${chunks.length} (rhythm=${narrationSpeed || "default"}) voice_settings:`,
-      JSON.stringify((bodyObj as { voice_settings: unknown }).voice_settings),
-    );
 
     if (!skipContext) {
       // For first chunk, use previous page context; for subsequent chunks, use previous chunk text
@@ -441,7 +453,22 @@ async function generateWithElevenLabs(
       }
     }
 
+    // ── PRE-CALL VALIDATION LOG (permanent) ──
+    // If voice_settings.speed differs across chunks for the same run, the
+    // bug is back. previous_text/next_text presence is also reported here.
+    const _prev = (bodyObj as { previous_text?: string }).previous_text;
+    const _next = (bodyObj as { next_text?: string }).next_text;
+    console.log(
+      `[AUDIO-DEBUG-CHUNK] pre-call chunk_index=${ci + 1}/${chunks.length} ` +
+      `text_length=${chunk.length} prefix_used=${JSON.stringify(prefix)} ` +
+      `has_previous_text=${!!_prev} previous_text_length=${_prev?.length ?? 0} ` +
+      `has_next_text=${!!_next} next_text_length=${_next?.length ?? 0} ` +
+      `voice_settings=${JSON.stringify(VOICE_SETTINGS)}`,
+    );
+
+    let chunkAttempt = 0;
     for (let attempt = 0; attempt < 3; attempt++) {
+      chunkAttempt = attempt + 1;
       try {
         const res = await fetch(
           `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
@@ -457,6 +484,10 @@ async function generateWithElevenLabs(
           const buf = new Uint8Array(await res.arrayBuffer());
           audioBuffers.push(buf);
           lastError = null;
+          console.log(
+            `[AUDIO-DEBUG-CHUNK] post-call chunk_index=${ci + 1}/${chunks.length} ` +
+            `success=true audio_size_bytes=${buf.length} attempt=${chunkAttempt}`,
+          );
           break;
         }
 
@@ -491,7 +522,13 @@ async function generateWithElevenLabs(
       }
     }
     clearTimeout(timeoutId);
-    if (lastError) throw { status: 500, error: "elevenlabs_error", message: lastError };
+    if (lastError) {
+      console.log(
+        `[AUDIO-DEBUG-CHUNK] post-call chunk_index=${ci + 1}/${chunks.length} ` +
+        `success=false attempt=${chunkAttempt} error=${lastError.slice(0, 200)}`,
+      );
+      throw { status: 500, error: "elevenlabs_error", message: lastError };
+    }
   }
 
   const totalLength = audioBuffers.reduce((sum, b) => sum + b.length, 0);

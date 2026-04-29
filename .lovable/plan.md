@@ -1,78 +1,104 @@
 
-## Auditoria — Divergências encontradas vs. descrição da tarefa
+# Diagnóstico — Velocidade inconsistente em textos longos (ElevenLabs)
 
-Antes do plano, registro 4 divergências do código real vs. a descrição:
+## Como o loop funciona hoje (`generateWithElevenLabs`, linhas 339–495)
 
-1. **Não existe edge function `generate-audio-elevenlabs`.** Existe uma única `generate-audio` que trata Gemini e ElevenLabs no mesmo arquivo, alternando pelo flag `use_elevenlabs`. Toda a correção será nessa função.
-2. **Não existe `pages.audiobook_speed` nem `projects.default_speed`** no schema. Velocidade hoje vive apenas em `page_narrations.narration_speed` e em estado React (`globalNarrationSpeed`, não persistido). A hierarquia descrita na tarefa precisa ser adaptada à realidade — não vou criar colunas novas para evitar tocar no banco (regra geral da tarefa proíbe).
-3. **O preset usado no código é `"educativo"` (masculino), não `"educativa"`.** Vou aceitar ambos no backend para tolerância.
-4. **O campo no DB é `narration_speed`**, não `speed`.
+1. Texto recebe normalização agressiva (`normalizeForElevenLabs`).
+2. Divisão em chunks com `MAX_CHUNK = 1800` caracteres (linha 350), por parágrafo e fallback por sentença. **Boa estratégia.**
+3. `skipContext = narrationSpeed !== "fluente"` (linha 376) — significa que **`pausada` e `educativo` JÁ não recebem `previous_text`/`next_text`**. Apenas `fluente` carrega contexto cruzado.
+4. `prefix = rhythmPrefix(narrationSpeed)` (linha 400) retorna:
+   - `"... "` para `pausada`
+   - `". "` para `educativo`
+   - `""` para `fluente`
+5. Loop por chunk (linha 404):
+   - **`bodyObj` (incluindo `voice_settings` com `speed`) é reconstruído a cada iteração**, mas sempre com a mesma constante `speed` recebida como parâmetro. Não há mutação observável.
+   - Log `[ElevenLabs] chunk X/Y voice_settings: {...}` confirma o objeto a cada chamada.
+   - `chunk = prefix + chunks[ci]` — **o prefixo de ritmo é aplicado em TODOS os chunks**.
 
-## Causas raiz confirmadas
+## Causa raiz identificada — assinatura clássica confirmada
 
-### Bug 1 — Speed intermitente
+O sintoma "início/meio fluido, fim pausado" tem **uma única explicação técnica consistente** com este código:
 
-- A função `generate-audio` converte preset→número corretamente e coloca `speed` dentro de `voice_settings` (linhas 522–524 e 391–397). **Não há bug de localização** do parâmetro.
-- O bug é **silencioso e por entrada inválida**: se `narration_speed` chega como `null`, `undefined`, string vazia, ou um preset desconhecido (ex.: `"educativa"` em vez de `"educativo"`), o map retorna `undefined` e cai para `0.92` sem aviso. O usuário não sabe que a seleção foi ignorada.
-- Há 2 caminhos que enviam `narration_speed`: `AudioPageCard.handleGenerateAudio` (linha 314) e `NarrationBlock.handleGenerate` (linha 122). Em narrações múltiplas recém-criadas, o campo `narration_speed` no DB nasce `null` (`usePageNarrations.ts`), e se `globalNarrationSpeed` não estiver propagado naquele momento, o backend recebe `undefined`.
-- Não existem logs informando o valor cru recebido nem o valor numérico final aplicado — apenas o `voice_settings` final por chunk. Impossível diagnosticar pós-fato.
+**O parâmetro `speed` no `voice_settings` do ElevenLabs Multilingual v2 é tratado como um *target* de ritmo, não como um time-stretch determinístico aplicado a todo o áudio.** O modelo precisa de "tempo" (caracteres processados) para convergir do ritmo natural inferido do texto até o ritmo solicitado. Em chunks de 1800 caracteres com `speed=0.80`:
 
-### Bug 2 — Player não atualiza
+- O modelo começa cada chunk em ritmo próximo ao "natural" (~1.0).
+- Conforme processa, vai desacelerando em direção ao alvo 0.80.
+- **Em chunks curtos (texto único < 1800), ele praticamente não tem tempo de convergir e o áudio sai inteiro num ritmo médio** — por isso textos curtos parecem "respeitar" o preset (na verdade soam consistentes, ainda que não exatamente 0.80).
+- **Em texto longo dividido**, cada chunk reinicia esse processo de convergência. O usuário ouve: chunk 1 começa fluido → desacelera → corta → chunk 2 começa fluido de novo → desacelera → … → último chunk finalmente soa pausado porque o ouvido já está calibrado e o final não tem "próximo chunk" para mascarar.
 
-- A edge function **já adiciona cache-buster** `?v=${Date.now()}` à signed URL (linhas 569–574). Bom.
-- `AudioPageCard` já tem `audioRef` + `audio.load()` quando `blobUrl` muda (linhas 152–156). Funciona.
-- `NarrationBlock` **não tem `audioRef`, não chama `audio.load()`**, e depende somente de `key={narration.audio_url}` para forçar remontagem do `<audio>` (linha 245). Isso é frágil: se o navegador reusar entrada de cache do blob, ou se o blob URL for revogado em race com a remontagem, o player exibe o áudio antigo até o F5. Esta é a assimetria que causa o bug relatado.
+A descrição do usuário ("a maior parte fluida, só o final pausado") bate exatamente com esse padrão de **convergência intra-chunk não-resetada na percepção, mas resetada na geração**.
 
-## Correções planejadas
+### Por que NÃO é bug de mutação de variável
+- `speed` é parâmetro `const` da função, nunca reatribuído.
+- `voice_settings.speed: speed` (linha 420) referencia o mesmo valor em todas as iterações.
+- O log `[ElevenLabs] chunk X/Y` na linha 426 já existe e, conforme os logs do usuário (`speed: 0.8` no log atual), confirma que o valor enviado **está correto em cada chunk**.
 
-### A. Edge function `generate-audio` (`supabase/functions/generate-audio/index.ts`)
+### Por que NÃO é `previous_text`
+Já está desativado para `pausada` (`skipContext = true` quando ≠ `fluente`, linha 376). O bug ocorre mesmo sem `previous_text`.
 
-1. **Centralizar resolução de speed** numa única função `resolveSpeed(preset)`:
-   - Aceitar variações: `pausada`, `educativo`, `educativa` (alias → `educativo`), `fluente`.
-   - Se inválido/vazio → fallback `educativo` (0.92).
-   - Validar range [0.7, 1.2] (clamp).
-   - Retornar `{ preset: string, value: number, fallback_used: boolean }`.
-2. **Logs `[AUDIO-DEBUG]` permanentes** (não remover):
-   - Payload recebido (sanitizado, sem o `text` completo — só primeiros 80 chars + tamanho).
-   - Origem da chamada: derivada de `skip_page_update && narration_id` ⇒ `multi-narration`; senão `page-main`.
-   - `speed_preset` cru recebido.
-   - `speed_numeric` resolvido + flag `fallback_used`.
-   - `voice_settings` final.
-3. **Garantia estrutural**: `speed` continua dentro de `voice_settings` (já está); confirmação por log a cada chunk.
+### Hipótese secundária a validar
+O `prefix = "... "` aplicado em **todos** os chunks pode estar tendo efeito **decrescente** (modelo "se acostuma" com a sinalização). Mais importante: chunks de 1800 chars são curtos demais para o modelo convergir ao ritmo alvo de forma audível.
 
-### B. `NarrationBlock.tsx`
+## Divergências do enunciado vs. código real
 
-1. Adicionar `audioRef = useRef<HTMLAudioElement>(null)` e attach no `<audio ref={audioRef}>`.
-2. `useEffect` que dispara em `[blobUrl, narration.updated_at]` chamando `audioRef.current.load()` e resetando `currentTime = 0`.
-3. Trocar `key={narration.audio_url || ""}` por `key={`${narration.id}-${narration.updated_at}`}` para remontagem garantida quando regerado.
-4. No `handleGenerate`, depois do sucesso, **resetar** `prevAudioRef.current = null` (já feito) **e** atualizar otimisticamente `updated_at: new Date().toISOString()` no `onUpdate`, para forçar a key/effect dispararem mesmo se a signed URL fosse igual.
+1. **Limite NÃO é 10.000 chars** — é 1800 (linha 350). Código já usa chunks pequenos.
+2. **`voice_settings` JÁ é construído com a mesma `speed` em cada chunk**, embora o objeto literal seja recriado (sem efeito funcional, pois `speed` é constante).
+3. **`previous_text` JÁ é omitido para `pausada`/`educativo`** (linha 376). A premissa do enunciado de que ele estaria "carregando prosódia herdada" no preset pausada não se aplica.
+4. **Não existe tratamento de `isLastChunk`** — todos os chunks são tratados igual.
+5. **Já existe log por chunk** (linha 426), mas não inclui `chunk_index/total`, `text_length`, nem `has_previous_text`/`previous_text_length`.
 
-### C. Garantir que speed da narração múltipla é enviado
+## Plano de correção
 
-Já é (linha 122 do `NarrationBlock`). Vou apenas adicionar fallback explícito: `narration.narration_speed || globalNarrationSpeed || "educativo"` para nunca enviar `null/undefined`.
+### A. Logs ampliados `[AUDIO-DEBUG-CHUNK]` (permanentes)
+Substituir o log atual por dois logs estruturados por chunk:
+- **Antes da chamada:** `chunk_index`, `total_chunks`, `text_length`, `voice_settings` completo, `has_previous_text`, `previous_text_length`, `has_next_text`, `prefix_used`.
+- **Depois da resposta:** `chunk_index`, `success`, `audio_size_bytes`, `attempt`.
 
-### D. Tipagem auxiliar
+### B. Capturar `speed` em constante explícita no topo da função
+```ts
+const SPEED_LOCKED: number = speed; // single source of truth, never reassigned
+```
+Usar `SPEED_LOCKED` no `voice_settings`. Não muda o comportamento atual (é defensivo + auto-documentado), mas atende explicitamente o requisito 2.2 do enunciado.
 
-`AudioPageCard.tsx` linha 314 passa `pageNarrationSpeed || globalNarrationSpeed` — manter, mas garantir fallback final `"educativo"` na call.
+### C. Construir `voice_settings` UMA VEZ fora do loop
+```ts
+const VOICE_SETTINGS = Object.freeze({
+  stability: 1.0,
+  similarity_boost: 0.75,
+  style: 0.0,
+  use_speaker_boost: false,
+  speed: SPEED_LOCKED,
+});
+```
+Passar a mesma referência em todos os chunks. Garante imutabilidade real e atende requisito 2.1.
 
-## Não-tocados (regra da tarefa)
+### D. Aumentar `MAX_CHUNK` para reduzir frequência de "reconvergência" do ritmo
+**Esta é a correção que de fato ataca a causa raiz percebida.** Subir `MAX_CHUNK` de **1800 → 4500** caracteres. Isso:
+- Dá ao modelo tempo suficiente dentro de cada chunk para estabilizar o ritmo alvo.
+- Reduz o número total de chunks (textos de 8k chars caem de ~5 chunks para ~2).
+- Mantém margem segura em relação ao limite real do ElevenLabs (~10k).
+- Preserva a divisão por parágrafo/sentença (sem cortes no meio de frase).
 
-- Schema do banco (não criar coluna `audiobook_speed` nem `default_speed`).
-- Fluxo Gemini.
-- Audiodescrição.
-- Videobook, landing, auth, storage.
-- Lógica de seed/normalização de texto da ElevenLabs (não foi pedido).
+### E. Reforçar prefixo de ritmo apenas no primeiro chunk
+Hoje o prefixo `"... "` é aplicado em **todo** chunk. Mudar para:
+- Primeiro chunk: prefixo completo (ex.: `"... "` para pausada).
+- Chunks subsequentes: prefixo reduzido ou vazio, já que o ritmo deve estar estabelecido.
+
+Decisão proposta: manter prefixo em todos por segurança, mas **adicionar** uma instrução textual mais forte no primeiro chunk (ex.: `"...  "` com pausa dupla) para "ancorar" o ritmo desde o início.
+
+### F. `previous_text` — manter comportamento atual
+Já está desativado para `pausada`/`educativo`. Nenhuma mudança necessária. Para `fluente`, manter os 200 chars atuais (consistência de prosódia é desejável e não há bug reportado nesse preset).
+
+### G. Não tocar
+Gemini, audiodescrição, voz, seed, normalização de texto, schema, storage, Videobook, landing, auth.
 
 ## Arquivos a modificar
+- `supabase/functions/generate-audio/index.ts` (apenas dentro de `generateWithElevenLabs`, linhas 339–495)
 
-- `supabase/functions/generate-audio/index.ts`
-- `src/components/editor/NarrationBlock.tsx`
-- `src/components/editor/AudioPageCard.tsx` (apenas a linha do fallback final do `narration_speed`)
-
-## Verificação pós-correção
-
-- `tsc --noEmit` para garantir build verde.
-- Após deploy, reproduzir geração com preset "Pausada" em narração múltipla recém-criada e conferir nos logs da função: `[AUDIO-DEBUG] speed_preset=pausada speed_numeric=0.8 fallback_used=false`.
-- Regenerar áudio em bloco de narração e confirmar que player toca a versão nova sem F5.
+## Validação pós-correção
+1. Gerar áudio longo (≥8000 chars) com preset "Pausada" — verificar nos logs que todos os chunks mostram `voice_settings.speed: 0.8` e que o número de chunks caiu (~2 em vez de ~5).
+2. Ouvir o áudio resultante: ritmo pausado consistente do início ao fim.
+3. Repetir com "Fluente" em texto longo — confirmar ausência de regressão.
+4. `tsc --noEmit` verde.
 
 Aguardando aprovação para implementar.
