@@ -66,7 +66,19 @@ async function callExtractText(
     }
     throw error;
   }
-  return data as { success: boolean; text: string; no_content: boolean; page_id: string; error?: string; message?: string };
+  return data as {
+    success: boolean;
+    text: string;
+    no_content: boolean;
+    page_id: string;
+    error?: string;
+    message?: string;
+    validated?: boolean;
+    score?: number | null;
+    violations?: unknown[];
+    was_corrected?: boolean;
+    text_original?: string | null;
+  };
 }
 
 export function useTextExtractor(): UseTextExtractorReturn {
@@ -92,9 +104,17 @@ export function useTextExtractor(): UseTextExtractorReturn {
       try {
         const result = await callExtractText(page, mode, project);
         if (result.success) {
+          const extra: Partial<Page> = {};
+          if (mode === "audiodesc") {
+            (extra as any).audiodesc_validated = !!result.validated;
+            (extra as any).audiodesc_validation_score = result.score ?? null;
+            (extra as any).audiodesc_validation_violations = (result.violations as any) ?? null;
+            (extra as any).audiodesc_text_original = result.text_original ?? null;
+          }
           onPageUpdate(page.id, {
             [textField]: result.text,
             [statusField]: result.no_content ? "no_content" : "extracted",
+            ...extra,
           } as Partial<Page>);
           return true;
         }
@@ -129,9 +149,17 @@ export function useTextExtractor(): UseTextExtractorReturn {
           try {
             const result = await callExtractText(page, mode, project);
             if (result.success) {
+              const extra: Partial<Page> = {};
+              if (mode === "audiodesc") {
+                (extra as any).audiodesc_validated = !!result.validated;
+                (extra as any).audiodesc_validation_score = result.score ?? null;
+                (extra as any).audiodesc_validation_violations = (result.violations as any) ?? null;
+                (extra as any).audiodesc_text_original = result.text_original ?? null;
+              }
               onPageUpdate(page.id, {
                 [textField]: result.text,
                 [statusField]: result.no_content ? "no_content" : "extracted",
+                ...extra,
               } as Partial<Page>);
               if (result.no_content) res.noContent++;
               else res.extracted++;
