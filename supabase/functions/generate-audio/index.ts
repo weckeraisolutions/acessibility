@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -195,7 +196,6 @@ async function requestGeminiChunk(
   chunkText: string,
   voice: string,
   styleApplied: string,
-  geminiApiKey: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const ttsPrompt = `Você é um narrador profissional de audiobooks educativos brasileiros.
 Mantenha exatamente estas características em toda a narração, sem variação:
@@ -214,32 +214,50 @@ TEXTO PARA NARRAR:
 ${chunkText}`;
 
   const model = "gemini-2.5-pro-preview-tts";
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
 
   let geminiResponse: Response;
   try {
-    geminiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: ttsPrompt }] }],
-        generationConfig: {
-          responseModalities: ["AUDIO"],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
-        },
-      }),
+    geminiResponse = await callGeminiWithFailover(async (apiKey, _idx) => {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
+      try {
+        return await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: ttsPrompt }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
+            },
+          }),
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
     });
   } catch (e) {
-    clearTimeout(timeoutId);
     if (e instanceof DOMException && e.name === "AbortError") {
       throw { status: 504, error: "timeout", message: "A geração de áudio excedeu o tempo limite. Tente novamente." };
     }
+    if (isBothKeysFailed(e)) {
+      const status = e.last_status;
+      const errText = e.last_error_text || "";
+      if (status === 429) {
+        const isQuotaExceeded = errText.includes("RESOURCE_EXHAUSTED") || errText.includes("quota");
+        throw {
+          status: 429,
+          error: "gemini_quota_exceeded",
+          message: isQuotaExceeded
+            ? "Quota diária do Gemini TTS excedida em ambas as chaves Google. Troque o motor de voz para ElevenLabs no painel acima ou aguarde ~24h para o reset."
+            : "Limite de requisições do Gemini atingido em ambas as chaves. Aguarde alguns segundos e tente novamente, ou use ElevenLabs.",
+        };
+      }
+      throw { status: 500, error: "api_error", message: `Erro Gemini em ambas as chaves: ${status} ${errText.slice(0, 200)}` };
+    }
     throw e;
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   if (!geminiResponse.ok) {
@@ -271,7 +289,7 @@ ${chunkText}`;
 }
 
 async function generateWithGemini(
-  text: string, voice: string, styleApplied: string, geminiApiKey: string
+  text: string, voice: string, styleApplied: string,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   const prepared = prepareText(text);
   const chunks = splitTextForTts(prepared);
@@ -280,7 +298,7 @@ async function generateWithGemini(
   for (let i = 0; i < chunks.length; i += 3) {
     const batch = chunks.slice(i, i + 3);
     const batchResults = await Promise.all(
-      batch.map((chunkText) => requestGeminiChunk(chunkText, voice, styleApplied, geminiApiKey)),
+      batch.map((chunkText) => requestGeminiChunk(chunkText, voice, styleApplied)),
     );
     results.push(...batchResults);
   }
@@ -735,15 +753,15 @@ serve(async (req) => {
       mimeType = result.mimeType;
       engine = "elevenlabs";
     } else {
-      const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
-      if (!gemini_api_key) {
-        return respond({ success: false, error: "missing_fields", message: "GEMINI_API_KEY não configurada" }, 400);
+      const keysCheck = validateGeminiKeysConfigured();
+      if (!keysCheck.ok) {
+        return respond({ success: false, error: "missing_fields", message: keysCheck.message || "Nenhuma chave Gemini configurada" }, 500);
       }
       // Validate voice is a valid Gemini voice name
       const validGeminiVoices = ["achernar","achird","algenib","algieba","alnilam","aoede","autonoe","callirrhoe","charon","despina","enceladus","erinome","fenrir","gacrux","iapetus","kore","laomedeia","leda","orus","puck","pulcherrima","rasalgethi","sadachbia","sadaltager","schedar","sulafat","umbriel","vindemiatrix","zephyr","zubenelgenubi"];
       const geminiVoice = (voice && validGeminiVoices.includes(voice.toLowerCase())) ? voice : "Zephyr";
       console.log(`[Gemini] Using voice: ${geminiVoice} (requested: ${voice})`);
-      const result = await generateWithGemini(text, geminiVoice, styleApplied, gemini_api_key);
+      const result = await generateWithGemini(text, geminiVoice, styleApplied);
       audioBytes = result.audioBytes;
       mimeType = result.mimeType;
     }
