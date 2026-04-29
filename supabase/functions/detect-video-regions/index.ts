@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,10 +73,10 @@ serve(async (req) => {
       );
     }
 
-    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!geminiApiKey) {
+    const keysCheck = validateGeminiKeysConfigured();
+    if (!keysCheck.ok) {
       return new Response(
-        JSON.stringify({ success: false, error: "GEMINI_API_KEY not configured" }),
+        JSON.stringify({ success: false, error: "no_gemini_keys", message: keysCheck.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -133,30 +134,49 @@ Retornar APENAS JSON válido sem texto adicional, markdown ou explicações:
 
 Coordenadas x, y, width, height são valores de 0.0 a 1.0 em proporção das dimensões da imagem (0,0 = canto superior esquerdo, 1,1 = canto inferior direito).`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
-    const geminiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt },
+    let geminiResponse: Response;
+    try {
+      geminiResponse = await callGeminiWithFailover(async (apiKey, _idx) => {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        return await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
               {
-                inline_data: {
-                  mime_type: contentType,
-                  data: base64Image,
-                },
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: contentType,
+                      data: base64Image,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 4096,
-        },
-      }),
-    });
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 4096,
+            },
+          }),
+        });
+      });
+    } catch (e) {
+      if (isBothKeysFailed(e)) {
+        if (e.last_status === 429) {
+          return new Response(
+            JSON.stringify({ success: false, error: "rate_limit", message: "Rate limit atingido em ambas as chaves Gemini. Tente novamente em alguns segundos." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ success: false, error: "gemini_error", message: `Erro Gemini em ambas as chaves: ${e.last_status}` }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw e;
+    }
 
     if (!geminiResponse.ok) {
       const errText = await geminiResponse.text();
