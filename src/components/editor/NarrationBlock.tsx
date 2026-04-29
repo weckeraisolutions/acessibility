@@ -243,6 +243,35 @@ const NarrationBlock = ({
         </div>
       </div>
 
+      {isElevenlabs && (
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-6 px-2 text-[10px] flex-1"
+            onClick={() => setShowRhythmPreview(true)}
+          >
+            <Eye className="h-2.5 w-2.5 mr-1" /> Ver pausas
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={advancedRhythm ? "default" : "outline"}
+            className="h-6 px-2 text-[10px] flex-1"
+            onClick={() => setAdvancedRhythm((v) => !v)}
+          >
+            <Pencil className="h-2.5 w-2.5 mr-1" />
+            {advancedRhythm ? "Manual ON" : "Editar manual"}
+          </Button>
+        </div>
+      )}
+      {advancedRhythm && (
+        <p className="text-[9px] text-muted-foreground leading-snug">
+          Use <code>{`<break time="1s" />`}</code> para pausa (0.1s a 3s).
+        </p>
+      )}
+
       <Button size="sm" className="w-full h-7 text-xs" disabled={!localText.trim() || generating} onClick={handleGenerate}>
         {generating ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Gerando...</> : <><Play className="h-3 w-3 mr-1" /> Gerar áudio</>}
       </Button>
@@ -263,6 +292,14 @@ const NarrationBlock = ({
           </Button>
         </>
       )}
+
+      <RhythmPreviewDialog
+        open={showRhythmPreview}
+        onClose={() => setShowRhythmPreview(false)}
+        text={localText}
+        preset={currentSpeed || "educativo"}
+        advancedMode={advancedRhythm}
+      />
     </div>
   );
 };
