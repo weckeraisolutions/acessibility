@@ -1,104 +1,62 @@
+## Diagnóstico confirmado
 
-# Diagnóstico — Velocidade inconsistente em textos longos (ElevenLabs)
+Inspeção de `supabase/functions/generate-audio/index.ts` (linhas 328–600) confirma os três pontos do bug:
 
-## Como o loop funciona hoje (`generateWithElevenLabs`, linhas 339–495)
+1. **`VOICE_SETTINGS` (linhas 486–492)** está com `stability: 1.0`, `style: 0.0`, `use_speaker_boost: false`. Conforme documentação ElevenLabs, `stability` ≥ 0.7 satura o modelo Multilingual v2 e neutraliza o efeito do parâmetro `speed` — explicação coerente com o sintoma "speed só converge no último chunk".
+2. **`normalizeForElevenLabs` (linhas 328–335)** colapsa todo `\s*\n+\s*` em espaço único na linha 331, removendo a respiração ao redor das tags `<break .../>` injetadas por `applyRhythmTags`.
+3. **Bloco `if (!skipContext)` (linhas 573–584)** alimenta `previous_text` com os últimos 200 chars do chunk anterior e `next_text` com os primeiros 200 do próximo, fazendo o modelo herdar a prosódia do chunk anterior em vez de obedecer ao `voice_settings`. O `previous_text` inicial (página anterior, linhas 532–550) é aplicado apenas no `ci === 0` e é aceitável manter.
 
-1. Texto recebe normalização agressiva (`normalizeForElevenLabs`).
-2. Divisão em chunks com `MAX_CHUNK = 1800` caracteres (linha 350), por parágrafo e fallback por sentença. **Boa estratégia.**
-3. `skipContext = narrationSpeed !== "fluente"` (linha 376) — significa que **`pausada` e `educativo` JÁ não recebem `previous_text`/`next_text`**. Apenas `fluente` carrega contexto cruzado.
-4. `prefix = rhythmPrefix(narrationSpeed)` (linha 400) retorna:
-   - `"... "` para `pausada`
-   - `". "` para `educativo`
-   - `""` para `fluente`
-5. Loop por chunk (linha 404):
-   - **`bodyObj` (incluindo `voice_settings` com `speed`) é reconstruído a cada iteração**, mas sempre com a mesma constante `speed` recebida como parâmetro. Não há mutação observável.
-   - Log `[ElevenLabs] chunk X/Y voice_settings: {...}` confirma o objeto a cada chamada.
-   - `chunk = prefix + chunks[ci]` — **o prefixo de ritmo é aplicado em TODOS os chunks**.
+Observação importante: hoje `skipContext = narrationSpeed !== "fluente"` (linha 529), então em `pausada`/`educativo` o bloco já está desativado. A correção solicitada remove o bloco inteiro, eliminando o `previous_text/next_text` cruzado **também para `fluente`**, que é exatamente o comportamento pedido pelo usuário.
 
-## Causa raiz identificada — assinatura clássica confirmada
+## Correções a aplicar
 
-O sintoma "início/meio fluido, fim pausado" tem **uma única explicação técnica consistente** com este código:
+Apenas em `supabase/functions/generate-audio/index.ts`:
 
-**O parâmetro `speed` no `voice_settings` do ElevenLabs Multilingual v2 é tratado como um *target* de ritmo, não como um time-stretch determinístico aplicado a todo o áudio.** O modelo precisa de "tempo" (caracteres processados) para convergir do ritmo natural inferido do texto até o ritmo solicitado. Em chunks de 1800 caracteres com `speed=0.80`:
-
-- O modelo começa cada chunk em ritmo próximo ao "natural" (~1.0).
-- Conforme processa, vai desacelerando em direção ao alvo 0.80.
-- **Em chunks curtos (texto único < 1800), ele praticamente não tem tempo de convergir e o áudio sai inteiro num ritmo médio** — por isso textos curtos parecem "respeitar" o preset (na verdade soam consistentes, ainda que não exatamente 0.80).
-- **Em texto longo dividido**, cada chunk reinicia esse processo de convergência. O usuário ouve: chunk 1 começa fluido → desacelera → corta → chunk 2 começa fluido de novo → desacelera → … → último chunk finalmente soa pausado porque o ouvido já está calibrado e o final não tem "próximo chunk" para mascarar.
-
-A descrição do usuário ("a maior parte fluida, só o final pausado") bate exatamente com esse padrão de **convergência intra-chunk não-resetada na percepção, mas resetada na geração**.
-
-### Por que NÃO é bug de mutação de variável
-- `speed` é parâmetro `const` da função, nunca reatribuído.
-- `voice_settings.speed: speed` (linha 420) referencia o mesmo valor em todas as iterações.
-- O log `[ElevenLabs] chunk X/Y` na linha 426 já existe e, conforme os logs do usuário (`speed: 0.8` no log atual), confirma que o valor enviado **está correto em cada chunk**.
-
-### Por que NÃO é `previous_text`
-Já está desativado para `pausada` (`skipContext = true` quando ≠ `fluente`, linha 376). O bug ocorre mesmo sem `previous_text`.
-
-### Hipótese secundária a validar
-O `prefix = "... "` aplicado em **todos** os chunks pode estar tendo efeito **decrescente** (modelo "se acostuma" com a sinalização). Mais importante: chunks de 1800 chars são curtos demais para o modelo convergir ao ritmo alvo de forma audível.
-
-## Divergências do enunciado vs. código real
-
-1. **Limite NÃO é 10.000 chars** — é 1800 (linha 350). Código já usa chunks pequenos.
-2. **`voice_settings` JÁ é construído com a mesma `speed` em cada chunk**, embora o objeto literal seja recriado (sem efeito funcional, pois `speed` é constante).
-3. **`previous_text` JÁ é omitido para `pausada`/`educativo`** (linha 376). A premissa do enunciado de que ele estaria "carregando prosódia herdada" no preset pausada não se aplica.
-4. **Não existe tratamento de `isLastChunk`** — todos os chunks são tratados igual.
-5. **Já existe log por chunk** (linha 426), mas não inclui `chunk_index/total`, `text_length`, nem `has_previous_text`/`previous_text_length`.
-
-## Plano de correção
-
-### A. Logs ampliados `[AUDIO-DEBUG-CHUNK]` (permanentes)
-Substituir o log atual por dois logs estruturados por chunk:
-- **Antes da chamada:** `chunk_index`, `total_chunks`, `text_length`, `voice_settings` completo, `has_previous_text`, `previous_text_length`, `has_next_text`, `prefix_used`.
-- **Depois da resposta:** `chunk_index`, `success`, `audio_size_bytes`, `attempt`.
-
-### B. Capturar `speed` em constante explícita no topo da função
-```ts
-const SPEED_LOCKED: number = speed; // single source of truth, never reassigned
-```
-Usar `SPEED_LOCKED` no `voice_settings`. Não muda o comportamento atual (é defensivo + auto-documentado), mas atende explicitamente o requisito 2.2 do enunciado.
-
-### C. Construir `voice_settings` UMA VEZ fora do loop
+### 1. Ajustar `VOICE_SETTINGS` (linhas 486–492)
 ```ts
 const VOICE_SETTINGS = Object.freeze({
-  stability: 1.0,
-  similarity_boost: 0.75,
-  style: 0.0,
-  use_speaker_boost: false,
+  stability: 0.5,
+  similarity_boost: 0.85,
+  style: 0.15,
+  use_speaker_boost: true,
   speed: SPEED_LOCKED,
 });
 ```
-Passar a mesma referência em todos os chunks. Garante imutabilidade real e atende requisito 2.1.
 
-### D. Aumentar `MAX_CHUNK` para reduzir frequência de "reconvergência" do ritmo
-**Esta é a correção que de fato ataca a causa raiz percebida.** Subir `MAX_CHUNK` de **1800 → 4500** caracteres. Isso:
-- Dá ao modelo tempo suficiente dentro de cada chunk para estabilizar o ritmo alvo.
-- Reduz o número total de chunks (textos de 8k chars caem de ~5 chunks para ~2).
-- Mantém margem segura em relação ao limite real do ElevenLabs (~10k).
-- Preserva a divisão por parágrafo/sentença (sem cortes no meio de frase).
+### 2. Preservar respiração ao redor das tags `<break>` em `normalizeForElevenLabs` (linha 331 + nova linha)
+Após `t = t.replace(/\s*\n+\s*/g, " ");` adicionar:
+```ts
+t = t.replace(/\s*<break([^>]*)\/>\s*/g, " <break$1 /> ");
+```
+Reforça que cada tag fica cercada por espaço explícito após o colapso de quebras de linha. A linha de colapso de espaços múltiplos (`/\s{2,}/g → " "`) que vem depois é compatível porque a tag é tratada como token literal pelo regex de espaços.
 
-### E. Reforçar prefixo de ritmo apenas no primeiro chunk
-Hoje o prefixo `"... "` é aplicado em **todo** chunk. Mudar para:
-- Primeiro chunk: prefixo completo (ex.: `"... "` para pausada).
-- Chunks subsequentes: prefixo reduzido ou vazio, já que o ritmo deve estar estabelecido.
+### 3. Remover o bloco de `previous_text`/`next_text` cruzado entre chunks (linhas 573–584)
+Apagar inteiramente:
+```ts
+if (!skipContext) {
+  if (ci === 0 && previousText) { bodyObj.previous_text = previousText; }
+  else if (ci > 0) { bodyObj.previous_text = chunks[ci - 1].slice(-200); }
+  if (ci < chunks.length - 1) { bodyObj.next_text = chunks[ci + 1].slice(0, 200); }
+}
+```
+Substituir por: aplicar `previous_text` apenas no primeiro chunk com base na página anterior, sem `next_text` e sem cadeia entre chunks:
+```ts
+if (ci === 0 && previousText) {
+  bodyObj.previous_text = previousText;
+}
+```
+Manter intactos a lógica de fetch de `previousText` (linhas 532–550) e a flag `skipContext` (que continua governando se o `previousText` da página anterior é buscado — comportamento atual preservado para `fluente` e desativado para `pausada`/`educativo`).
 
-Decisão proposta: manter prefixo em todos por segurança, mas **adicionar** uma instrução textual mais forte no primeiro chunk (ex.: `"...  "` com pausa dupla) para "ancorar" o ritmo desde o início.
+### 4. Logs `[AUDIO-DEBUG-CHUNK]` (linhas 591–597)
+Mantidos sem alteração — já reportam `voice_settings` completo, `has_previous_text`, `previous_text_length`, `has_next_text`, `next_text_length`, exatamente o que se precisa para validar.
 
-### F. `previous_text` — manter comportamento atual
-Já está desativado para `pausada`/`educativo`. Nenhuma mudança necessária. Para `fluente`, manter os 200 chars atuais (consistência de prosódia é desejável e não há bug reportado nesse preset).
+## Não tocar
+`applyRhythmTags`, `resolveSpeed`, `RHYTHM_TABLE`, `MAX_CHUNK = 4500`, lógica de chunking por parágrafo/sentença, prefixo `rhythmPrefix`, fluxo Gemini, audiodescrição, retry/timeout, frontend.
 
-### G. Não tocar
-Gemini, audiodescrição, voz, seed, normalização de texto, schema, storage, Videobook, landing, auth.
+## Validação após implementação
+Deploy da edge function e teste com texto ≥ 6.000 chars + preset "pausada". Inspeção dos logs `[AUDIO-DEBUG-CHUNK]` deve mostrar em **todos** os chunks:
+- `voice_settings={"stability":0.5,"similarity_boost":0.85,"style":0.15,"use_speaker_boost":true,"speed":0.85}`
+- `has_next_text=false`
+- `has_previous_text=false` (exceto possivelmente o chunk 1, se houver página anterior e preset for `fluente`)
 
-## Arquivos a modificar
-- `supabase/functions/generate-audio/index.ts` (apenas dentro de `generateWithElevenLabs`, linhas 339–495)
-
-## Validação pós-correção
-1. Gerar áudio longo (≥8000 chars) com preset "Pausada" — verificar nos logs que todos os chunks mostram `voice_settings.speed: 0.8` e que o número de chunks caiu (~2 em vez de ~5).
-2. Ouvir o áudio resultante: ritmo pausado consistente do início ao fim.
-3. Repetir com "Fluente" em texto longo — confirmar ausência de regressão.
-4. `tsc --noEmit` verde.
-
-Aguardando aprovação para implementar.
+Reportar o output dos logs ao usuário para confirmação auditiva final.

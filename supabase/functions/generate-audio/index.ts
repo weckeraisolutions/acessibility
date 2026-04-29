@@ -329,6 +329,9 @@ function normalizeForElevenLabs(text: string): string {
   let t = text;
   t = t.replace(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ ]{1,30}):\s+/g, "$1 — ");
   t = t.replace(/\s*\n+\s*/g, " ");
+  // Preserve breathing room around <break .../> tags so the model treats
+  // them as standalone prosodic events even after whitespace collapsing.
+  t = t.replace(/\s*<break([^>]*)\/>\s*/g, " <break$1 /> ");
   t = t.replace(/\s+\/\s+/g, ", ");
   t = t.replace(/\s{2,}/g, " ");
   return t.trim();
@@ -484,10 +487,10 @@ async function generateWithElevenLabs(
   // Built ONCE outside the loop and frozen so no chunk iteration can mutate
   // it. The exact same object reference is sent in every API call.
   const VOICE_SETTINGS = Object.freeze({
-    stability: 1.0,
-    similarity_boost: 0.75,
-    style: 0.0,
-    use_speaker_boost: false,
+    stability: 0.5,
+    similarity_boost: 0.85,
+    style: 0.15,
+    use_speaker_boost: true,
     speed: SPEED_LOCKED,
   });
 
@@ -570,17 +573,13 @@ async function generateWithElevenLabs(
     };
     if (seed !== undefined) bodyObj.seed = seed;
 
-    if (!skipContext) {
-      // For first chunk, use previous page context; for subsequent chunks, use previous chunk text
-      if (ci === 0 && previousText) {
-        bodyObj.previous_text = previousText;
-      } else if (ci > 0) {
-        bodyObj.previous_text = chunks[ci - 1].slice(-200);
-      }
-      // For non-last chunks, provide next chunk context
-      if (ci < chunks.length - 1) {
-        bodyObj.next_text = chunks[ci + 1].slice(0, 200);
-      }
+    // Apply ONLY a single previous_text on the first chunk, sourced from
+    // the previous page (when available and rhythm preset allows it).
+    // No cross-chunk previous_text/next_text chaining: that biased the
+    // model toward inheriting the prior chunk's prosody and broke the
+    // requested voice_settings.speed target across long narrations.
+    if (ci === 0 && previousText) {
+      bodyObj.previous_text = previousText;
     }
 
     // ── PRE-CALL VALIDATION LOG (permanent) ──
