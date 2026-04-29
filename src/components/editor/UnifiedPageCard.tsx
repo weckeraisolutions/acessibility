@@ -4,6 +4,10 @@ import { Tables } from "@/integrations/supabase/types";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
 import AudioPageCard from "@/components/editor/AudioPageCard";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import ValidationReportDialog from "@/components/editor/ValidationReportDialog";
 
 type Page = Tables<"pages">;
 type Project = Tables<"projects">;
@@ -48,6 +52,12 @@ const UnifiedPageCard = ({
 }: UnifiedPageCardProps) => {
   const audiobookStatus = page.audiobook_status;
   const audiodescStatus = page.audiodesc_status;
+  const [reportOpen, setReportOpen] = useState(false);
+  const validated = (page as any).audiodesc_validated as boolean | undefined;
+  const score = (page as any).audiodesc_validation_score as number | null | undefined;
+  const violations = ((page as any).audiodesc_validation_violations as any[] | null | undefined) || [];
+  const textOriginal = (page as any).audiodesc_text_original as string | null | undefined;
+  const wasCorrected = !!(textOriginal && textOriginal !== page.audiodesc_text);
 
   return (
     <div className="space-y-2">
@@ -101,6 +111,34 @@ const UnifiedPageCard = ({
 
       {/* Audio description block */}
       <div className="rounded-lg border-l-4 border-l-[hsl(280_70%_60%)] bg-[hsl(280_70%_60%/0.04)] p-1.5">
+      {validated && (
+        <div className="px-1.5 pt-1.5 pb-0.5">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border transition-opacity hover:opacity-80 ${
+                    wasCorrected
+                      ? "bg-blue-500/15 text-blue-600 border-blue-500/40 dark:text-blue-400"
+                      : "bg-emerald-500/15 text-emerald-600 border-emerald-500/40 dark:text-emerald-400"
+                  }`}
+                >
+                  <ShieldCheck className="h-3 w-3" />
+                  {wasCorrected ? "Validado e ajustado por IA" : "Validado por IA"}
+                  {typeof score === "number" && <span>— Score {score}/100</span>}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {wasCorrected
+                  ? "Texto ajustado pela auditoria GPT-4o para conformidade com normas. Clique para ver violações corrigidas."
+                  : "Aprovado em auditoria automática GPT-4o conforme NBR 16452:2016"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
       <AudioPageCard
         page={page}
         mode="audiodesc"
@@ -120,6 +158,15 @@ const UnifiedPageCard = ({
         sectionTitle="🖼️ Audiodescrição"
       />
       </div>
+      <ValidationReportDialog
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        score={typeof score === "number" ? score : null}
+        wasCorrected={wasCorrected}
+        textOriginal={textOriginal || null}
+        textFinal={page.audiodesc_text || ""}
+        violations={violations}
+      />
     </div>
   );
 };

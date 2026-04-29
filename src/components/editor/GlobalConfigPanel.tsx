@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, Zap, Sparkles, Play, Square } from "lucide-react";
+import { ChevronDown, Zap, Sparkles, Play, Square, ShieldCheck } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VOICES } from "@/constants/voices";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +38,9 @@ interface GlobalConfigPanelProps {
   onElevenlabsVoiceChange: (voiceId: string) => void;
   narrationSpeed: string;
   onNarrationSpeedChange: (v: string) => void;
+  userPlan?: string;
+  enableDualValidation?: boolean;
+  onEnableDualValidationChange?: (v: boolean) => void;
 }
 
 const placeholders: Record<string, string> = {
@@ -49,6 +54,7 @@ const GlobalConfigPanel = ({
   ttsEngine, onTtsEngineChange, canUseElevenlabs,
   elevenlabsVoices, selectedElevenlabsVoice, onElevenlabsVoiceChange,
   narrationSpeed, onNarrationSpeedChange,
+  userPlan, enableDualValidation, onEnableDualValidationChange,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
@@ -84,6 +90,8 @@ const GlobalConfigPanel = ({
   };
 
   const isElevenlabs = ttsEngine === "elevenlabs";
+  const isEnterprise = (userPlan || "").toLowerCase() === "enterprise";
+  const showDualValidation = mode === "audiodesc";
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="border rounded-lg bg-card mb-4">
@@ -183,6 +191,45 @@ const GlobalConfigPanel = ({
           <Button variant="default" onClick={handleStartExtraction}>
             <Zap className="h-4 w-4 mr-1" /> Extrair todos os textos
           </Button>
+        )}
+
+        {showDualValidation && (
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                  <Label className="text-sm font-semibold">Validação Dupla por IA</Label>
+                  <Badge className="bg-amber-500 text-white border-0 text-[10px]">Exclusivo Enterprise</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Toda audiodescrição passa por auditoria automática com GPT-4o, garantindo conformidade
+                  com ABNT NBR 16452, Lei 13.146/2015 e manual IBC. Inclui correção automática de
+                  violações detectadas.
+                </p>
+                <p className="text-[10px] text-muted-foreground/80 mt-1">≈ R$0,03 por página validada</p>
+              </div>
+              <div className="shrink-0 pt-1">
+                {isEnterprise ? (
+                  <Switch
+                    checked={!!enableDualValidation}
+                    onCheckedChange={(v) => onEnableDualValidationChange?.(v)}
+                  />
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-block">
+                          <Switch checked={false} disabled />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>Disponível no plano Enterprise</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </CollapsibleContent>
     </Collapsible>
