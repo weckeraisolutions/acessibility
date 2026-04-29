@@ -436,12 +436,13 @@ async function generateWithElevenLabs(
   projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
   narrationSpeed?: string, advancedMode: boolean = false,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
-  // Apply ElevenLabs-specific aggressive normalization on top of standard prep
-  let prepared = normalizeForElevenLabs(preprocessTextForPTBR(prepareText(text)));
+  // Standard prep keeps line breaks intact (needed for paragraph/heading detection).
+  let prepared = preprocessTextForPTBR(prepareText(text));
 
   // ── RHYTHM TAGS ──
-  // Inject explicit <break> markers BEFORE chunking so each chunk inherits
-  // its own pause cues. Skipped in advanced mode (user-authored tags).
+  // Inject explicit <break> markers BEFORE the aggressive normalization so
+  // paragraph/heading boundaries are still detectable. Skipped in advanced
+  // mode (user-authored tags inside the text).
   if (advancedMode) {
     console.log(
       `[RHYTHM-DEBUG] advanced_mode=true preset=${narrationSpeed || "-"} text_length=${prepared.length} ` +
@@ -459,6 +460,10 @@ async function generateWithElevenLabs(
       `text_length_before=${before} text_length_after=${prepared.length}`,
     );
   }
+
+  // Now apply the aggressive normalization. Tags <break .../> are inline
+  // tokens and survive whitespace collapsing untouched.
+  prepared = normalizeForElevenLabs(prepared);
 
   // ── SPEED LOCK ──
   // Single source of truth for speed during the entire ElevenLabs run.
