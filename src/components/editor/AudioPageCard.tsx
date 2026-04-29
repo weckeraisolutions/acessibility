@@ -554,6 +554,34 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                 <SelectItem value="fluente">⚡ Fluente</SelectItem>
               </SelectContent>
             </Select>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px] flex-1"
+                onClick={() => setShowRhythmPreview(true)}
+              >
+                <Eye className="h-3 w-3 mr-1" /> Ver texto com pausas
+              </Button>
+              <Button
+                type="button"
+                variant={advancedRhythm ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-[11px] flex-1"
+                onClick={() => setAdvancedRhythm((v) => !v)}
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                {advancedRhythm ? "Modo avançado: ON" : "Editar pausas manualmente"}
+              </Button>
+            </div>
+            {advancedRhythm && (
+              <p className="mt-1 text-[10px] text-muted-foreground leading-snug">
+                Modo avançado ativo: o texto vai direto à API.
+                Use <code>{`<break time="1s" />`}</code> para inserir pausas (0.1s a 3s).
+              </p>
+            )}
           </div>
         )}
 
