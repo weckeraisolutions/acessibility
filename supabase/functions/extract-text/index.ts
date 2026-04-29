@@ -326,13 +326,103 @@ serve(async (req) => {
     const textField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
     const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
 
+    // Default update payload (no validation)
+    const updatePayload: Record<string, unknown> = {
+      [textField]: cleanedText,
+      [statusField]: noContent ? "no_content" : "extracted",
+      updated_at: new Date().toISOString(),
+    };
+
+    // Optional dual validation (Enterprise + audiodesc + content present)
+    let validated = false;
+    let validationScore: number | null = null;
+    let validationViolations: unknown[] = [];
+    let wasCorrected = false;
+    let textOriginalForResponse: string | null = null;
+    let finalText = cleanedText;
+
+    if (mode === "audiodesc" && !noContent) {
+      try {
+        const { data: pageRow } = await supabase
+          .from("pages")
+          .select("project_id")
+          .eq("id", page_id)
+          .maybeSingle();
+        const projectId = pageRow?.project_id;
+        if (projectId) {
+          const { data: projRow } = await supabase
+            .from("projects")
+            .select("enable_dual_validation, user_id")
+            .eq("id", projectId)
+            .maybeSingle();
+          const enableDualValidation = !!projRow?.enable_dual_validation;
+          let plan = "free";
+          if (projRow?.user_id) {
+            const { data: profileRow } = await supabase
+              .from("profiles")
+              .select("plan")
+              .eq("id", projRow.user_id)
+              .maybeSingle();
+            plan = (profileRow?.plan || "free").toLowerCase();
+          }
+          if (enableDualValidation && plan === "enterprise") {
+            console.log(`[VALIDATION] page_id=${page_id} dispatching to validate-audiodesc`);
+            try {
+              const valController = new AbortController();
+              const valTimeout = setTimeout(() => valController.abort(), 50000);
+              const valResp = await fetch(`${supabaseUrl}/functions/v1/validate-audiodesc`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${serviceRoleKey}`,
+                },
+                signal: valController.signal,
+                body: JSON.stringify({ text: cleanedText, book_type: book_type || "general", page_id }),
+              });
+              clearTimeout(valTimeout);
+              const valJson = await valResp.json().catch(() => null) as
+                | { success: boolean; aprovado?: boolean; score?: number; violacoes?: unknown[]; texto_corrigido?: string | null; error?: string }
+                | null;
+              if (valResp.ok && valJson?.success) {
+                validated = true;
+                validationScore = typeof valJson.score === "number" ? valJson.score : null;
+                validationViolations = Array.isArray(valJson.violacoes) ? valJson.violacoes : [];
+                if (valJson.aprovado) {
+                  // approved as-is
+                  textOriginalForResponse = cleanedText;
+                  updatePayload.audiodesc_text_original = cleanedText;
+                } else if (typeof valJson.texto_corrigido === "string" && valJson.texto_corrigido.trim()) {
+                  finalText = valJson.texto_corrigido.trim();
+                  wasCorrected = true;
+                  textOriginalForResponse = cleanedText;
+                  updatePayload.audiodesc_text_original = cleanedText;
+                  updatePayload[textField] = finalText;
+                } else {
+                  // reproved without correction → keep original
+                  textOriginalForResponse = cleanedText;
+                  updatePayload.audiodesc_text_original = cleanedText;
+                }
+                updatePayload.audiodesc_validated = true;
+                updatePayload.audiodesc_validation_score = validationScore;
+                updatePayload.audiodesc_validation_violations = validationViolations;
+              } else {
+                console.error(`[VALIDATION] page_id=${page_id} validation failed status=${valResp.status} error=${valJson?.error || "unknown"} — falling back to original text`);
+                updatePayload.audiodesc_validated = false;
+              }
+            } catch (e) {
+              console.error(`[VALIDATION] page_id=${page_id} validation request errored — fallback`, e);
+              updatePayload.audiodesc_validated = false;
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`[VALIDATION] page_id=${page_id} pre-check failed — skipping validation`, e);
+      }
+    }
+
     const { error: updateError } = await supabase
       .from("pages")
-      .update({
-        [textField]: cleanedText,
-        [statusField]: noContent ? "no_content" : "extracted",
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", page_id);
 
     if (updateError) {
@@ -348,7 +438,19 @@ serve(async (req) => {
       suggested_blocks = det.blocks;
     }
 
-    return respond({ success: true, text: cleanedText, no_content: noContent, page_id, has_characters, suggested_blocks });
+    return respond({
+      success: true,
+      text: finalText,
+      no_content: noContent,
+      page_id,
+      has_characters,
+      suggested_blocks,
+      validated,
+      score: validationScore,
+      violations: validationViolations,
+      was_corrected: wasCorrected,
+      text_original: textOriginalForResponse,
+    });
   } catch (e) {
     console.error("extract-text error:", e);
     return respond({ success: false, error: "api_error", message: e instanceof Error ? e.message : "Unknown error" }, 500);
