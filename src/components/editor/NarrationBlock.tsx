@@ -43,6 +43,7 @@ const NarrationBlock = ({
   const [generating, setGenerating] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const prevAudioRef = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => { setLocalText(narration.text || ""); }, [narration.text]);
   useEffect(() => { setLocalLabel(narration.label); }, [narration.label]);
@@ -68,6 +69,18 @@ const NarrationBlock = ({
 
   useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl); }, []);
 
+  // Force <audio> element to reload whenever the blob (or the narration) changes.
+  // Without this the browser may keep playing the previously cached MP3 after a regen.
+  useEffect(() => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.load();
+      } catch { /* ignore */ }
+    }
+  }, [blobUrl, narration.updated_at]);
+
   const debouncedText = useDebounce((v: string) => onUpdate(narration.id, { text: v || null }), 1500);
   const handleTextChange = (v: string) => { setLocalText(v); debouncedText(v); };
 
@@ -88,6 +101,7 @@ const NarrationBlock = ({
     }
     setGenerating(true);
     try {
+      const effectiveSpeed = currentSpeed || globalNarrationSpeed || "educativo";
       const { data, error } = await supabase.functions.invoke("generate-audio", {
         body: {
           page_id: page.id,
@@ -102,7 +116,7 @@ const NarrationBlock = ({
           use_elevenlabs: isElevenlabs,
           elevenlabs_voice_id: isElevenlabs ? currentVoice : selectedElevenlabsVoice,
           elevenlabs_model: "eleven_multilingual_v2",
-          narration_speed: currentSpeed,
+          narration_speed: effectiveSpeed,
           // Hint to backend (ignored if not supported) — keeps DB row write here, not on `pages`.
           skip_page_update: true,
           narration_id: narration.id,
@@ -120,7 +134,9 @@ const NarrationBlock = ({
         status: "audio_generated",
         voice_id: currentVoice,
         voice_engine: isElevenlabs ? "elevenlabs" : "gemini",
-        narration_speed: currentSpeed,
+        narration_speed: effectiveSpeed,
+        // Optimistically bump updated_at so the player <audio key={...}> remounts immediately.
+        updated_at: new Date().toISOString(),
       });
       toast({ title: "Áudio gerado", description: `${narration.label} — ${data.duration_seconds}s` });
     } catch {
@@ -229,7 +245,15 @@ const NarrationBlock = ({
 
       {blobUrl && (
         <>
-          <audio key={narration.audio_url || ""} controls className="w-full h-7"><source src={blobUrl} type="audio/mpeg" /></audio>
+          <audio
+            ref={audioRef}
+            key={`${narration.id}-${narration.updated_at}`}
+            controls
+            className="w-full h-7"
+            preload="metadata"
+          >
+            <source src={blobUrl} type="audio/mpeg" />
+          </audio>
           <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={handleDownload}>
             <Download className="h-3 w-3 mr-1" /> Download MP3
           </Button>
