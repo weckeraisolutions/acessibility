@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -226,14 +227,13 @@ serve(async (req) => {
   try {
     const { page_id, image_url, mode, book_type, global_style, page_style, narration_text } = await req.json();
 
-    const gemini_api_key = Deno.env.get("GEMINI_API_KEY");
-
     if (!page_id || !image_url || !mode) {
       return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios: page_id, image_url, mode" }, 400);
     }
 
-    if (!gemini_api_key) {
-      return respond({ success: false, error: "api_key_missing", message: "GEMINI_API_KEY não configurada no servidor" }, 500);
+    const keysCheck = validateGeminiKeysConfigured();
+    if (!keysCheck.ok) {
+      return respond({ success: false, error: "api_key_missing", message: keysCheck.message || "Nenhuma chave Gemini configurada" }, 500);
     }
 
     // Download image and convert to base64 (chunked to avoid CPU limits)
@@ -260,34 +260,42 @@ serve(async (req) => {
       mode === "audiodesc" ? (narration_text || "") : ""
     );
 
-    // Call Gemini Vision API with 55s timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 55000);
-
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gemini_api_key}`;
+    // Call Gemini Vision API with 55s timeout per attempt + key rotation/failover
     let geminiResponse: Response;
     try {
-      geminiResponse = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inlineData: { mimeType: "image/png", data: imgBase64 } },
-              { text: prompt },
-            ],
-          }],
-        }),
+      geminiResponse = await callGeminiWithFailover(async (apiKey, _idx) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 55000);
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        try {
+          return await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { inlineData: { mimeType: "image/png", data: imgBase64 } },
+                  { text: prompt },
+                ],
+              }],
+            }),
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
       });
     } catch (e) {
-      clearTimeout(timeoutId);
       if (e instanceof DOMException && e.name === "AbortError") {
         return respond({ success: false, error: "timeout", message: "A extração demorou demais. Tente novamente — páginas complexas podem precisar de mais de uma tentativa." }, 504);
       }
+      if (isBothKeysFailed(e)) {
+        if (e.last_status === 429) {
+          return respond({ success: false, error: "rate_limit", message: "Limite de requisições do Gemini atingido em ambas as chaves. Aguarde alguns segundos." }, 429);
+        }
+        return respond({ success: false, error: "api_error", message: `Erro Gemini em ambas as chaves: ${e.last_status}` }, 500);
+      }
       throw e;
-    } finally {
-      clearTimeout(timeoutId);
     }
 
     if (!geminiResponse.ok) {
