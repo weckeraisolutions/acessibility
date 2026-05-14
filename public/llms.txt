@@ -1,0 +1,8 @@
+# Accessibility
+
+> Plataforma SaaS brasileira que transforma livros em PDF em audiobooks, audiodescrições e videobooks acessíveis com IA, em conformidade com a Lei Brasileira de Inclusão (LBI) e a ABNT NBR 16452:2016.
+
+## Pages
+
+- [Home](/): Visão geral do produto, funcionalidades, planos e FAQ.
+- [Entrar / Criar conta](/auth): Acesso à plataforma para criadores e editoras.
