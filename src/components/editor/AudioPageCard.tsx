@@ -76,6 +76,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const [showRegen, setShowRegen] = useState(false);
   const [regenStyle, setRegenStyle] = useState("");
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const prevAudioUrlRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -137,7 +138,9 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         const blob = new Blob([buffer], { type: mime });
         setBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
-          return URL.createObjectURL(blob);
+          const next = URL.createObjectURL(blob);
+          blobUrlRef.current = next;
+          return next;
         });
       })
       .catch((err) => {
@@ -158,10 +161,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
     }
   }, [blobUrl]);
 
-  // Cleanup blob URL on unmount
+  // Cleanup blob URL on unmount — uses a ref so the cleanup captures the
+  // latest URL rather than the stale initial null from the closure.
   useEffect(() => {
     return () => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
     };
   }, []);
 
@@ -502,6 +506,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                       type="button"
                       className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full border hover:bg-accent"
                       onClick={(e) => { e.stopPropagation(); handlePreviewVoice(v.voice_id, v.preview_url); }}
+                      aria-label={playingVoiceId === v.voice_id ? `Parar prévia de ${v.name}` : `Ouvir prévia de ${v.name}`}
                     >
                       {playingVoiceId === v.voice_id ? <Square className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
                     </button>

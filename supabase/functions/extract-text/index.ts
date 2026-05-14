@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
+import { normalizeText } from "../_shared/text-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,19 +16,43 @@ function respond(body: Record<string, unknown>, status = 200) {
   });
 }
 
-function cleanText(text: string): string {
-  return text
-    .replace(/\[.*?\]/g, "")
-    .replace(/\n{2,}/g, "\n")
-    .replace(/\bIBGE\b/g, "I-B-G-E")
-    .replace(/\bBNCC\b/g, "B-N-C-C")
-    .replace(/\bONU\b/g, "O-N-U")
-    .replace(/\bMEC\b/g, "M-E-C")
-    .replace(/\bUSA\b/g, "U-S-A")
-    .replace(/\bEUA\b/g, "E-U-A")
-    .replace(/\b10\.639\/2003\b/g, "Lei dez mil seiscentos e trinta e nove de dois mil e três")
-    .replace(/\b11\.645\/2008\b/g, "Lei onze mil seiscentos e quarenta e cinco de dois mil e oito")
-    .trim();
+// cleanText is now provided by the shared normalizeText utility.
+// Kept as a local alias for readability at call sites.
+const cleanText = normalizeText;
+
+/**
+ * Removes AI classification labels and markdown artifacts that must never
+ * appear in the final narration text. Runs after cleanText on every response,
+ * for both audiobook and audiodesc modes.
+ *
+ * Strips:
+ * - Leading classification labels output by the model (RELEVANTE, DECORATIVA, etc.)
+ * - Common AI response prefixes (RESPOSTA:, AUDIODESCRIÇÃO:, NARRAÇÃO:, TEXTO:)
+ * - Fenced code blocks (```text … ```)
+ * - Resulting blank lines at start/end
+ */
+function sanitizeNarrationText(text: string): string {
+  // Labels that Gemini may emit as a standalone first line
+  const LABEL_PATTERN = /^(RELEVANTE|DECORATIVA|RESPOSTA|AUDIODESCRIÇÃO|AUDIODESCRIÇÃO|NARRAÇÃO|TEXTO|RESULTADO|DESCRIÇÃO|CLASSIFICAÇÃO)\s*:?\s*\n+/i;
+
+  let t = text;
+
+  // Remove fenced code blocks (```lang … ```)
+  t = t.replace(/^```[^\n]*\n([\s\S]*?)```\s*$/gm, "$1");
+
+  // Remove any standalone label line at the very start (loop handles edge
+  // cases where the model emits the label twice or with trailing colon)
+  for (let i = 0; i < 5; i++) {
+    const before = t;
+    t = t.replace(LABEL_PATTERN, "");
+    if (t === before) break;
+  }
+
+  // Also strip if the label appears on the first line without a newline
+  // after it (e.g. model returned "RELEVANTE " then the description inline)
+  t = t.replace(/^(RELEVANTE|DECORATIVA)\s+/i, "");
+
+  return t.trim();
 }
 
 /**
@@ -314,7 +339,7 @@ serve(async (req) => {
 
     const geminiData = await geminiResponse.json();
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const cleanedText = cleanText(rawText);
+    const cleanedText = sanitizeNarrationText(cleanText(rawText));
 
     const noContent = cleanedText === "PÁGINA_SEM_NARRAÇÃO" || cleanedText === "PÁGINA_SEM_AUDIODESCRIÇÃO";
 

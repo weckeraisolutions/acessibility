@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
+import { normalizeText, preprocessForTTS } from "../_shared/text-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,20 +10,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function prepareText(text: string): string {
-  return text
-    .replace(/\[.*?\]/g, "")
-    .replace(/\n{2,}/g, "\n")
-    .replace(/\bIBGE\b/g, "I-B-G-E")
-    .replace(/\bBNCC\b/g, "B-N-C-C")
-    .replace(/\bONU\b/g, "O-N-U")
-    .replace(/\bMEC\b/g, "M-E-C")
-    .replace(/\bUSA\b/g, "U-S-A")
-    .replace(/\bEUA\b/g, "E-U-A")
-    .replace(/\b10\.639\/2003\b/g, "Lei dez mil seiscentos e trinta e nove de dois mil e três")
-    .replace(/\b11\.645\/2008\b/g, "Lei onze mil seiscentos e quarenta e cinco de dois mil e oito")
-    .trim();
-}
+// prepareText is now the shared normalizeText utility.
+const prepareText = normalizeText;
 
 function respond(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -328,14 +317,8 @@ async function generateWithGemini(
   return { audioBytes: wrapPcmAsWav(mergedPcm), mimeType: "audio/wav" };
 }
 
-function preprocessTextForPTBR(text: string): string {
-  return text
-    .replace(/(\d+(?:,\d+)?)\s*%/g, (_, n) => `${n} por cento`)
-    .replace(/R\$\s*([\d.,]+)/g, (_, n) => `${n} reais`)
-    .replace(/\.\.\./g, '…')
-    .replace(/\s—\s/g, ', ')
-    .trim();
-}
+// preprocessTextForPTBR is now the shared preprocessForTTS utility.
+const preprocessTextForPTBR = preprocessForTTS;
 
 /**
  * Aggressive normalization for ElevenLabs only.
@@ -466,13 +449,19 @@ async function generateWithElevenLabs(
   projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
   narrationSpeed?: string, advancedMode: boolean = false,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
-  // Standard prep keeps line breaks intact (needed for paragraph/heading detection).
-  let prepared = preprocessTextForPTBR(prepareText(text));
+  // ── PIPELINE ORDER (critical — do not reorder) ──
+  // 1. preprocessTextForPTBR: expand %, R$, em-dash — preserves \n structure
+  // 2. applyRhythmTags: detects \n\n (paragraphs) and ALL-CAPS headings —
+  //    MUST run before prepareText which collapses \n{2,} → \n, destroying
+  //    paragraph boundary signals needed for <break> tag insertion.
+  // 3. prepareText: strip [brackets], expand acronyms, collapse extra \n
+  // 4. normalizeForElevenLabs: collapse all \n to spaces, protect <break> tags
+
+  let prepared = preprocessTextForPTBR(text);
 
   // ── RHYTHM TAGS ──
-  // Inject explicit <break> markers BEFORE the aggressive normalization so
-  // paragraph/heading boundaries are still detectable. Skipped in advanced
-  // mode (user-authored tags inside the text).
+  // Inject explicit <break> markers while paragraph/heading boundaries are
+  // still intact in the text. Skipped in advanced mode (user-authored tags).
   if (advancedMode) {
     console.log(
       `[RHYTHM-DEBUG] advanced_mode=true preset=${narrationSpeed || "-"} text_length=${prepared.length} ` +
@@ -491,8 +480,11 @@ async function generateWithElevenLabs(
     );
   }
 
-  // Now apply the aggressive normalization. Tags <break .../> are inline
-  // tokens and survive whitespace collapsing untouched.
+  // Now strip brackets, expand acronyms and collapse redundant \n.
+  // <break .../> tags are inline tokens and survive this step untouched.
+  prepared = prepareText(prepared);
+
+  // Final pass: collapse all remaining \n to spaces, protect <break> spacing.
   prepared = normalizeForElevenLabs(prepared);
 
   // ── SPEED LOCK ──

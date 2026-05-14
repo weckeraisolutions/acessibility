@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Tables } from "@/integrations/supabase/types";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { TtsEngine } from "@/components/editor/GlobalConfigPanel";
@@ -87,77 +88,107 @@ const UnifiedPageCard = ({
         </div>
       </Card>
 
-      {/* Narration block */}
-      <div className="rounded-lg border-l-4 border-l-[hsl(217_91%_60%)] bg-[hsl(217_91%_60%/0.04)] p-1.5">
-      <AudioPageCard
-        page={page}
-        mode="audiobook"
-        globalVoice={project.audiobook_global_voice || "Zephyr"}
-        project={project}
-        onUpdate={onUpdate}
-        ttsEngine={narrationTtsEngine}
-        onTtsEngineChange={onNarrationTtsEngineChange}
-        canUseElevenlabs={canUseElevenlabs}
-        elevenlabsVoices={elevenlabsVoices}
-        selectedElevenlabsVoice={selectedElevenlabsVoice}
-        plan={plan}
-        globalNarrationSpeed={globalNarrationSpeed}
-        pageNarrationSpeed={pageNarrationSpeed}
-        onPageNarrationSpeedChange={onPageNarrationSpeedChange}
-        hideImage
-        sectionTitle="🔊 Narração"
-      />
-      </div>
+      {/* Collapsible panels — Narração opens by default, Audiodescrição closed */}
+      <Accordion type="single" collapsible defaultValue="narration" className="space-y-1">
 
-      {/* Audio description block */}
-      <div className="rounded-lg border-l-4 border-l-[hsl(280_70%_60%)] bg-[hsl(280_70%_60%/0.04)] p-1.5">
-      {validated && (
-        <div className="px-1.5 pt-1.5 pb-0.5">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(true)}
-                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border transition-opacity hover:opacity-80 ${
-                    wasCorrected
-                      ? "bg-blue-500/15 text-blue-600 border-blue-500/40 dark:text-blue-400"
-                      : "bg-emerald-500/15 text-emerald-600 border-emerald-500/40 dark:text-emerald-400"
-                  }`}
-                >
-                  <ShieldCheck className="h-3 w-3" />
-                  {wasCorrected ? "Validado e ajustado por IA" : "Validado por IA"}
-                  {typeof score === "number" && <span>— Score {score}/100</span>}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {wasCorrected
-                  ? "Texto ajustado pela auditoria GPT-4o para conformidade com normas. Clique para ver violações corrigidas."
-                  : "Aprovado em auditoria automática GPT-4o conforme NBR 16452:2016"}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      )}
-      <AudioPageCard
-        page={page}
-        mode="audiodesc"
-        globalVoice={project.audiodesc_global_voice || "Kore"}
-        project={project}
-        onUpdate={onUpdate}
-        ttsEngine={audiodescTtsEngine}
-        onTtsEngineChange={onAudiodescTtsEngineChange}
-        canUseElevenlabs={canUseElevenlabs}
-        elevenlabsVoices={elevenlabsVoices}
-        selectedElevenlabsVoice={selectedElevenlabsVoice}
-        plan={plan}
-        globalNarrationSpeed={globalNarrationSpeed}
-        pageNarrationSpeed={pageNarrationSpeed}
-        onPageNarrationSpeedChange={onPageNarrationSpeedChange}
-        hideImage
-        sectionTitle="🖼️ Audiodescrição"
-      />
-      </div>
+        {/* ── Narração (audiobook) ── */}
+        <AccordionItem
+          value="narration"
+          className="rounded-lg border-l-4 border-l-[hsl(217_91%_60%)] bg-[hsl(217_91%_60%/0.04)] border-b-0"
+        >
+          <AccordionTrigger className="px-3 py-2 text-sm font-semibold hover:no-underline">
+            <span className="flex items-center gap-2">
+              🔊 Narração
+              <Badge className={`text-[10px] ${audiobookStatus === "approved" ? "bg-green-500" : audiobookStatus === "audio_generated" ? "bg-orange-500" : "bg-muted-foreground/40"} text-white border-0`}>
+                {audiobookStatus === "approved" ? "✅ Aprovado" : audiobookStatus === "audio_generated" ? "🎵 Áudio gerado" : "○ Pendente"}
+              </Badge>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-1.5 pb-1.5 pt-0">
+            <AudioPageCard
+              page={page}
+              mode="audiobook"
+              globalVoice={project.audiobook_global_voice || "Zephyr"}
+              project={project}
+              onUpdate={onUpdate}
+              ttsEngine={narrationTtsEngine}
+              onTtsEngineChange={onNarrationTtsEngineChange}
+              canUseElevenlabs={canUseElevenlabs}
+              elevenlabsVoices={elevenlabsVoices}
+              selectedElevenlabsVoice={selectedElevenlabsVoice}
+              plan={plan}
+              globalNarrationSpeed={globalNarrationSpeed}
+              pageNarrationSpeed={pageNarrationSpeed}
+              onPageNarrationSpeedChange={onPageNarrationSpeedChange}
+              hideImage
+              sectionTitle="🔊 Narração"
+            />
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* ── Audiodescrição ── */}
+        <AccordionItem
+          value="audiodesc"
+          className="rounded-lg border-l-4 border-l-[hsl(280_70%_60%)] bg-[hsl(280_70%_60%/0.04)] border-b-0"
+        >
+          <AccordionTrigger className="px-3 py-2 text-sm font-semibold hover:no-underline">
+            <span className="flex items-center gap-2 flex-wrap">
+              🖼️ Audiodescrição
+              <Badge className={`text-[10px] ${audiodescStatus === "approved" ? "bg-green-500" : audiodescStatus === "audio_generated" ? "bg-orange-500" : "bg-muted-foreground/40"} text-white border-0`}>
+                {audiodescStatus === "approved" ? "✅ Aprovado" : audiodescStatus === "audio_generated" ? "🎵 Áudio gerado" : "○ Pendente"}
+              </Badge>
+              {validated && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setReportOpen(true); }}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border transition-opacity hover:opacity-80 ${
+                          wasCorrected
+                            ? "bg-blue-500/15 text-blue-600 border-blue-500/40 dark:text-blue-400"
+                            : "bg-emerald-500/15 text-emerald-600 border-emerald-500/40 dark:text-emerald-400"
+                        }`}
+                        aria-label="Ver relatório de validação"
+                      >
+                        <ShieldCheck className="h-3 w-3" />
+                        {wasCorrected ? "Ajustado por IA" : "Validado por IA"}
+                        {typeof score === "number" && <span>— {score}/100</span>}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {wasCorrected
+                        ? "Texto ajustado pela auditoria GPT-4o para conformidade com normas. Clique para ver violações corrigidas."
+                        : "Aprovado em auditoria automática GPT-4o conforme NBR 16452:2016"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-1.5 pb-1.5 pt-0">
+            <AudioPageCard
+              page={page}
+              mode="audiodesc"
+              globalVoice={project.audiodesc_global_voice || "Kore"}
+              project={project}
+              onUpdate={onUpdate}
+              ttsEngine={audiodescTtsEngine}
+              onTtsEngineChange={onAudiodescTtsEngineChange}
+              canUseElevenlabs={canUseElevenlabs}
+              elevenlabsVoices={elevenlabsVoices}
+              selectedElevenlabsVoice={selectedElevenlabsVoice}
+              plan={plan}
+              globalNarrationSpeed={globalNarrationSpeed}
+              pageNarrationSpeed={pageNarrationSpeed}
+              onPageNarrationSpeedChange={onPageNarrationSpeedChange}
+              hideImage
+              sectionTitle="🖼️ Audiodescrição"
+            />
+          </AccordionContent>
+        </AccordionItem>
+
+      </Accordion>
       <ValidationReportDialog
         open={reportOpen}
         onOpenChange={setReportOpen}
