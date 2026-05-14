@@ -281,10 +281,11 @@ const LandingPage = () => {
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden lp-bg-base">
         {/* Video background */}
         <video
-          autoPlay loop muted playsInline
+          autoPlay loop muted playsInline preload="auto" fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover z-0"
           style={{ filter: "blur(4px) brightness(0.45)", opacity: 0.75, transform: "scale(1.1)" }}
           src="/videos/hero-bg.mp4"
+          width="1920" height="1080"
         />
         <ParticleCanvas />
         <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
