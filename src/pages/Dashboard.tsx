@@ -124,6 +124,12 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title="Dashboard — Accessibility"
+        description="Gerencie seus projetos de audiobooks, audiodescrições e videobooks acessíveis."
+        path="/dashboard"
+        noindex
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card">
         <div className="container flex h-16 items-center justify-between">
