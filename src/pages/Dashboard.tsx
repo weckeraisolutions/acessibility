@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, MoreVertical, FolderOpen, BookOpen, Settings } from "lucide-react";
+import SEO from "@/components/SEO";
 
 interface ProjectWithProgress {
   id: string;
