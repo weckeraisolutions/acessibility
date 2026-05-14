@@ -281,7 +281,9 @@ const LandingPage = () => {
       <section className="relative min-h-screen flex items-center pt-20 overflow-hidden lp-bg-base">
         {/* Video background */}
         <video
-          autoPlay loop muted playsInline preload="auto" fetchPriority="high"
+          autoPlay loop muted playsInline preload="auto"
+          // @ts-expect-error fetchpriority is a valid HTML attribute for LCP hinting
+          fetchpriority="high"
           className="absolute inset-0 w-full h-full object-cover z-0"
           style={{ filter: "blur(4px) brightness(0.45)", opacity: 0.75, transform: "scale(1.1)" }}
           src="/videos/hero-bg.mp4"
