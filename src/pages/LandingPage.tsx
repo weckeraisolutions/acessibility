@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
+import SEO from "@/components/SEO";
 // @ts-ignore - no types shipped
 import VLibras from "@djpfs/react-vlibras";
 import {
@@ -198,6 +199,23 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "var(--lp-bg-base)" }}>
+      <SEO
+        title="Accessibility — Livros acessíveis com IA"
+        description="Transforme PDFs em audiobooks, audiodescrições e videobooks acessíveis com IA. Conforme LBI e ABNT NBR 16452:2016."
+        path="/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            { "@type": "Question", name: "A plataforma funciona com qualquer tipo de livro?", acceptedAnswer: { "@type": "Answer", text: "Sim. A Accessibility suporta livros didáticos, literários, técnicos, infantis e gerais. A inteligência artificial adapta as regras de extração ao tipo de livro selecionado." } },
+            { "@type": "Question", name: "As audiodescrições realmente seguem a ABNT NBR 16452:2016?", acceptedAnswer: { "@type": "Answer", text: "Sim. Os prompts enviados à IA foram desenvolvidos com o conteúdo técnico real da norma — incluindo regras de redação, objetividade, proporcionalidade ao contexto e critérios de inclusão e exclusão de elementos visuais." } },
+            { "@type": "Question", name: "Qual a diferença entre Gemini TTS e ElevenLabs?", acceptedAnswer: { "@type": "Answer", text: "O Gemini TTS oferece 30 vozes de alta qualidade com excelente pronúncia em português brasileiro. O ElevenLabs, disponível no plano Enterprise, oferece vozes ultra-realistas com naturalidade ainda maior, ideal para audiobooks comerciais." } },
+            { "@type": "Question", name: "Posso editar o texto antes de gerar o áudio?", acceptedAnswer: { "@type": "Answer", text: "Sim. O texto extraído pela IA é totalmente editável antes da geração do áudio. Você pode corrigir, adicionar ou remover conteúdo conforme necessário." } },
+            { "@type": "Question", name: "Os arquivos gerados têm uso comercial?", acceptedAnswer: { "@type": "Answer", text: "Sim. Os arquivos MP3, ZIP e MP4 gerados pela plataforma podem ser utilizados comercialmente como parte dos materiais acessíveis do seu produto editorial." } },
+            { "@type": "Question", name: "Existe limite de tamanho de arquivo PDF?", acceptedAnswer: { "@type": "Answer", text: "O limite atual é de 100MB por arquivo, o que comporta a grande maioria dos livros didáticos e literários." } },
+          ],
+        }}
+      />
 
       <VLibras forceOnload={true} />
 

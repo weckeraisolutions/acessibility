@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { lovable } from "@/integrations/lovable/index";
+import SEO from "@/components/SEO";
 
 const Auth = () => {
   const { session, loading } = useAuth();
