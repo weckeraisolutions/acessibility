@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,14 @@ serve(async (req) => {
   }
 
   try {
+    const user = await getAuthedUser(req);
+    if (!user) {
+      return new Response(
+        JSON.stringify({ success: false, error: "unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { voice_id } = await req.json();
     if (!voice_id) {
       return new Response(
