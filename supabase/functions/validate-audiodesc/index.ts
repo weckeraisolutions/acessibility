@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,6 +73,17 @@ serve(async (req) => {
 
     if (!text || typeof text !== "string") {
       return respond({ success: false, error: "missing_fields", message: "Campo obrigatório: text" }, 400);
+    }
+
+    // Allow internal service-role calls (from extract-text) OR an authenticated end-user.
+    const authHeader = req.headers.get("Authorization") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const isInternalCall = !!serviceKey && authHeader === `Bearer ${serviceKey}`;
+    if (!isInternalCall) {
+      const user = await getAuthedUser(req);
+      if (!user) {
+        return respond({ success: false, error: "unauthorized", message: "Autenticação obrigatória." }, 401);
+      }
     }
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
