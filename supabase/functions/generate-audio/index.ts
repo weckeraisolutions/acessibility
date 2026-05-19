@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
 import { normalizeText, preprocessForTTS } from "../_shared/text-utils.ts";
+import { getAuthedUser, userOwnsProject } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -718,6 +719,12 @@ serve(async (req) => {
     if (!page_id || !project_id || !text || !mode) {
       return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios faltando" }, 400);
     }
+
+    // Auth + ownership
+    const user = await getAuthedUser(req);
+    if (!user) return respond({ success: false, error: "unauthorized", message: "Autenticação obrigatória." }, 401);
+    const owns = await userOwnsProject(user.id, project_id);
+    if (!owns) return respond({ success: false, error: "forbidden", message: "Acesso negado a este projeto." }, 403);
 
     if (!text.trim() || text.trim() === "PÁGINA_SEM_NARRAÇÃO" || text.trim() === "PÁGINA_SEM_AUDIODESCRIÇÃO") {
       return respond({ success: false, error: "empty_text", message: "Texto vazio ou sem conteúdo narrável" }, 400);
