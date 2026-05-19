@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
 import { normalizeText } from "../_shared/text-utils.ts";
+import { getAuthedUser, userOwnsPage, isAllowedFetchUrl } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -254,6 +255,17 @@ serve(async (req) => {
 
     if (!page_id || !image_url || !mode) {
       return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios: page_id, image_url, mode" }, 400);
+    }
+
+    // Authenticate caller and verify ownership of the page
+    const user = await getAuthedUser(req);
+    if (!user) return respond({ success: false, error: "unauthorized", message: "Autenticação obrigatória." }, 401);
+    const ownedProjectId = await userOwnsPage(user.id, page_id);
+    if (!ownedProjectId) return respond({ success: false, error: "forbidden", message: "Acesso negado a este recurso." }, 403);
+
+    // SSRF guard: only allow images from this project's Supabase storage host
+    if (!isAllowedFetchUrl(image_url)) {
+      return respond({ success: false, error: "invalid_image_url", message: "URL de imagem não permitida." }, 400);
     }
 
     const keysCheck = validateGeminiKeysConfigured();
