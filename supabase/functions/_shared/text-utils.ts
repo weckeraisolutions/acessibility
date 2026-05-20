@@ -47,9 +47,9 @@ export function normalizeText(text: string): string {
     .replace(/\bp\.\s*(\d+)/gi,    (_, n) => `página ${n}`)
     .replace(/\bpág\.\s*(\d+)/gi,  (_, n) => `página ${n}`)
     .replace(/\bv\.\s*(\d+)/gi,    (_, n) => `volume ${n}`)
-    // ── Ordinals (1º, 2ª, etc.) ──
-    .replace(/(\d+)º/g, "$1")
-    .replace(/(\d+)ª/g, "$1")
+    // Ordinals: preserve º/ª so ElevenLabs applies PT-BR normalization
+    // ("1º" → "primeiro", "2ª" → "segunda"). Stripping to bare digits
+    // caused ElevenLabs to read them as cardinals ("um", "dois") — wrong.
     .trim();
 }
 

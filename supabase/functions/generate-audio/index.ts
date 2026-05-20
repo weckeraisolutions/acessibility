@@ -703,12 +703,17 @@ async function generateWithElevenLabs(
       language_code: "pt",
       // Same frozen reference in every chunk — guarantees speed immutability.
       voice_settings: VOICE_SETTINGS,
-      // Disable ElevenLabs text normalization entirely: we pre-process the
-      // text ourselves (normalizeText + preprocessForTTS) and insert SSML
-      // <break> tags manually. Leaving this at "auto" risks ElevenLabs
-      // normalizing over our work or stripping the <break> tags.
-      apply_text_normalization: "off",
-      apply_language_text_normalization: false,
+      // "auto" lets ElevenLabs apply its Brazilian-Portuguese-specific
+      // normalization (numbers, abbreviations, ordinals, currency, phonetics).
+      // Our preprocessors (normalizeText + preprocessForTTS) handle custom
+      // expansions first (%, R$, laws, acronyms); ElevenLabs covers the rest.
+      //
+      // IMPORTANT: apply_text_normalization does NOT affect <break> tags.
+      // SSML prosody tags are parsed BEFORE normalization runs in ElevenLabs'
+      // pipeline, so they are unaffected by this setting. "off" was set
+      // incorrectly to "protect" the tags — it was disabling PT-BR phonetics.
+      apply_text_normalization: "auto",
+      apply_language_text_normalization: true,
     };
     if (seed !== undefined) bodyObj.seed = seed;
 
