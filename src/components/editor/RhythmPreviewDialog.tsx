@@ -22,7 +22,7 @@ const RhythmPreviewDialog = ({ open, onClose, text, preset, advancedMode }: Prop
       const tagMatches = text.match(/<break[^>]*\/>/g) || [];
       return {
         processed: text,
-        counts: { paragraph: 0, heading: 0, ellipsis: 0, longSentence: 0, total: tagMatches.length },
+        counts: { paragraph: 0, heading: 0, ellipsis: 0, longSentence: 0, item: 0, lineBreak: 0, total: tagMatches.length },
       };
     }
     const r = applyRhythmTags(text || "", preset);

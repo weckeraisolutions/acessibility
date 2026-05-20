@@ -713,7 +713,10 @@ async function generateWithElevenLabs(
       // pipeline, so they are unaffected by this setting. "off" was set
       // incorrectly to "protect" the tags — it was disabling PT-BR phonetics.
       apply_text_normalization: "auto",
-      apply_language_text_normalization: true,
+      // ElevenLabs does not support language-specific text normalization for
+      // 'pt' (returns language_text_normalization_not_supported). Keep this
+      // disabled — the generic "auto" normalization above still applies.
+      apply_language_text_normalization: false,
     };
     if (seed !== undefined) bodyObj.seed = seed;
 
