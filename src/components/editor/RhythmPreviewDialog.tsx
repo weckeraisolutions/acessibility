@@ -44,7 +44,8 @@ const RhythmPreviewDialog = ({ open, onClose, text, preset, advancedMode }: Prop
             <span>tags <code>&lt;break&gt;</code> escritas pelo usuário.</span>
           ) : (
             <span>
-              {counts.paragraph} entre parágrafos, {counts.heading} após títulos,{" "}
+              {counts.heading} após títulos/questões, {counts.item} entre alternativas,{" "}
+              {counts.lineBreak} em quebras de linha, {counts.paragraph} entre parágrafos,{" "}
               {counts.ellipsis} em reticências, {counts.longSentence} em frases longas.
             </span>
           )}

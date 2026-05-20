@@ -13,13 +13,39 @@ export interface RhythmCounts {
   heading: number;
   ellipsis: number;
   longSentence: number;
+  item: number;
+  lineBreak: number;
   total: number;
 }
 
-const RHYTHM_TABLE: Record<RhythmPreset, { paragraph: string; heading: string; ellipsis: string; longSentence: string }> = {
-  pausada:   { paragraph: '<break time="1.2s" />', heading: '<break time="0.8s" />', ellipsis: '<break time="1.5s" />', longSentence: '<break time="0.3s" />' },
-  educativo: { paragraph: '<break time="0.8s" />', heading: '<break time="0.5s" />', ellipsis: '<break time="1.0s" />', longSentence: '<break time="0.3s" />' },
-  fluente:   { paragraph: '<break time="0.4s" />', heading: '<break time="0.3s" />', ellipsis: '<break time="0.6s" />', longSentence: '<break time="0.3s" />' },
+const RHYTHM_TABLE: Record<RhythmPreset, {
+  paragraph: string; heading: string; ellipsis: string; longSentence: string;
+  item: string; lineBreak: string;
+}> = {
+  pausada:   {
+    paragraph:    '<break time="1.2s" />',
+    heading:      '<break time="0.8s" />',
+    ellipsis:     '<break time="1.5s" />',
+    longSentence: '<break time="0.4s" />',
+    item:         '<break time="0.5s" />',
+    lineBreak:    '<break time="0.5s" />',
+  },
+  educativo: {
+    paragraph:    '<break time="0.8s" />',
+    heading:      '<break time="0.5s" />',
+    ellipsis:     '<break time="1.0s" />',
+    longSentence: '<break time="0.3s" />',
+    item:         '<break time="0.3s" />',
+    lineBreak:    '<break time="0.3s" />',
+  },
+  fluente:   {
+    paragraph:    '<break time="0.4s" />',
+    heading:      '<break time="0.3s" />',
+    ellipsis:     '<break time="0.6s" />',
+    longSentence: '<break time="0.2s" />',
+    item:         '<break time="0.2s" />',
+    lineBreak:    '<break time="0.2s" />',
+  },
 };
 
 export function applyRhythmTags(
@@ -28,25 +54,31 @@ export function applyRhythmTags(
 ): { text: string; counts: RhythmCounts } {
   const key = (["pausada", "educativo", "fluente"].includes(preset) ? preset : "educativo") as RhythmPreset;
   const tags = RHYTHM_TABLE[key];
-  const counts: RhythmCounts = { paragraph: 0, heading: 0, ellipsis: 0, longSentence: 0, total: 0 };
+  const counts: RhythmCounts = { paragraph: 0, heading: 0, ellipsis: 0, longSentence: 0, item: 0, lineBreak: 0, total: 0 };
 
+  // 1. Ellipsis
   let out = text.replace(/(\.{3,}|…)/g, () => {
     counts.ellipsis++;
     return ` ${tags.ellipsis} `;
   });
 
+  // 2. Heading detection — process line-by-line.
+  //    a) ALL CAPS lines
+  //    b) Lines ending with ':' and ≤100 chars — RELAXED: no longer requires
+  //       a following blank line (quiz pages never have blank lines before choices)
+  //    c) Lines starting with "Questão/Exercício/Atividade N"
   const lines = out.split(/\n/);
   const processedLines: string[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
-    const nextBlank = i + 1 < lines.length && lines[i + 1].trim() === "";
     const isAllCaps = trimmed.length >= 3 &&
       /^[A-ZÀ-Ý0-9\s\-:.,!?()]+$/.test(trimmed) &&
       /[A-ZÀ-Ý]/.test(trimmed) &&
       !/[a-zà-ÿ]/.test(trimmed);
-    const isColonHeading = trimmed.endsWith(":") && nextBlank && trimmed.length <= 80;
-    if ((isAllCaps || isColonHeading) && trimmed.length > 0) {
+    const isColonHeading = trimmed.endsWith(":") && trimmed.length <= 100;
+    const isQuestaoHeading = /^(questão|exercício|atividade|item)\s+\d+/i.test(trimmed);
+    if ((isAllCaps || isColonHeading || isQuestaoHeading) && trimmed.length > 0) {
       processedLines.push(`${line} ${tags.heading}`);
       counts.heading++;
     } else {
@@ -55,11 +87,38 @@ export function applyRhythmTags(
   }
   out = processedLines.join("\n");
 
+  // 3. Inline "Questão N" embedded inside long lines (not caught by step 2
+  //    because the full line is mixed content and too long to be a heading).
+  out = out.replace(/([.?!"»])\s+(Questão|Exercício|Atividade)\s+(\d+)/gi, (_, punct, word, num) => {
+    counts.heading++;
+    return `${punct} ${tags.heading} ${word} ${num}`;
+  });
+
+  // 4. Multiple-choice item breaks — pause between lettered answer choices.
+  //    Pattern: sentence-ending punctuation then "[A-E]) " (next choice starts).
+  //    Primary fix for quiz pages: A) B) C) D) E) on the same line each get
+  //    an explicit pause marker between them.
+  out = out.replace(/([.?!])\s+([A-E])\)\s+/g, (_, punct, letter) => {
+    counts.item++;
+    return `${punct} ${tags.item} ${letter}) `;
+  });
+
+  // 5. Paragraph breaks (\n\n+) — MUST run before step 6 so that double-newline
+  //    sequences are consumed first.
   out = out.replace(/\n{2,}/g, () => {
     counts.paragraph++;
     return `\n\n${tags.paragraph}\n\n`;
   });
 
+  // 6. Single newline → small pause.
+  //    (?<!\n)\n(?!\n) correctly skips \n chars that are part of \n\n sequences
+  //    already processed in step 5. Critical for quiz content separated by \n.
+  out = out.replace(/(?<!\n)\n(?!\n)/g, () => {
+    counts.lineBreak++;
+    return ` ${tags.lineBreak}\n`;
+  });
+
+  // 7. Long sentence — micro-break in the middle of sentences >25 words, no comma.
   const sentenceParts = out.split(/(?<=[.!?])\s+/);
   const enriched = sentenceParts.map((sentence) => {
     const cleaned = sentence.replace(/<break[^>]*\/>/g, "").trim();
@@ -85,7 +144,7 @@ export function applyRhythmTags(
   });
   out = enriched.join(" ");
 
-  counts.total = counts.paragraph + counts.heading + counts.ellipsis + counts.longSentence;
+  counts.total = counts.paragraph + counts.heading + counts.ellipsis + counts.longSentence + counts.item + counts.lineBreak;
   return { text: out, counts };
 }
 
