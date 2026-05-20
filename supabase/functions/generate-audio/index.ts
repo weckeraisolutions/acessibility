@@ -350,17 +350,41 @@ function normalizeForElevenLabs(text: string): string {
 }
 
 /**
- * Inline prosodic prefix prepended to every chunk.
- * Provides a textual "mood-setting" cue so the model enters the chunk already
- * in the requested cadence. Combined with voice_settings.speed, this gives the
- * model two independent signals for the same target rhythm.
- * Note: the prefix is added AFTER all text pre-processing, so it is never
- * expanded or stripped by our normalisation pipeline.
+ * Speed-appropriate warm-up text sent as `previous_text` to the ElevenLabs API.
+ *
+ * THE CORE PROBLEM THIS SOLVES:
+ * Without `previous_text`, ElevenLabs starts every generation "cold" at its
+ * default pace (~1.0) and only gradually converges to voice_settings.speed
+ * over the duration of the text. For short-to-medium pages (< 4500 chars =
+ * one chunk), this means the beginning sounds fluent and only the very last
+ * lines reach the target cadence — exactly the symptom: "fluido no início,
+ * pausado só na última linha."
+ *
+ * HOW THE FIX WORKS:
+ * `previous_text` tells the model "this text was already spoken just before."
+ * The model uses it as prosodic context: it "imagines" having generated that
+ * text at voice_settings.speed, then continues the actual narration at that
+ * same speed from word one. For pausada (0.75) and educativo (0.90), we send
+ * a crafted warm-up paragraph, forcing the model to start at the correct
+ * cadence immediately — without any audible artefact in the output audio.
+ *
+ * For fluente (1.05) we keep using the actual previous page text — natural
+ * cross-page continuity is the desired behaviour there.
  */
-function rhythmPrefix(narrationSpeed?: string): string {
-  if (narrationSpeed === "pausada") return "... ... ";   // two pauses — stronger slow signal
-  if (narrationSpeed === "educativo") return "... ";     // one pause — moderate signal
-  return "";                                             // fluente: no prefix, natural pace
+const SPEED_WARMUP_TEXT: Record<string, string> = {
+  pausada:
+    "O conteúdo a seguir será narrado em ritmo pausado e deliberado. " +
+    "Cada informação é apresentada com calma, permitindo que o ouvinte absorva " +
+    "e compreenda cada detalhe antes de avançar para o próximo ponto.",
+  educativo:
+    "O conteúdo a seguir é narrado em ritmo educativo, moderado e preciso. " +
+    "As informações são apresentadas de forma clara e organizada, " +
+    "favorecendo a compreensão e o aprendizado do material.",
+};
+
+/** @deprecated No longer used — speed priming is handled via previous_text warm-up. */
+function rhythmPrefix(_narrationSpeed?: string): string {
+  return ""; // prefix removed: it added audible artefacts and was redundant
 }
 
 /**
@@ -554,30 +578,48 @@ async function generateWithElevenLabs(
     chunks.push(prepared);
   }
 
-  // Skip cross-context for any non-fluent rhythm — context biases the model
-  // toward matching the previous chunk's pace, breaking the requested rhythm.
-  // Only "fluente" keeps cross-context for natural prosodic continuity.
-  const skipContext = narrationSpeed !== "fluente";
-
-  // Fetch previous page text for prosodic continuity (only if not pausada)
+  // ── PREVIOUS_TEXT STRATEGY ──
+  // previous_text is the primary mechanism for making the model START at the
+  // requested speed from the very first word, not just converge toward it.
+  //
+  // • pausada / educativo → use crafted warm-up text (always, every page).
+  //   The model "imagines" having just narrated that paragraph at
+  //   voice_settings.speed and continues the actual text at the same cadence.
+  //
+  // • fluente → use the last ~200 chars of the actual previous page (when
+  //   available and page > 1). Natural cross-page prosodic continuity.
+  //   If no previous page exists, no previous_text — model starts naturally.
   let previousText: string | undefined;
-  if (!skipContext && projectId && pageNumber && pageNumber > 1) {
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = createClient(supabaseUrl, serviceRoleKey);
-      const textField = mode === "audiodesc" ? "audiodesc_text" : "audiobook_text";
-      const { data: prevPage } = await supabase
-        .from("pages")
-        .select(textField)
-        .eq("project_id", projectId)
-        .eq("page_number", pageNumber - 1)
-        .single();
-      const prevText = (prevPage as Record<string, unknown> | null)?.[textField];
-      if (prevText && typeof prevText === "string" && prevText.length > 0) {
-        previousText = prevText.slice(-200);
-      }
-    } catch { /* ignore - just omit previous_text */ }
+
+  if (narrationSpeed === "fluente") {
+    // Fluente: actual previous page text for natural cross-page continuity.
+    if (projectId && pageNumber && pageNumber > 1) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, serviceRoleKey);
+        const textField = mode === "audiodesc" ? "audiodesc_text" : "audiobook_text";
+        const { data: prevPage } = await supabase
+          .from("pages")
+          .select(textField)
+          .eq("project_id", projectId)
+          .eq("page_number", pageNumber - 1)
+          .single();
+        const prevText = (prevPage as Record<string, unknown> | null)?.[textField];
+        if (prevText && typeof prevText === "string" && prevText.length > 0) {
+          previousText = prevText.slice(-200);
+        }
+      } catch { /* ignore — model starts without previous context */ }
+    }
+  } else {
+    // Pausada / educativo: crafted warm-up primes the model to the target
+    // speed from the first word. Without this, the model starts cold at ~1.0
+    // and only reaches voice_settings.speed at the very end of the generation.
+    const key = narrationSpeed && narrationSpeed in SPEED_WARMUP_TEXT
+      ? narrationSpeed
+      : "educativo";
+    previousText = SPEED_WARMUP_TEXT[key];
+    console.log(`[RHYTHM-DEBUG] warm-up previous_text set for preset=${key} length=${previousText.length}`);
   }
 
   const seed = projectId ? deriveProjectSeed(projectId) : undefined;
