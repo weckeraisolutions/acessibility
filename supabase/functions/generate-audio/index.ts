@@ -31,14 +31,24 @@ const GEMINI_PCM_BITS_PER_SAMPLE = 16;
  * Centralized speed resolver.
  * Single source of truth: frontend sends a STRING preset; backend converts to number.
  * Tolerant to legacy / mistyped presets. Always returns a valid number in [0.7, 1.2].
+ *
+ * ElevenLabs documented speed range: 0.7 (min) – 1.2 (max), default 1.0.
+ * Values are intentionally spread across the range so users perceive a clear
+ * difference between presets:
+ *   pausada  : 0.75 → 25% slower than fluente — clearly audible
+ *   educativo: 0.90 → 10% slower — measured educational pace
+ *   fluente  : 1.05 → slightly above default — brisk natural flow
+ *
+ * Previous values (0.85 / 0.95 / 1.00) covered only 15% of the range and
+ * were essentially inaudible as distinct presets.
  */
 const SPEED_PRESET_MAP: Record<string, number> = {
-  pausada: 0.85,
-  educativo: 0.95,
-  educativa: 0.95, // alias tolerated
-  educational: 0.95, // alias tolerated
-  fluente: 1.00,
-  fluido: 1.00, // alias tolerated
+  pausada: 0.75,
+  educativo: 0.90,
+  educativa: 0.90, // alias tolerated
+  educational: 0.90, // alias tolerated
+  fluente: 1.05,
+  fluido: 1.05, // alias tolerated
 };
 
 function resolveSpeed(preset: unknown): { preset: string; value: number; fallback_used: boolean } {
@@ -48,7 +58,7 @@ function resolveSpeed(preset: unknown): { preset: string; value: number; fallbac
     const clamped = Math.min(1.2, Math.max(0.7, mapped));
     return { preset: raw, value: clamped, fallback_used: false };
   }
-  return { preset: "educativo", value: 0.95, fallback_used: true };
+  return { preset: "educativo", value: 0.90, fallback_used: true };
 }
 
 function splitTextForTts(text: string, maxChars = GEMINI_CHUNK_CHAR_LIMIT): string[] {
@@ -339,11 +349,18 @@ function normalizeForElevenLabs(text: string): string {
   return t.trim();
 }
 
-/** Inline prosodic prefix that biases the model toward the requested cadence. */
+/**
+ * Inline prosodic prefix prepended to every chunk.
+ * Provides a textual "mood-setting" cue so the model enters the chunk already
+ * in the requested cadence. Combined with voice_settings.speed, this gives the
+ * model two independent signals for the same target rhythm.
+ * Note: the prefix is added AFTER all text pre-processing, so it is never
+ * expanded or stripped by our normalisation pipeline.
+ */
 function rhythmPrefix(narrationSpeed?: string): string {
-  if (narrationSpeed === "pausada") return "... ";
-  if (narrationSpeed === "educativo") return ". ";
-  return "";
+  if (narrationSpeed === "pausada") return "... ... ";   // two pauses — stronger slow signal
+  if (narrationSpeed === "educativo") return "... ";     // one pause — moderate signal
+  return "";                                             // fluente: no prefix, natural pace
 }
 
 /**
@@ -447,7 +464,7 @@ function deriveProjectSeed(projectId: string): number {
 
 async function generateWithElevenLabs(
   text: string, voiceId: string, modelId: string, apiKey: string,
-  projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.92,
+  projectId?: string, pageNumber?: number, mode?: string, speed: number = 0.90,
   narrationSpeed?: string, advancedMode: boolean = false,
 ): Promise<{ audioBytes: Uint8Array; mimeType: string }> {
   // ── PIPELINE ORDER (critical — do not reorder) ──
@@ -581,6 +598,12 @@ async function generateWithElevenLabs(
       language_code: "pt",
       // Same frozen reference in every chunk — guarantees speed immutability.
       voice_settings: VOICE_SETTINGS,
+      // Disable ElevenLabs text normalization entirely: we pre-process the
+      // text ourselves (normalizeText + preprocessForTTS) and insert SSML
+      // <break> tags manually. Leaving this at "auto" risks ElevenLabs
+      // normalizing over our work or stripping the <break> tags.
+      apply_text_normalization: "off",
+      apply_language_text_normalization: false,
     };
     if (seed !== undefined) bodyObj.seed = seed;
 
