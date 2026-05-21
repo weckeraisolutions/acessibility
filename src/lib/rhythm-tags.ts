@@ -118,25 +118,29 @@ export function applyRhythmTags(
     return ` ${tags.lineBreak}\n`;
   });
 
-  // 7. Long sentence — micro-break in the middle of sentences >25 words, no comma.
+  // 7. Long sentence — micro-break only for sentences >40 words with no comma.
+  //    Threshold raised from 25→40: shorter sentences need no explicit break.
+  //    Only coordinating conjunctions are valid cut points — prepositions and
+  //    relative/subordinating words ("de", "que", "para"…) are excluded because
+  //    they produce unnatural dangling segments (e.g. "...ideia de [pause] que").
+  //    If no valid cut point found within ±8 words of midpoint → no break.
   const sentenceParts = out.split(/(?<=[.!?])\s+/);
   const enriched = sentenceParts.map((sentence) => {
     const cleaned = sentence.replace(/<break[^>]*\/>/g, "").trim();
     if (!cleaned || cleaned.includes(",")) return sentence;
     const words = cleaned.split(/\s+/);
-    if (words.length <= 25) return sentence;
-    const conjunctions = new Set([
+    if (words.length <= 40) return sentence;
+    const coordinating = new Set([
       "e", "ou", "mas", "porém", "contudo", "todavia", "entretanto",
-      "que", "porque", "pois", "como", "quando", "se", "embora",
-      "para", "por", "com", "sem", "sobre", "entre", "após",
-      "de", "da", "do", "das", "dos", "em", "na", "no", "nas", "nos",
+      "pois", "portanto", "logo", "embora", "enquanto",
     ]);
     const mid = Math.floor(words.length / 2);
-    let cut = mid;
-    for (let off = 0; off <= 4; off++) {
-      if (conjunctions.has(words[mid + off]?.toLowerCase())) { cut = mid + off; break; }
-      if (conjunctions.has(words[mid - off]?.toLowerCase())) { cut = mid - off; break; }
+    let cut = -1;
+    for (let off = 0; off <= 8; off++) {
+      if (coordinating.has(words[mid + off]?.toLowerCase())) { cut = mid + off; break; }
+      if (coordinating.has(words[mid - off]?.toLowerCase())) { cut = mid - off; break; }
     }
+    if (cut === -1) return sentence;
     const left = words.slice(0, cut + 1).join(" ");
     const right = words.slice(cut + 1).join(" ");
     counts.longSentence++;

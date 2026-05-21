@@ -512,27 +512,42 @@ function applyRhythmTags(
     return ` ${tags.lineBreak}\n`;
   });
 
-  // 7. Long sentence handling — split text into sentences and insert a
-  //    micro-break in the middle of any sentence with >25 words and no comma.
+  // 7. Long sentence handling — micro-break inside sentences that are truly
+  //    long (>40 words) with no comma. Threshold raised from 25→40 because
+  //    shorter sentences (26-40 words) are narrated fine by the model without
+  //    an explicit break, and the lower threshold caused false positives where
+  //    a cut at a preposition produced unnatural pauses mid-phrase
+  //    (e.g. "...a ideia de [pause] que moda..." — "de" was being selected as
+  //    a cut point because it was in the old conjunction set).
+  //
+  //    Cut-point rules:
+  //    • Only COORDINATING conjunctions ("e", "ou", "mas", "porém"…) are
+  //      valid cut points. They produce natural prosodic pauses.
+  //    • Prepositions ("de", "da", "em", "para"…) and relative/subordinating
+  //      words ("que", "como", "quando"…) are EXCLUDED — they must not appear
+  //      at the end of the left segment or they break the phrase semantically.
+  //    • If no valid cut point is found within ±8 words of the midpoint,
+  //      the sentence is left unchanged (no break inserted).
   const sentenceParts = out.split(/(?<=[.!?])\s+/);
   const enriched = sentenceParts.map((sentence) => {
     const cleaned = sentence.replace(/<break[^>]*\/>/g, "").trim();
     if (!cleaned || cleaned.includes(",")) return sentence;
     const words = cleaned.split(/\s+/);
-    if (words.length <= 25) return sentence;
-    // Find a natural midpoint: prefer breaking after preposition/conjunction
-    const conjunctions = new Set([
+    if (words.length <= 40) return sentence;
+    // Only coordinating conjunctions make natural break points.
+    // Do NOT include prepositions (de/da/em/para…) or relative pronouns (que)
+    // — they leave a dangling function word at the end of the left segment.
+    const coordinating = new Set([
       "e", "ou", "mas", "porém", "contudo", "todavia", "entretanto",
-      "que", "porque", "pois", "como", "quando", "se", "embora",
-      "para", "por", "com", "sem", "sobre", "entre", "após",
-      "de", "da", "do", "das", "dos", "em", "na", "no", "nas", "nos",
+      "pois", "portanto", "logo", "embora", "enquanto",
     ]);
     const mid = Math.floor(words.length / 2);
-    let cut = mid;
-    for (let off = 0; off <= 4; off++) {
-      if (conjunctions.has(words[mid + off]?.toLowerCase())) { cut = mid + off; break; }
-      if (conjunctions.has(words[mid - off]?.toLowerCase())) { cut = mid - off; break; }
+    let cut = -1;
+    for (let off = 0; off <= 8; off++) {
+      if (coordinating.has(words[mid + off]?.toLowerCase())) { cut = mid + off; break; }
+      if (coordinating.has(words[mid - off]?.toLowerCase())) { cut = mid - off; break; }
     }
+    if (cut === -1) return sentence; // No valid break point — leave unchanged
     const left = words.slice(0, cut + 1).join(" ");
     const right = words.slice(cut + 1).join(" ");
     counts.longSentence++;
