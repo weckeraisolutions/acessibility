@@ -76,7 +76,9 @@ export function applyRhythmTags(
       /^[A-ZÀ-Ý0-9\s\-:.,!?()]+$/.test(trimmed) &&
       /[A-ZÀ-Ý]/.test(trimmed) &&
       !/[a-zà-ÿ]/.test(trimmed);
-    const isColonHeading = trimmed.endsWith(":") && trimmed.length <= 100;
+    const prevLine = i > 0 ? lines[i - 1].trim() : "";
+    const prevIsShort = prevLine.length > 0 && prevLine.length < 80;
+    const isColonHeading = trimmed.endsWith(":") && trimmed.length <= 100 && !prevIsShort;
     const isQuestaoHeading = /^(questão|exercício|atividade|item)\s+\d+/i.test(trimmed);
     if ((isAllCaps || isColonHeading || isQuestaoHeading) && trimmed.length > 0) {
       processedLines.push(`${line} ${tags.heading}`);
@@ -110,13 +112,31 @@ export function applyRhythmTags(
     return `\n\n${tags.paragraph}\n\n`;
   });
 
-  // 6. Single newline → small pause.
-  //    (?<!\n)\n(?!\n) correctly skips \n chars that are part of \n\n sequences
-  //    already processed in step 5. Critical for quiz content separated by \n.
-  out = out.replace(/(?<!\n)\n(?!\n)/g, () => {
-    counts.lineBreak++;
-    return ` ${tags.lineBreak}\n`;
-  });
+  // 6. Single newline → small pause — only for long lines (≥80 chars).
+  //    Short poem lines (~30-40 chars) are skipped: inserting a break after every
+  //    short line fragments the text into tiny segments that cause ElevenLabs to
+  //    reset speed context at each break (poem sounds too fast at ~1.0).
+  //    Long prose/quiz lines (≥80 chars) still receive the break.
+  //    Quiz is not affected: heading (step 2) and item (step 4) rules already
+  //    cover quiz question/choice boundaries independently.
+  {
+    const lineArr = out.split("\n");
+    const lineRes: string[] = [];
+    for (let li = 0; li < lineArr.length; li++) {
+      const line = lineArr[li];
+      if (li === lineArr.length - 1) { lineRes.push(line); break; }
+      const nextLine = lineArr[li + 1];
+      const nextIsBlank = nextLine.trim() === "" || nextLine.trimStart().startsWith("<break");
+      const cleanLen = line.replace(/<break[^>]*\/>/g, "").trim().length;
+      if (!nextIsBlank && cleanLen >= 80) {
+        counts.lineBreak++;
+        lineRes.push(`${line} ${tags.lineBreak}`);
+      } else {
+        lineRes.push(line);
+      }
+    }
+    out = lineRes.join("\n");
+  }
 
   // 7. Long sentence — micro-break only for sentences >40 words with no comma.
   //    Threshold raised from 25→40: shorter sentences need no explicit break.

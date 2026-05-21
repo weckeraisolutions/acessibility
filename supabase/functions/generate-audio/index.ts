@@ -462,9 +462,13 @@ function applyRhythmTags(
       /^[A-ZÀ-Ý0-9\s\-:.,!?()]+$/.test(trimmed) &&
       /[A-ZÀ-Ý]/.test(trimmed) &&
       !/[a-zà-ÿ]/.test(trimmed);
-    // Relaxed colon heading: any short line (≤100 chars) ending with ':'.
-    // Short limit prevents very long answer-choice lines from false-firing.
-    const isColonHeading = trimmed.endsWith(":") && trimmed.length <= 100;
+    // Colon heading: short line (≤100 chars) ending with ':'.
+    // GUARD: if the previous line is also short (<80 chars), this is likely a
+    // poem stanza line — NOT a heading. Quiz headings are always preceded by
+    // long answer-choice lines (>80 chars) or blank lines, so the guard is safe.
+    const prevLine = i > 0 ? lines[i - 1].trim() : "";
+    const prevIsShort = prevLine.length > 0 && prevLine.length < 80;
+    const isColonHeading = trimmed.endsWith(":") && trimmed.length <= 100 && !prevIsShort;
     // Numbered question/exercise heading at the start of a line.
     const isQuestaoHeading = /^(questão|exercício|atividade|item)\s+\d+/i.test(trimmed);
     if ((isAllCaps || isColonHeading || isQuestaoHeading) && trimmed.length > 0) {
@@ -503,14 +507,39 @@ function applyRhythmTags(
     return `\n\n${tags.paragraph}\n\n`;
   });
 
-  // 6. Single newline → small pause.
-  //    Critical for quiz/list content where questions are separated by \n (not \n\n).
-  //    The (?<!\n)\n(?!\n) regex correctly skips \n chars that are part of \n\n
-  //    paragraph sequences already processed in step 5.
-  out = out.replace(/(?<!\n)\n(?!\n)/g, () => {
-    counts.lineBreak++;
-    return ` ${tags.lineBreak}\n`;
-  });
+  // 6. Single newline → small pause — but ONLY for long lines (≥80 chars).
+  //    Rationale: poem stanzas have short lines (~30-40 chars) separated by \n.
+  //    Inserting a <break> after every short poem line fragments the text into
+  //    many tiny prosodic segments, causing ElevenLabs to reset its speed
+  //    context at each break and narrate near ~1.0 regardless of the preset.
+  //    Long lines (prose paragraphs, quiz answer-choice blocks) DO need the
+  //    break because there are no other structural markers at the line boundary.
+  //    Quiz functionality is preserved: the heading (step 2) and item (step 4)
+  //    rules already fire at question/choice boundaries, so quiz content is not
+  //    dependent on lineBreak. Short-line poetry is narrated as a continuous
+  //    flow — speed is controlled by voice_settings.speed, which is correct.
+  {
+    const lineArr = out.split("\n");
+    const lineRes: string[] = [];
+    for (let li = 0; li < lineArr.length; li++) {
+      const line = lineArr[li];
+      // Last line: never append a break (nothing follows).
+      if (li === lineArr.length - 1) { lineRes.push(line); break; }
+      const nextLine = lineArr[li + 1];
+      // Skip if the next line is blank or already starts with a <break> tag
+      // (paragraph rule in step 5 already handled it).
+      const nextIsBlank = nextLine.trim() === "" || nextLine.trimStart().startsWith("<break");
+      // Measure line length without counting embedded <break> tags.
+      const cleanLen = line.replace(/<break[^>]*\/>/g, "").trim().length;
+      if (!nextIsBlank && cleanLen >= 80) {
+        counts.lineBreak++;
+        lineRes.push(`${line} ${tags.lineBreak}`);
+      } else {
+        lineRes.push(line);
+      }
+    }
+    out = lineRes.join("\n");
+  }
 
   // 7. Long sentence handling — micro-break inside sentences that are truly
   //    long (>40 words) with no comma. Threshold raised from 25→40 because
