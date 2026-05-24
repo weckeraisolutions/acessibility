@@ -130,8 +130,11 @@ const GlobalConfigPanel = ({
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Voz Padrão Global</Label>
           {isElevenlabs ? (
-            <ScrollArea className="mt-1 max-h-48 border rounded-md">
-              <div className="p-1 space-y-0.5">
+            <ScrollArea className="mt-1 h-64 border rounded-md">
+              <div className="p-1 space-y-0.5 pr-2">
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {elevenlabsVoices.length} {elevenlabsVoices.length === 1 ? "voz disponível" : "vozes disponíveis"} — role para ver todas
+                </div>
                 {elevenlabsVoices.map((v) => (
                   <div
                     key={v.voice_id}
