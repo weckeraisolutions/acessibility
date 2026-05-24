@@ -136,13 +136,19 @@ const ProjectDetail = () => {
     );
   }
 
-  if (processor.processing || processor.error || (project.processing_status === "pending" && pages.length === 0)) {
+  const processingError =
+    processor.error ||
+    (project.processing_status === "failed" && pages.length === 0
+      ? "O processamento anterior falhou antes de salvar as páginas. Tente novamente."
+      : null);
+
+  if (processor.processing || processingError || (project.processing_status === "pending" && pages.length === 0)) {
     return (
       <ProcessingScreen
         progress={processor.progress}
         currentPage={processor.currentPage}
         totalPages={processor.totalPages}
-        error={processor.error}
+        error={processingError}
         onRetry={processor.retry}
       />
     );
