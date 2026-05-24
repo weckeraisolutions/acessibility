@@ -41,6 +41,7 @@ const ProjectDetail = () => {
   const [canUseElevenlabs, setCanUseElevenlabs] = useState(false);
   const [elevenlabsVoices, setElevenlabsVoices] = useState<ElevenLabsVoice[]>([]);
   const [selectedElevenlabsVoice, setSelectedElevenlabsVoice] = useState("");
+  const [refreshingVoices, setRefreshingVoices] = useState(false);
   const [narrationSpeed, setNarrationSpeedState] = useState<string>("educativo");
   const [pageNarrationSpeeds, setPageNarrationSpeedsState] = useState<Record<string, string>>({});
   const isMobile = useIsMobile();
@@ -70,28 +71,27 @@ const ProjectDetail = () => {
     });
   };
 
-  // Check ElevenLabs availability on mount by calling the edge function
-  useEffect(() => {
-    supabase.functions.invoke("get-elevenlabs-voices").then(({ data }) => {
+  const loadElevenlabsVoices = (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setRefreshingVoices(true);
+    return supabase.functions.invoke("get-elevenlabs-voices").then(({ data }) => {
       console.log("[ElevenLabs] Total de vozes retornadas:", data?.voices?.length);
-      console.log("[ElevenLabs] Resposta do backend:", JSON.stringify({
-        success: data?.success,
-        error: data?.error,
-        message: data?.message,
-        voiceCount: data?.voices?.length,
-      }, null, 2));
-
-      if (data?.error) {
-        console.warn("[ElevenLabs] Erro da API:", data.message);
-      }
-
       if (data?.voices?.length > 0) {
         setCanUseElevenlabs(true);
         setElevenlabsVoices(data.voices);
-        setSelectedElevenlabsVoice(data.voices[0].voice_id);
+        setSelectedElevenlabsVoice((prev) =>
+          prev && data.voices.some((v: ElevenLabsVoice) => v.voice_id === prev)
+            ? prev
+            : data.voices[0].voice_id
+        );
       }
-    }).catch((err) => { console.error("[ElevenLabs] Erro ao buscar vozes:", err); });
-  }, []);
+      return data?.voices ?? [];
+    }).catch((err) => {
+      console.error("[ElevenLabs] Erro ao buscar vozes:", err);
+      return [];
+    }).finally(() => setRefreshingVoices(false));
+  };
+
+  useEffect(() => { loadElevenlabsVoices({ silent: true }); }, []);
 
   const perPage = isMobile ? 1 : 2;
   const pairs = useMemo(() => {
