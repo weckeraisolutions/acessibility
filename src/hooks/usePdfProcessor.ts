@@ -75,6 +75,13 @@ export function usePdfProcessor(
     setState((s) => ({ ...s, processing: true, error: null, progress: 0 }));
 
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const currentUserId = userData?.user?.id;
+      if (userError || !currentUserId) throw new Error("Sessão expirada. Entre novamente e tente processar o PDF.");
+      if (currentUserId !== project.user_id) throw new Error("Este projeto pertence a outro usuário autenticado.");
+
+      await supabase.from("projects").update({ processing_status: "pending" }).eq("id", project.id);
+
       // 1. Download PDF
       const { data: signedData, error: signedError } = await supabase.storage
         .from("pdfs")
@@ -117,8 +124,8 @@ export function usePdfProcessor(
               const imageBlob = await renderPageToBlob(pdfDoc, pageNum, 150 / 72);
               const thumbBlob = await renderPageToBlob(pdfDoc, pageNum, 1.0);
 
-              const imagePath = `${project.user_id}/${project.id}/pag_${padNum(pageNum)}.png`;
-              const thumbPath = `${project.user_id}/${project.id}/thumb_${padNum(pageNum)}.png`;
+              const imagePath = `${currentUserId}/${project.id}/pag_${padNum(pageNum)}.png`;
+              const thumbPath = `${currentUserId}/${project.id}/thumb_${padNum(pageNum)}.png`;
 
               const [imgUp, thumbUp] = await Promise.all([
                 supabase.storage.from("page-images").upload(imagePath, imageBlob, { contentType: "image/png", upsert: true }),
