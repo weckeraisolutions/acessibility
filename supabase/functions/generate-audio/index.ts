@@ -944,9 +944,41 @@ serve(async (req) => {
       const validGeminiVoices = ["achernar","achird","algenib","algieba","alnilam","aoede","autonoe","callirrhoe","charon","despina","enceladus","erinome","fenrir","gacrux","iapetus","kore","laomedeia","leda","orus","puck","pulcherrima","rasalgethi","sadachbia","sadaltager","schedar","sulafat","umbriel","vindemiatrix","zephyr","zubenelgenubi"];
       const geminiVoice = (voice && validGeminiVoices.includes(voice.toLowerCase())) ? voice : "Zephyr";
       console.log(`[Gemini] Using voice: ${geminiVoice} (requested: ${voice})`);
-      const result = await generateWithGemini(text, geminiVoice, styleApplied);
-      audioBytes = result.audioBytes;
-      mimeType = result.mimeType;
+      try {
+        const result = await generateWithGemini(text, geminiVoice, styleApplied);
+        audioBytes = result.audioBytes;
+        mimeType = result.mimeType;
+      } catch (geminiErr: any) {
+        // Automatic fallback to ElevenLabs when Gemini quota is exhausted (429),
+        // hits a transient API error (5xx / timeout / api_error), as long as we
+        // have an ElevenLabs key + voice id available. This prevents the
+        // user-visible "Edge Function returned a non-2xx status code" toast on
+        // quota-exhausted Gemini calls.
+        const errCode = geminiErr?.error;
+        const errStatus = geminiErr?.status;
+        const isFallbackable =
+          errCode === "gemini_quota_exceeded" ||
+          errCode === "timeout" ||
+          errCode === "api_error" ||
+          errStatus === 429 ||
+          (typeof errStatus === "number" && errStatus >= 500);
+        const elApiKey = Deno.env.get("ELEVENLABS_API_KEY");
+        if (isFallbackable && elApiKey && elevenlabs_voice_id) {
+          console.log(
+            `[AUDIO-FALLBACK] Gemini failed (${errCode || errStatus}); falling back to ElevenLabs voice=${elevenlabs_voice_id}`,
+          );
+          const resolved = resolveSpeed(narration_speed);
+          const result = await generateWithElevenLabs(
+            text, elevenlabs_voice_id, elevenlabs_model, elApiKey,
+            project_id, page_number, mode, resolved.value, resolved.preset, !!advanced_mode,
+          );
+          audioBytes = result.audioBytes;
+          mimeType = result.mimeType;
+          engine = "elevenlabs";
+        } else {
+          throw geminiErr;
+        }
+      }
     }
 
     const wordCount = text.split(/\s+/).filter(Boolean).length;
