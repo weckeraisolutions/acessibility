@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, Zap, Sparkles, Play, Square, ShieldCheck } from "lucide-react";
+import { ChevronDown, Zap, Sparkles, Play, Square, ShieldCheck, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { VOICES } from "@/constants/voices";
@@ -41,6 +41,8 @@ interface GlobalConfigPanelProps {
   userPlan?: string;
   enableDualValidation?: boolean;
   onEnableDualValidationChange?: (v: boolean) => void;
+  onRefreshElevenlabsVoices?: () => void;
+  refreshingElevenlabsVoices?: boolean;
 }
 
 const placeholders: Record<string, string> = {
@@ -55,6 +57,7 @@ const GlobalConfigPanel = ({
   elevenlabsVoices, selectedElevenlabsVoice, onElevenlabsVoiceChange,
   narrationSpeed, onNarrationSpeedChange,
   userPlan, enableDualValidation, onEnableDualValidationChange,
+  onRefreshElevenlabsVoices, refreshingElevenlabsVoices,
 }: GlobalConfigPanelProps) => {
   const [open, setOpen] = useState(true);
   const { toast } = useToast();
@@ -132,8 +135,21 @@ const GlobalConfigPanel = ({
           {isElevenlabs ? (
             <ScrollArea className="mt-1 h-64 border rounded-md">
               <div className="p-1 space-y-0.5 pr-2">
-                <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {elevenlabsVoices.length} {elevenlabsVoices.length === 1 ? "voz disponível" : "vozes disponíveis"} — role para ver todas
+                <div className="px-2 py-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span>
+                    {elevenlabsVoices.length} {elevenlabsVoices.length === 1 ? "voz disponível" : "vozes disponíveis"} — role para ver todas
+                  </span>
+                  {onRefreshElevenlabsVoices && (
+                    <button
+                      type="button"
+                      onClick={onRefreshElevenlabsVoices}
+                      disabled={refreshingElevenlabsVoices}
+                      className="inline-flex items-center gap-1 normal-case tracking-normal text-[11px] text-primary hover:underline disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${refreshingElevenlabsVoices ? "animate-spin" : ""}`} />
+                      {refreshingElevenlabsVoices ? "Atualizando..." : "Atualizar coleção"}
+                    </button>
+                  )}
                 </div>
                 {elevenlabsVoices.map((v) => (
                   <div
