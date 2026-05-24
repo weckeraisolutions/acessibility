@@ -45,34 +45,46 @@ serve(async (req) => {
     }
 
     const collectionId = Deno.env.get("ELEVENLABS_COLLECTION_ID") ?? "EeX6rO9BE2F5Evmmr9sB";
-    const url = `https://api.elevenlabs.io/v2/voices?collection_id=${collectionId}&page_size=100`;
-    console.log("[ElevenLabs] Request URL:", url);
+    // Paginate through ALL voices in the collection (ElevenLabs returns up to 100 per page)
+    const allVoices: any[] = [];
+    let nextPageToken: string | null = null;
+    let pageCount = 0;
+    do {
+      const params = new URLSearchParams({
+        collection_id: collectionId,
+        page_size: "100",
+      });
+      if (nextPageToken) params.set("next_page_token", nextPageToken);
+      const url = `https://api.elevenlabs.io/v2/voices?${params.toString()}`;
+      console.log("[ElevenLabs] Request URL:", url);
 
-    const res = await fetch(url, {
-      headers: { "xi-api-key": apiKey },
-    });
-
-    if (!res.ok) {
-      const errorBody = await res.text();
-      console.error("[ElevenLabs] Erro ao chamar API");
-      console.error("[ElevenLabs] Status HTTP:", res.status);
-      console.error("[ElevenLabs] Body do erro:", errorBody);
-
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "elevenlabs_api_error",
-          status: res.status,
-          message: `Não foi possível carregar as vozes da sua conta ElevenLabs (HTTP ${res.status}). Verifique se a ELEVENLABS_API_KEY nos Secrets é a chave atual da sua conta com permissão voices_read.`,
-          details: errorBody,
-          voices: FALLBACK_VOICES,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const data = await res.json();
-    const allVoices = data.voices || [];
+      const res = await fetch(url, { headers: { "xi-api-key": apiKey } });
+      if (!res.ok) {
+        const errorBody = await res.text();
+        console.error("[ElevenLabs] Erro HTTP", res.status, errorBody);
+        if (allVoices.length === 0) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "elevenlabs_api_error",
+              status: res.status,
+              message: `Não foi possível carregar as vozes da sua conta ElevenLabs (HTTP ${res.status}). Verifique se a ELEVENLABS_API_KEY nos Secrets é a chave atual da sua conta com permissão voices_read.`,
+              details: errorBody,
+              voices: FALLBACK_VOICES,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        break;
+      }
+      const data = await res.json();
+      const batch = data.voices || [];
+      allVoices.push(...batch);
+      nextPageToken = data.has_more && data.next_page_token ? data.next_page_token : null;
+      pageCount++;
+      if (pageCount >= 10) break; // safety cap (~1000 voices)
+    } while (nextPageToken);
+    console.log("[ElevenLabs] Total paginado:", allVoices.length, "em", pageCount, "página(s)");
 
     if (allVoices.length === 0) {
       console.warn("[ElevenLabs] API retornou 0 vozes na coleção", collectionId);
@@ -86,13 +98,22 @@ serve(async (req) => {
       );
     }
 
-    const voices = allVoices.map((v: any) => ({
-      voice_id: v.voice_id,
-      name: v.name,
-      description: v.description ?? `${v.labels?.age || ""} ${v.labels?.gender || ""} — ${v.labels?.use_case || ""}`.trim(),
-      preview_url: v.preview_url ?? "",
-      group: "Coleção ElevenLabs",
-    }));
+    // Deduplicate by voice_id and sort alphabetically by name
+    const seen = new Set<string>();
+    const voices = allVoices
+      .filter((v: any) => {
+        if (!v?.voice_id || seen.has(v.voice_id)) return false;
+        seen.add(v.voice_id);
+        return true;
+      })
+      .map((v: any) => ({
+        voice_id: v.voice_id,
+        name: v.name,
+        description: v.description ?? `${v.labels?.age || ""} ${v.labels?.gender || ""} — ${v.labels?.use_case || ""}`.trim(),
+        preview_url: v.preview_url ?? "",
+        group: "Coleção ElevenLabs",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
     console.log("[ElevenLabs] Vozes carregadas:", voices.length, "— Amostra:", JSON.stringify(voices.slice(0, 3)));
 
