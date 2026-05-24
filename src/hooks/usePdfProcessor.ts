@@ -105,6 +105,7 @@ export function usePdfProcessor(
       // 4. Process in batches of 5
       const BATCH = 5;
       let processed = 0;
+      let succeeded = 0;
 
       for (let start = 1; start <= numPages; start += BATCH) {
         const end = Math.min(start + BATCH - 1, numPages);
@@ -116,8 +117,8 @@ export function usePdfProcessor(
               const imageBlob = await renderPageToBlob(pdfDoc, pageNum, 150 / 72);
               const thumbBlob = await renderPageToBlob(pdfDoc, pageNum, 1.0);
 
-              const imagePath = `${project.id}/pag_${padNum(pageNum)}.png`;
-              const thumbPath = `${project.id}/thumb_${padNum(pageNum)}.png`;
+              const imagePath = `${project.user_id}/${project.id}/pag_${padNum(pageNum)}.png`;
+              const thumbPath = `${project.user_id}/${project.id}/thumb_${padNum(pageNum)}.png`;
 
               const [imgUp, thumbUp] = await Promise.all([
                 supabase.storage.from("page-images").upload(imagePath, imageBlob, { contentType: "image/png", upsert: true }),
@@ -136,6 +137,7 @@ export function usePdfProcessor(
                 image_url: imageUrl,
                 thumbnail_url: thumbUrl,
               });
+              succeeded++;
             } catch (pageErr) {
               console.error(`Erro na página ${pageNum}:`, pageErr);
               toast({ title: `Erro na página ${pageNum}`, description: "Continuando com as demais.", variant: "destructive" });
@@ -151,7 +153,17 @@ export function usePdfProcessor(
         );
       }
 
-      // 5. Mark ready
+      // 5. Mark ready (or failed if nothing got through)
+      if (succeeded === 0) {
+        await supabase.from("projects").update({ processing_status: "failed" }).eq("id", project.id);
+        await refetch();
+        setState((s) => ({
+          ...s,
+          processing: false,
+          error: "Nenhuma página foi processada. Verifique se o PDF está válido e tente novamente.",
+        }));
+        return;
+      }
       await supabase.from("projects").update({ processing_status: "ready" }).eq("id", project.id);
       await refetch();
       setState((s) => ({ ...s, processing: false }));
