@@ -155,15 +155,15 @@ Texto presente em mapas, gráficos e legendas quando houver texto escrito
 
 REGRA 3 — O QUE NÃO EXTRAIR:
 Descrições de ilustrações, fotografias ou artes visuais — isso é audiodescrição, recurso separado e distinto do audiobook
-Gabaritos, respostas marcadas, alternativas corretas indicadas visualmente
-Texto "Resposta pessoal", "Espera-se que o estudante" ou equivalentes
-Alternativas de questões de múltipla escolha e seus enunciados
+Gabaritos e indicação visual de alternativa correta (ex: letra circulada, marca de "certo", "gabarito: A")
+Texto instrucional como "Resposta pessoal", "Espera-se que o estudante" ou equivalentes
 Elementos decorativos sem informação semântica
 Número de página isolado sem contexto
 
 REGRA 4 — FORMATO DE SAÍDA OBRIGATÓRIO:
 Texto corrido e contínuo
-Sem linhas em branco entre parágrafos — usar apenas uma quebra de linha simples entre trechos
+Separar parágrafos distintos e blocos de conteúdo diferentes (ex: texto principal, box lateral, legenda) com UMA linha em branco entre eles (linha vazia)
+Usar apenas uma quebra de linha simples (sem linha em branco) para: versos de poemas, falas de personagens em sequência, itens de lista, alternativas de questão
 Sem colchetes, sem marcadores como [Título] ou [Box], sem rótulos de tipo
 Balões sempre no formato: Nome diz: texto da fala
 Fórmulas matemáticas ou científicas: substituir por: Fórmula — consultar versão acessível

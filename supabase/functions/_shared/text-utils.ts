@@ -14,8 +14,12 @@ export function normalizeText(text: string): string {
   return text
     // Remove annotation brackets like [Título], [Box], etc.
     .replace(/\[.*?\]/g, "")
-    // Collapse multiple blank lines to a single newline
-    .replace(/\n{2,}/g, "\n")
+    // Preserve paragraph structure: only collapse 3+ blank lines to a single blank line (\n\n).
+    // A single blank line (\n\n) is the paragraph-boundary signal consumed by applyRhythmTags
+    // (step 5) to insert <break> paragraph tags. The old \n{2,}→\n rule destroyed this signal
+    // and made paragraph-break detection unreachable for all extracted text.
+    // normalizeForElevenLabs handles the final \n→space conversion at audio-generation time.
+    .replace(/\n{3,}/g, "\n\n")
     // ── Acronyms (letter-by-letter pronunciation) ──
     .replace(/\bIBGE\b/g, "I-B-G-E")
     .replace(/\bBNCC\b/g, "B-N-C-C")

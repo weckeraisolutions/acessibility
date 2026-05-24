@@ -629,12 +629,10 @@ async function generateWithElevenLabs(
     );
   }
 
-  // Now strip brackets, expand acronyms and collapse redundant \n.
+  // Now strip brackets, expand acronyms. \n\n paragraph boundaries are preserved
+  // here so the chunking below can split at natural paragraph seams.
   // <break .../> tags are inline tokens and survive this step untouched.
   prepared = prepareText(prepared);
-
-  // Final pass: collapse all remaining \n to spaces, protect <break> spacing.
-  prepared = normalizeForElevenLabs(prepared);
 
   // ── SPEED LOCK ──
   // Single source of truth for speed during the entire ElevenLabs run.
@@ -653,20 +651,21 @@ async function generateWithElevenLabs(
     speed: SPEED_LOCKED,
   });
 
-  const chunks: string[] = [];
+  // ── CHUNKING (MUST run BEFORE normalizeForElevenLabs) ──
+  // normalizeForElevenLabs collapses all \n to spaces — running it before chunking
+  // would leave prepared as a single line, making paragraph-boundary splitting
+  // impossible. We split first while \n structure is still intact, then normalize
+  // each chunk individually.
+  //
   // Larger chunks (~4500 chars) give the ElevenLabs Multilingual v2 model
-  // enough text to converge to the requested `speed` target. Chunks that
-  // are too small (~1800) cause perceived rhythm drift — each chunk starts
-  // at near-natural pace and only converges to the target by its end,
-  // producing audio that sounds fluid in the middle and only becomes
-  // pausada at the very end of the narration. 4500 keeps comfortable
-  // headroom under the ~10k API limit while preserving paragraph/sentence
-  // boundary cuts (we never break mid-sentence).
+  // enough text to converge to the requested `speed` target. 4500 keeps comfortable
+  // headroom under the ~10k API limit while preserving paragraph/sentence cuts.
   const MAX_CHUNK = 4500;
+  const rawChunks: string[] = [];
   if (prepared.length > MAX_CHUNK) {
     const paragraphs = prepared.split(/\n+/);
     let current = "";
-    const flush = () => { if (current.trim()) { chunks.push(current.trim()); current = ""; } };
+    const flush = () => { if (current.trim()) { rawChunks.push(current.trim()); current = ""; } };
     for (const p of paragraphs) {
       if (p.length > MAX_CHUNK) {
         flush();
@@ -682,8 +681,13 @@ async function generateWithElevenLabs(
     }
     flush();
   } else {
-    chunks.push(prepared);
+    rawChunks.push(prepared);
   }
+
+  // Normalize each chunk for ElevenLabs — collapse \n to spaces, protect <break> tags.
+  // Each chunk is a self-contained prosodic unit; normalizing independently preserves
+  // the internal <break> tag spacing within each unit.
+  const chunks = rawChunks.map((c) => normalizeForElevenLabs(c));
 
   // ── PREVIOUS_TEXT STRATEGY ──
   // previous_text is the primary mechanism for making the model START at the

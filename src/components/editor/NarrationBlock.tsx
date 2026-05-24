@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,11 @@ const NarrationBlock = ({
   const [advancedRhythm, setAdvancedRhythm] = useState(false);
   const prevAudioRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // blobUrlRef tracks the latest blob URL for safe cleanup on unmount.
+  // The cleanup useEffect captures the ref (not the state) so it always
+  // revokes the most-recently-created URL regardless of render timing.
+  const blobUrlRef = useRef<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => { setLocalText(narration.text || ""); }, [narration.text]);
   useEffect(() => { setLocalLabel(narration.label); }, [narration.label]);
@@ -63,14 +68,18 @@ const NarrationBlock = ({
         const mime = narration.audio_url!.includes(".mp3") ? "audio/mpeg" : "audio/wav";
         setBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
-          return URL.createObjectURL(new Blob([buf], { type: mime }));
+          const next = URL.createObjectURL(new Blob([buf], { type: mime }));
+          blobUrlRef.current = next; // keep ref in sync for cleanup
+          return next;
         });
       })
       .catch(() => { if (!cancelled) setBlobUrl(null); });
     return () => { cancelled = true; };
   }, [narration.audio_url]);
 
-  useEffect(() => () => { if (blobUrl) URL.revokeObjectURL(blobUrl); }, []);
+  // Cleanup on unmount — uses ref to capture the latest blob URL, not the
+  // stale initial null from the closure if using state directly.
+  useEffect(() => () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current); }, []);
 
   // Force <audio> element to reload whenever the blob (or the narration) changes.
   // Without this the browser may keep playing the previously cached MP3 after a regen.
@@ -86,6 +95,16 @@ const NarrationBlock = ({
 
   const debouncedText = useDebounce((v: string) => onUpdate(narration.id, { text: v || null }), 1500);
   const handleTextChange = (v: string) => { setLocalText(v); debouncedText(v); };
+
+  // Auto-resize textarea to fit content — removes the need to manually drag
+  // the resize handle to see all extracted text. Max 50vh to avoid infinite growth.
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.5)}px`;
+  }, []);
+  useEffect(() => { autoResize(); }, [localText, autoResize]);
 
   const saveLabel = () => {
     const trimmed = localLabel.trim() || "Narração";
@@ -202,11 +221,11 @@ const NarrationBlock = ({
       </div>
 
       <Textarea
-        rows={4}
+        ref={textareaRef}
         value={localText}
         onChange={(e) => handleTextChange(e.target.value)}
         placeholder="Texto desta narração..."
-        className="text-xs"
+        className="text-xs min-h-[80px] resize-y overflow-hidden"
       />
 
       <div className="grid grid-cols-2 gap-2">

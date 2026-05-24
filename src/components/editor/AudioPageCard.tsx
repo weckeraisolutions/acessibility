@@ -72,6 +72,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const [localText, setLocalText] = useState(text || "");
   const [localStyle, setLocalStyle] = useState(pageStyle || "");
   const [extracting, setExtracting] = useState(false);
+  // Ref for the extracted-text textarea — used for auto-resize on content change.
+  const mainTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [generating, setGenerating] = useState(false);
   const [showRegen, setShowRegen] = useState(false);
   const [regenStyle, setRegenStyle] = useState("");
@@ -115,6 +117,18 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
   useEffect(() => { setLocalText(text || ""); }, [text]);
   useEffect(() => { setLocalStyle(pageStyle || ""); }, [pageStyle]);
+
+  // Auto-resize the main extracted-text textarea to fit its content.
+  // Runs whenever localText changes (typing, paste, or after extraction).
+  // Max height = 65% viewport height so the textarea never dominates the screen.
+  // overflow-hidden is set on the element so the scrollbar only appears when
+  // the content exceeds the max-height cap.
+  useEffect(() => {
+    const el = mainTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.65)}px`;
+  }, [localText]);
 
   // Fetch audio as blob for playback — with correct MIME type
   useEffect(() => {
@@ -435,10 +449,11 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
             </Label>
           )}
           <Textarea
-            rows={8}
+            ref={mainTextareaRef}
             value={localText}
             onChange={(e) => handleTextChange(e.target.value)}
             placeholder="Texto ainda não extraído. Clique em Extrair para processar."
+            className="min-h-[120px] resize-y overflow-hidden"
           />
           <Button variant="outline" size="sm" className="mt-1 w-full" onClick={handleExtractSingle} disabled={extracting}>
             {extracting ? (
