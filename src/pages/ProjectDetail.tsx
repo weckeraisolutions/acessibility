@@ -191,6 +191,8 @@ const ProjectDetail = () => {
                 onElevenlabsVoiceChange={setSelectedElevenlabsVoice}
                 narrationSpeed={narrationSpeed}
                 onNarrationSpeedChange={setNarrationSpeed}
+                onRefreshElevenlabsVoices={() => loadElevenlabsVoices()}
+                refreshingElevenlabsVoices={refreshingVoices}
               />
               <GlobalConfigPanel
                 mode="audiodesc"
@@ -212,6 +214,8 @@ const ProjectDetail = () => {
                 userPlan={profile?.plan}
                 enableDualValidation={(project as any).enable_dual_validation || false}
                 onEnableDualValidationChange={(v) => updateProject({ enable_dual_validation: v } as any)}
+                onRefreshElevenlabsVoices={() => loadElevenlabsVoices()}
+                refreshingElevenlabsVoices={refreshingVoices}
               />
             </div>
             <PageNavigator
