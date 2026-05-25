@@ -101,27 +101,41 @@ export function useTextExtractor(): UseTextExtractorReturn {
       const textField = mode === "audiobook" ? "audiobook_text" : "audiodesc_text";
       const statusField = mode === "audiobook" ? "audiobook_status" : "audiodesc_status";
 
-      try {
-        const result = await callExtractText(page, mode, project);
-        if (result.success) {
-          const extra: Partial<Page> = {};
-          if (mode === "audiodesc") {
-            (extra as any).audiodesc_validated = !!result.validated;
-            (extra as any).audiodesc_validation_score = result.score ?? null;
-            (extra as any).audiodesc_validation_violations = (result.violations as any) ?? null;
-            (extra as any).audiodesc_text_original = result.text_original ?? null;
+      // Retry up to 2 attempts for single-page extraction — handles transient
+      // Gemini timeouts and rate-limit spikes without silently discarding the page.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const result = await callExtractText(page, mode, project);
+          if (result.success) {
+            const extra: Partial<Page> = {};
+            if (mode === "audiodesc") {
+              (extra as any).audiodesc_validated = !!result.validated;
+              (extra as any).audiodesc_validation_score = result.score ?? null;
+              (extra as any).audiodesc_validation_violations = (result.violations as any) ?? null;
+              (extra as any).audiodesc_text_original = result.text_original ?? null;
+            }
+            onPageUpdate(page.id, {
+              [textField]: result.text,
+              [statusField]: result.no_content ? "no_content" : "extracted",
+              ...extra,
+            } as Partial<Page>);
+            return true;
           }
-          onPageUpdate(page.id, {
-            [textField]: result.text,
-            [statusField]: result.no_content ? "no_content" : "extracted",
-            ...extra,
-          } as Partial<Page>);
-          return true;
+          // Retry on transient API errors
+          if (result.error === "rate_limit" || result.error === "timeout") {
+            if (attempt < 1) { await sleep(3000); continue; }
+          }
+          return false;
+        } catch (e: any) {
+          console.error(
+            `[extractSingle] page=${page.page_number} mode=${mode} attempt=${attempt + 1}`,
+            e?.message || e?.error || String(e)
+          );
+          if (attempt < 1) { await sleep(2000); continue; }
+          return false;
         }
-        return false;
-      } catch {
-        return false;
       }
+      return false;
     },
     []
   );
@@ -164,6 +178,10 @@ export function useTextExtractor(): UseTextExtractorReturn {
               if (result.no_content) res.noContent++;
               else res.extracted++;
               success = true;
+              // Throttle between successful calls to prevent Gemini API quota
+              // exhaustion at scale. Without this, 40+ pages processed in rapid
+              // succession saturate the API and cause silent 429 failures.
+              if (i < pages.length - 1) await sleep(800);
               break;
             }
             if (result.error === "rate_limit" || result.error === "timeout") {

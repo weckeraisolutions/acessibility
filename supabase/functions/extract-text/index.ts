@@ -178,7 +178,7 @@ Itens com letras (A, B, C) dentro de uma questão devem ser formatados como: let
   }
 
   const narrationBlock = narrationText && narrationText.trim() && narrationText.trim() !== "PÁGINA_SEM_NARRAÇÃO"
-    ? `\n\nTEXTO JÁ NARRADO NESTA PÁGINA (NÃO REPETIR NA AUDIODESCRIÇÃO):\n"""\n${narrationText.trim()}\n"""\n\nREGRA DE NÃO-REDUNDÂNCIA (OBRIGATÓRIA): A audiodescrição é COMPLEMENTAR à narração. Tudo que já está descrito, mencionado ou nomeado no texto narrado acima NÃO deve ser repetido. Se o texto narrado já cita um personagem, objeto, ação, local, dado de gráfico, título de mapa ou qualquer informação verbal, a audiodescrição deve PRESSUPOR essa informação como conhecida pelo ouvinte e descrever APENAS o que é exclusivamente visual e ainda desconhecido. Se TODA a informação visual relevante já estiver coberta pela narração, retornar PÁGINA_SEM_AUDIODESCRIÇÃO.`
+    ? `\n\nTEXTO JÁ NARRADO NESTA PÁGINA (NÃO REPETIR NA AUDIODESCRIÇÃO):\n"""\n${narrationText.trim()}\n"""\n\nREGRA DE NÃO-REDUNDÂNCIA (OBRIGATÓRIA): A audiodescrição é COMPLEMENTAR à narração. Não repetir informações textuais já narradas — se o texto menciona um título, uma instrução, uma pergunta, um dado de gráfico ou um nome, não reproduzir essas informações na audiodescrição.\n\nEXCEÇÃO OBRIGATÓRIA — PESSOAS: A descrição física de pessoas presentes na imagem (posição na página, aparência, traço físico, gesto, expressão, vestimenta) é SEMPRE informação visual nova que o audiobook textual não fornece. O texto narra O QUE dizem ou fazem os personagens, mas nunca COMO eles aparecem visualmente. Se houver pessoa real ou personagem com valor visual específico na imagem: descrever sua aparência é OBRIGATÓRIO, independentemente do que o texto já narrou. NUNCA retornar PÁGINA_SEM_AUDIODESCRIÇÃO pelo motivo de uma pessoa na imagem.\n\nRETORNAR PÁGINA_SEM_AUDIODESCRIÇÃO somente se: (1) não há pessoas na imagem E (2) todos os dados visuais relevantes já estão completamente cobertos pelo texto narrado.`
     : "";
 
   return `ETAPA 1 — CLASSIFICAÇÃO DA IMAGEM:
@@ -186,18 +186,21 @@ Itens com letras (A, B, C) dentro de uma questão devem ser formatados como: let
 Antes de gerar qualquer descrição, analise criteriosamente esta imagem e classifique-a em uma das duas categorias:
 
 RELEVANTE — Descrever normalmente conforme as regras de redação abaixo:
+• Fotografias ou ilustrações de pessoas reais com gesto, postura ou expressão observável (estudante, professor, personagem com ação identificável)
 • Ilustrações que explicam um conceito pedagógico
-• Mapas, gráficos, tabelas e infográficos com dados
-• Imagens que alteram ou complementam o sentido do texto
-• Personagens em cenas com valor narrativo ou didático
-• Elementos visuais que o aluno precisa observar para responder uma atividade
+• Mapas, gráficos, tabelas e infográficos com dados visuais
+• Imagens que alteram ou complementam o sentido do texto de forma que o texto sozinho não transmite
+• Personagens em cenas com valor narrativo ou didático específico para esta página
 
 DECORATIVA — Retornar apenas PÁGINA_SEM_AUDIODESCRIÇÃO, sem gerar descrição:
-• Bordas, fundos, texturas e padrões decorativos
-• Ícones funcionais já descritos pelo audiobook (ex: ícone de lápis ao lado de "Atividade")
-• Imagens de apoio visual genérico sem relação direta com o conteúdo (ex: foto de criança sorrindo sem contexto pedagógico específico)
+• Bordas, fundos, texturas e padrões geométricos decorativos
+• Ícones funcionais junto a texto já narrado (ex: ícone de lápis ao lado de "Atividade", lâmpada ao lado de "Dica")
+• Marcadores de lista, bullets e elementos de layout editorial
+• Foto genérica de pessoa usada como decoração sem posição/gesto/expressão com valor informativo
 • Elementos repetidos em todas as páginas (cabeçalho, rodapé, marcadores de seção)
 • Ilustrações puramente estéticas sem informação adicional ao texto
+
+ATENÇÃO: Quando a página tiver UMA pessoa real com postura/gesto observável + vários elementos decorativos → classificar como RELEVANTE e descrever APENAS a pessoa (ignorar os decorativos).
 
 Critério de decisão: "Esta imagem contém informação visual que o leitor com deficiência visual PRECISA para compreender o conteúdo desta página?"
 • Se SIM → classificar como RELEVANTE e prosseguir com ETAPA 2
@@ -206,6 +209,22 @@ Critério de decisão: "Esta imagem contém informação visual que o leitor com
 ETAPA 2 — REDAÇÃO DA AUDIODESCRIÇÃO (apenas para imagens RELEVANTES):
 
 Você é especialista em audiodescrição editorial brasileira (Manual GPEAD/IBC, ABNT NBR 16452:2016, Lei 13.146/2015 – LBI, Decreto 5.296/2004). Sua tarefa é produzir uma audiodescrição CLARA, FLUENTE e CINEMATOGRÁFICA — capaz de fazer o ouvinte VISUALIZAR a cena com precisão, sem excessos e sem ressecar a descrição.
+
+HIERARQUIA DE PRIORIDADE OBRIGATÓRIA — descrever nesta ordem, parando quando o limite de palavras for atingido:
+1. PESSOAS (fotografias reais ou personagens ilustrados com ação) — SEMPRE primeiro, com prioridade absoluta
+2. DADOS VISUAIS (mapas, gráficos, tabelas, infográficos com conteúdo pedagógico)
+3. OBJETOS PEDAGÓGICOS indispensáveis à compreensão da atividade
+4. Todo o restante → IGNORAR completamente
+
+ELEMENTOS PROIBIDOS NA DESCRIÇÃO (nunca incluir, mesmo em páginas RELEVANTES):
+• Marcadores de lista, bullets, bolinhas, setas de item — IGNORAR sempre
+• Linhas decorativas (onduladas, pontilhadas, separadoras) — IGNORAR sempre
+• Padrões geométricos, texturas, fundos e elementos de design editorial — IGNORAR sempre
+• Ícones funcionais junto a texto (lâmpada = "dica", lápis = "atividade") — IGNORAR sempre
+• Caixas de diálogo e balões cujo conteúdo textual já é narrado pelo audiobook — IGNORAR sempre
+• Elementos de layout (rodapé, cabeçalho, logo, número de página) — IGNORAR sempre
+• Bordas, sombras, gradientes e efeitos visuais decorativos — IGNORAR sempre
+• Qualquer elemento gráfico que seja parte do DESIGN da página, não do CONTEÚDO
 
 ESTILO DE REDAÇÃO OBRIGATÓRIO — siga este padrão de referência:
 
@@ -236,11 +255,11 @@ REGRA 6 — LIMITES MÁXIMOS DE PALAVRAS (orientativos, priorizar clareza sobre 
 • TABELAS: estrutura e dados-chave — MÁXIMO 70 palavras.
 • ÍCONES: função apenas — MÁXIMO 12 palavras.
 
-REGRA 7 — OMITIR: cores sem função pedagógica, objetos puramente decorativos, elementos repetitivos (cabeçalhos, rodapés, marcadores) e ícones já compreendidos pelo contexto. Nomear cores APENAS quando forem informação indispensável (mapas, gráficos, sinalização).
+REGRA 7 — OMITIR RIGOROSAMENTE: Todos os elementos listados em "ELEMENTOS PROIBIDOS" acima. Adicionalmente: cores sem função pedagógica, elementos repetitivos entre páginas, e ícones compreendidos pelo contexto textual. Nomear cores APENAS quando forem informação indispensável (mapas temáticos, gráficos de barras coloridos com legenda, sinalização visual).
 
 REGRA 8 — PERSONAGENS RECORRENTES: Para personagens já descritos em página anterior, apenas nomear e descrever a NOVA ação/postura/posição — não repetir a descrição física completa.
 
-REGRA 9 — FORMATO: Texto corrido, fluente, sem quebras extras, sem colchetes, sem rótulos. Se não houver elementos visuais relevantes: retornar apenas PÁGINA_SEM_AUDIODESCRIÇÃO.${narrationBlock}
+REGRA 9 — FORMATO: Texto corrido, fluente, sem quebras extras, sem colchetes, sem rótulos. Se não houver elementos visuais relevantes além de decorativos: retornar apenas PÁGINA_SEM_AUDIODESCRIÇÃO.${narrationBlock}
 
 TIPO DE LIVRO: ${bookType}${styleNote}`;
 }
