@@ -62,6 +62,36 @@ export function applyRhythmTags(
     return ` ${tags.ellipsis} `;
   });
 
+  // 1b. ALL-CAPS dash-separated word lists on a SINGLE line.
+  //     Example: "TUKANO - CANOA - MITO - CERVO" (vocabulary quiz options).
+  //     Replace each " - " separator with an item break — dash is removed so
+  //     ElevenLabs does not read "menos" or "hífen" between the options.
+  //     Guard: line must be ALL-CAPS with NO lowercase (prevents firing on
+  //     normal hyphenated phrases like "São Paulo - capital").
+  //     Keep in sync with: supabase/functions/generate-audio/index.ts
+  {
+    const capListLines = out.split("\n");
+    const capListResult: string[] = [];
+    for (const capLine of capListLines) {
+      const trimmed = capLine.trim();
+      const isCapsDashList =
+        trimmed.length >= 3 &&
+        /^[A-ZÀ-Ý0-9\s\-]+$/.test(trimmed) &&
+        /[A-ZÀ-Ý]/.test(trimmed) &&
+        !/[a-zà-ÿ]/.test(trimmed) &&
+        trimmed.includes(" - ");
+      if (isCapsDashList) {
+        const separatorCount = (trimmed.match(/ - /g) || []).length;
+        const withBreaks = trimmed.replace(/ - /g, ` ${tags.item} `);
+        capListResult.push(capLine.replace(trimmed, withBreaks));
+        counts.item += separatorCount;
+      } else {
+        capListResult.push(capLine);
+      }
+    }
+    out = capListResult.join("\n");
+  }
+
   // 2. Heading detection — process line-by-line.
   //    a) ALL CAPS lines
   //    b) Lines ending with ':' and ≤100 chars — RELAXED: no longer requires
@@ -112,13 +142,13 @@ export function applyRhythmTags(
     return `\n\n${tags.paragraph}\n\n`;
   });
 
-  // 6. Single newline → small pause — only for long lines (≥80 chars).
-  //    Short poem lines (~30-40 chars) are skipped: inserting a break after every
-  //    short line fragments the text into tiny segments that cause ElevenLabs to
-  //    reset speed context at each break (poem sounds too fast at ~1.0).
-  //    Long prose/quiz lines (≥80 chars) still receive the break.
-  //    Quiz is not affected: heading (step 2) and item (step 4) rules already
-  //    cover quiz question/choice boundaries independently.
+  // 6. Single newline → small pause.
+  //    Primary trigger: current line is ≥80 chars (long prose / quiz choice blocks).
+  //    Secondary trigger: NEXT line starts with a numbered or bulleted list item —
+  //    these need a pause before each item regardless of current line length.
+  //    "→" arrow bullets, "•" and "*" asterisks are included; bare "- " (dialogue
+  //    dash) is excluded to avoid false positives on Portuguese quoted dialogue.
+  //    Keep in sync with: supabase/functions/generate-audio/index.ts
   {
     const lineArr = out.split("\n");
     const lineRes: string[] = [];
@@ -126,9 +156,11 @@ export function applyRhythmTags(
       const line = lineArr[li];
       if (li === lineArr.length - 1) { lineRes.push(line); break; }
       const nextLine = lineArr[li + 1];
-      const nextIsBlank = nextLine.trim() === "" || nextLine.trimStart().startsWith("<break");
+      const nextTrimmed = nextLine.trimStart();
+      const nextIsBlank = nextTrimmed === "" || nextTrimmed.startsWith("<break");
+      const nextIsListItem = /^(\d+[\.\)]\s|[•\*→]\s)/.test(nextTrimmed);
       const cleanLen = line.replace(/<break[^>]*\/>/g, "").trim().length;
-      if (!nextIsBlank && cleanLen >= 80) {
+      if (!nextIsBlank && (cleanLen >= 80 || nextIsListItem)) {
         counts.lineBreak++;
         lineRes.push(`${line} ${tags.lineBreak}`);
       } else {

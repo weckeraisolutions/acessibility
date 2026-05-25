@@ -382,6 +382,34 @@ const SPEED_WARMUP_TEXT: Record<string, string> = {
     "favorecendo a compreensão e o aprendizado do material.",
 };
 
+/**
+ * Warm-up text sent as `next_text` on the LAST chunk.
+ *
+ * THE CORE PROBLEM THIS SOLVES:
+ * Without `next_text`, ElevenLabs detects "end of text" and applies trailing
+ * syllable lengthening — a natural TTS artefact where the final phonemes are
+ * stretched before silence. When voice_settings.speed is already below 1.0
+ * (pausada=0.75, educativo=0.90), this model-level slowdown is multiplied by
+ * the speed factor, producing EXTREMELY slow last words/phrases.
+ *
+ * HOW THE FIX WORKS:
+ * `next_text` tells the model "more text follows after this chunk." The model
+ * generates the final words at the same target cadence as the rest, without
+ * entering "end of narration" deceleration mode. The fake continuation phrase
+ * is never actually synthesized — it only influences prosody of the last few
+ * words of the real text.
+ *
+ * Applied ONLY on the last chunk for pausada/educativo — the presets where
+ * trailing slowdown is most audible because the speed multiplier compounds
+ * the natural deceleration. Fluente (1.05) is not affected meaningfully.
+ */
+const SPEED_NEXT_TEXT: Record<string, string> = {
+  pausada:
+    "O estudo continua na próxima página, mantendo o mesmo ritmo pausado e deliberado.",
+  educativo:
+    "O estudo continua na próxima página, mantendo o mesmo ritmo educativo e organizado.",
+};
+
 /** @deprecated No longer used — speed priming is handled via previous_text warm-up. */
 function rhythmPrefix(_narrationSpeed?: string): string {
   return ""; // prefix removed: it added audible artefacts and was redundant
@@ -445,6 +473,43 @@ function applyRhythmTags(
     return ` ${tags.ellipsis} `;
   });
 
+  // 1b. ALL-CAPS dash-separated word lists on a SINGLE line.
+  //     Example: "TUKANO - CANOA - MITO - CERVO" (vocabulary quiz options).
+  //     These are answer-choice words listed horizontally, separated by " - ".
+  //     Without this rule, step 2 (heading) adds ONE break at the end of the
+  //     whole line, but ZERO breaks between the individual words — ElevenLabs
+  //     reads "TUKANO CANOA MITO CERVO" as one rapid unit at full speed.
+  //     Fix: replace each " - " separator with " <item_break> " so the model
+  //     treats every word as a distinct prosodic unit with a natural pause.
+  //     Guard: line must be ALL-CAPS (letters, digits, spaces, hyphens ONLY),
+  //     contain at least one " - ", and have no lowercase — this prevents
+  //     firing on normal hyphenated phrases like "São Paulo - capital".
+  {
+    const capListLines = out.split("\n");
+    const capListResult: string[] = [];
+    for (const capLine of capListLines) {
+      const trimmed = capLine.trim();
+      const isCapsDashList =
+        trimmed.length >= 3 &&
+        /^[A-ZÀ-Ý0-9\s\-]+$/.test(trimmed) &&
+        /[A-ZÀ-Ý]/.test(trimmed) &&
+        !/[a-zà-ÿ]/.test(trimmed) &&
+        trimmed.includes(" - ");
+      if (isCapsDashList) {
+        // Replace each " - " separator with an item break (dash removed — it
+        // has no phonetic value between spoken words and removing it prevents
+        // ElevenLabs from reading "menos" or "hífen" between options).
+        const separatorCount = (trimmed.match(/ - /g) || []).length;
+        const withBreaks = trimmed.replace(/ - /g, ` ${tags.item} `);
+        capListResult.push(capLine.replace(trimmed, withBreaks));
+        counts.item += separatorCount;
+      } else {
+        capListResult.push(capLine);
+      }
+    }
+    out = capListResult.join("\n");
+  }
+
   // 2. Heading detection — process line-by-line, then re-join.
   //    A line is a heading when:
   //    a) ALL CAPS (≥3 chars, letters+spaces only)
@@ -507,17 +572,19 @@ function applyRhythmTags(
     return `\n\n${tags.paragraph}\n\n`;
   });
 
-  // 6. Single newline → small pause — but ONLY for long lines (≥80 chars).
-  //    Rationale: poem stanzas have short lines (~30-40 chars) separated by \n.
-  //    Inserting a <break> after every short poem line fragments the text into
-  //    many tiny prosodic segments, causing ElevenLabs to reset its speed
-  //    context at each break and narrate near ~1.0 regardless of the preset.
-  //    Long lines (prose paragraphs, quiz answer-choice blocks) DO need the
-  //    break because there are no other structural markers at the line boundary.
-  //    Quiz functionality is preserved: the heading (step 2) and item (step 4)
-  //    rules already fire at question/choice boundaries, so quiz content is not
-  //    dependent on lineBreak. Short-line poetry is narrated as a continuous
-  //    flow — speed is controlled by voice_settings.speed, which is correct.
+  // 6. Single newline → small pause.
+  //    Primary trigger: current line is ≥80 chars (long prose / quiz choice blocks).
+  //    Secondary trigger: NEXT line is a numbered or bulleted list item — these
+  //    need a pause before each item regardless of the current line's length,
+  //    because they are excluded from the 80-char threshold (which was designed
+  //    for poetry). Examples of list items:
+  //      "1. Adicione água"  "2) Misture bem"  "• Anote os pontos"  "* item"
+  //    Note: "A) B) C)" choice lines are handled by step 4 (item rule) and
+  //    "→" arrow bullets are included here as common in Brazilian pedagogy.
+  //    Guard: does NOT include bare "- " (hyphen+space) — that is the Portuguese
+  //    dialogue dash ("- Olá, disse João.") and must NOT trigger a list break.
+  //    Poetry stanzas: short poem lines never start with numbers or bullets,
+  //    so this change does not reintroduce the poem-speed regression.
   {
     const lineArr = out.split("\n");
     const lineRes: string[] = [];
@@ -526,12 +593,16 @@ function applyRhythmTags(
       // Last line: never append a break (nothing follows).
       if (li === lineArr.length - 1) { lineRes.push(line); break; }
       const nextLine = lineArr[li + 1];
+      const nextTrimmed = nextLine.trimStart();
       // Skip if the next line is blank or already starts with a <break> tag
       // (paragraph rule in step 5 already handled it).
-      const nextIsBlank = nextLine.trim() === "" || nextLine.trimStart().startsWith("<break");
+      const nextIsBlank = nextTrimmed === "" || nextTrimmed.startsWith("<break");
+      // Check if the next line begins a numbered or bulleted list item.
+      // Pattern: digit(s) followed by "." or ")", or bullet symbols • * →
+      const nextIsListItem = /^(\d+[\.\)]\s|[•\*→]\s)/.test(nextTrimmed);
       // Measure line length without counting embedded <break> tags.
       const cleanLen = line.replace(/<break[^>]*\/>/g, "").trim().length;
-      if (!nextIsBlank && cleanLen >= 80) {
+      if (!nextIsBlank && (cleanLen >= 80 || nextIsListItem)) {
         counts.lineBreak++;
         lineRes.push(`${line} ${tags.lineBreak}`);
       } else {
@@ -775,6 +846,17 @@ async function generateWithElevenLabs(
     // requested voice_settings.speed target across long narrations.
     if (ci === 0 && previousText) {
       bodyObj.previous_text = previousText;
+    }
+
+    // Apply next_text warm-up ONLY on the last chunk for pausada/educativo.
+    // Prevents ElevenLabs from detecting "end of text" and applying trailing
+    // syllable lengthening (which the speed multiplier then compounds into
+    // very slow last words). The fake continuation is never synthesized —
+    // it only anchors prosody so the final real words stay at target speed.
+    const isLastChunk = ci === chunks.length - 1;
+    if (isLastChunk && narrationSpeed && narrationSpeed in SPEED_NEXT_TEXT) {
+      bodyObj.next_text = SPEED_NEXT_TEXT[narrationSpeed];
+      console.log(`[RHYTHM-DEBUG] next_text warm-up set for preset=${narrationSpeed} (last chunk ${ci + 1}/${chunks.length})`);
     }
 
     // ── PRE-CALL VALIDATION LOG (permanent) ──
