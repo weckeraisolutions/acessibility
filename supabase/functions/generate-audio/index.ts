@@ -339,6 +339,12 @@ const preprocessTextForPTBR = preprocessForTTS;
  */
 function normalizeForElevenLabs(text: string): string {
   let t = text;
+  // Strip markdown formatting — **bold** / *italic* markers are preserved in
+  // the database for human readability but must not reach the TTS engine.
+  // Without stripping, `**Participantes:**` may cause ElevenLabs to emit
+  // stray asterisk phonemes or confuse its internal normalizer.
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, "$1");
+  t = t.replace(/\*([^*\n]+)\*/g,    "$1");
   t = t.replace(/([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ ]{1,30}):\s+/g, "$1 — ");
   t = t.replace(/\s*\n+\s*/g, " ");
   // Preserve breathing room around <break .../> tags so the model treats
@@ -429,30 +435,62 @@ function rhythmPrefix(_narrationSpeed?: string): string {
  *   - long sentence (>25 words without comma) → mid-sentence micro-break
  */
 type RhythmPreset = "pausada" | "educativo" | "fluente";
+/**
+ * ── Break duration design constraints ──
+ *
+ * ElevenLabs eleven_multilingual_v2 has a "vocal restart" artefact when the
+ * model resumes speech after a silence of ≥ ~0.5 s. The model re-initialises
+ * its internal state at the silence boundary, producing an audible puff / low-
+ * frequency rumble ("vroomm") at the start of the next segment.
+ *
+ * HARD LIMIT: No break value should exceed 0.6 s in isolation.  Paragraph
+ * boundaries receive BOTH a paragraph break AND (often) a heading break in
+ * rapid succession, so in practice the combined silence can reach
+ * paragraph + heading ≈ 0.6 + 0.4 = 1.0 s — still short enough to avoid the
+ * artefact on modern ElevenLabs model versions.
+ *
+ * Secondary effect of long breaks: pages with many short sections (e.g. a
+ * rules page with 10 × 2-word entries) get fragmented into tiny segments
+ * separated by long silences.  ElevenLabs cannot apply voice_settings.speed
+ * consistently to a 2-word fragment — it reads it near 1.0 regardless of the
+ * preset, making the first half of such pages sound faster than the second
+ * (where longer prose sentences give the model enough material to converge).
+ * Shorter breaks reduce fragmentation and improve speed uniformity.
+ */
 const RHYTHM_TABLE: Record<RhythmPreset, {
   paragraph: string; heading: string; ellipsis: string; longSentence: string;
   item: string; lineBreak: string;
 }> = {
+  //
+  // pausada — deliberate pace, clearly slower than natural speech.
+  // paragraph / heading kept ≤ 0.6 s (hard ElevenLabs artefact limit).
+  //
   pausada:   {
-    paragraph:    '<break time="1.2s" />',
-    heading:      '<break time="0.8s" />',
-    ellipsis:     '<break time="1.5s" />',
+    paragraph:    '<break time="0.6s" />',  // was 1.2s — artefact above ~0.6s
+    heading:      '<break time="0.4s" />',  // was 0.8s
+    ellipsis:     '<break time="0.8s" />',  // was 1.5s — ellipsis can be slightly longer
     longSentence: '<break time="0.4s" />',
     item:         '<break time="0.5s" />',
     lineBreak:    '<break time="0.5s" />',
   },
+  //
+  // educativo — measured educational pace.
+  //
   educativo: {
-    paragraph:    '<break time="0.8s" />',
-    heading:      '<break time="0.5s" />',
-    ellipsis:     '<break time="1.0s" />',
+    paragraph:    '<break time="0.4s" />',  // was 0.8s — main vroomm fix
+    heading:      '<break time="0.3s" />',  // was 0.5s
+    ellipsis:     '<break time="0.6s" />',  // was 1.0s
     longSentence: '<break time="0.3s" />',
     item:         '<break time="0.3s" />',
     lineBreak:    '<break time="0.3s" />',
   },
+  //
+  // fluente — brisk natural flow, minimal pauses.
+  //
   fluente:   {
-    paragraph:    '<break time="0.4s" />',
-    heading:      '<break time="0.3s" />',
-    ellipsis:     '<break time="0.6s" />',
+    paragraph:    '<break time="0.2s" />',  // was 0.4s
+    heading:      '<break time="0.2s" />',  // was 0.3s
+    ellipsis:     '<break time="0.4s" />',  // was 0.6s
     longSentence: '<break time="0.2s" />',
     item:         '<break time="0.2s" />',
     lineBreak:    '<break time="0.2s" />',

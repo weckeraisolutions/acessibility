@@ -18,30 +18,32 @@ export interface RhythmCounts {
   total: number;
 }
 
+// Keep in sync with: supabase/functions/generate-audio/index.ts
+// See RHYTHM_TABLE comment there for ElevenLabs artefact constraints.
 const RHYTHM_TABLE: Record<RhythmPreset, {
   paragraph: string; heading: string; ellipsis: string; longSentence: string;
   item: string; lineBreak: string;
 }> = {
   pausada:   {
-    paragraph:    '<break time="1.2s" />',
-    heading:      '<break time="0.8s" />',
-    ellipsis:     '<break time="1.5s" />',
+    paragraph:    '<break time="0.6s" />',  // was 1.2s
+    heading:      '<break time="0.4s" />',  // was 0.8s
+    ellipsis:     '<break time="0.8s" />',  // was 1.5s
     longSentence: '<break time="0.4s" />',
     item:         '<break time="0.5s" />',
     lineBreak:    '<break time="0.5s" />',
   },
   educativo: {
-    paragraph:    '<break time="0.8s" />',
-    heading:      '<break time="0.5s" />',
-    ellipsis:     '<break time="1.0s" />',
+    paragraph:    '<break time="0.4s" />',  // was 0.8s
+    heading:      '<break time="0.3s" />',  // was 0.5s
+    ellipsis:     '<break time="0.6s" />',  // was 1.0s
     longSentence: '<break time="0.3s" />',
     item:         '<break time="0.3s" />',
     lineBreak:    '<break time="0.3s" />',
   },
   fluente:   {
-    paragraph:    '<break time="0.4s" />',
-    heading:      '<break time="0.3s" />',
-    ellipsis:     '<break time="0.6s" />',
+    paragraph:    '<break time="0.2s" />',  // was 0.4s
+    heading:      '<break time="0.2s" />',  // was 0.3s
+    ellipsis:     '<break time="0.4s" />',  // was 0.6s
     longSentence: '<break time="0.2s" />',
     item:         '<break time="0.2s" />',
     lineBreak:    '<break time="0.2s" />',
