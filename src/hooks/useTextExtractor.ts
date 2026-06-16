@@ -62,7 +62,7 @@ async function callExtractText(
         throw innerParsed;
       }
     } catch (e) {
-      if ((e as any)?.error) throw e;
+      if (e && typeof e === 'object' && 'error' in e) throw e;
     }
     throw error;
   }
@@ -109,10 +109,10 @@ export function useTextExtractor(): UseTextExtractorReturn {
           if (result.success) {
             const extra: Partial<Page> = {};
             if (mode === "audiodesc") {
-              (extra as any).audiodesc_validated = !!result.validated;
-              (extra as any).audiodesc_validation_score = result.score ?? null;
-              (extra as any).audiodesc_validation_violations = (result.violations as any) ?? null;
-              (extra as any).audiodesc_text_original = result.text_original ?? null;
+              extra.audiodesc_validated = !!result.validated;
+              extra.audiodesc_validation_score = result.score ?? null;
+              extra.audiodesc_validation_violations = Array.isArray(result.violations) ? (result.violations as string[]) : null;
+              extra.audiodesc_text_original = result.text_original ?? null;
             }
             onPageUpdate(page.id, {
               [textField]: result.text,
@@ -126,10 +126,10 @@ export function useTextExtractor(): UseTextExtractorReturn {
             if (attempt < 1) { await sleep(3000); continue; }
           }
           return false;
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error(
             `[extractSingle] page=${page.page_number} mode=${mode} attempt=${attempt + 1}`,
-            e?.message || e?.error || String(e)
+            e instanceof Error ? e.message : (e && typeof e === 'object' && 'error' in e ? (e as {error: string}).error : String(e))
           );
           if (attempt < 1) { await sleep(2000); continue; }
           return false;
@@ -165,10 +165,10 @@ export function useTextExtractor(): UseTextExtractorReturn {
             if (result.success) {
               const extra: Partial<Page> = {};
               if (mode === "audiodesc") {
-                (extra as any).audiodesc_validated = !!result.validated;
-                (extra as any).audiodesc_validation_score = result.score ?? null;
-                (extra as any).audiodesc_validation_violations = (result.violations as any) ?? null;
-                (extra as any).audiodesc_text_original = result.text_original ?? null;
+                extra.audiodesc_validated = !!result.validated;
+                extra.audiodesc_validation_score = result.score ?? null;
+                extra.audiodesc_validation_violations = Array.isArray(result.violations) ? (result.violations as string[]) : null;
+                extra.audiodesc_text_original = result.text_original ?? null;
               }
               onPageUpdate(page.id, {
                 [textField]: result.text,
@@ -189,8 +189,8 @@ export function useTextExtractor(): UseTextExtractorReturn {
               continue;
             }
             break;
-          } catch (e: any) {
-            const errorType = e?.error;
+          } catch (e: unknown) {
+            const errorType = e && typeof e === 'object' && 'error' in e ? (e as {error: string}).error : null;
             if (errorType === "rate_limit" || errorType === "timeout") {
               await sleep(Math.pow(2, attempt + 1) * 1000);
               continue;

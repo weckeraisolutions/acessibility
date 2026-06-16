@@ -27,12 +27,14 @@ function parseVideoRegions(page: Page): { regions: Region[]; pageBaseAnimation: 
         suggestedTransition: data.suggested_transition || "fade",
       };
     }
-  } catch {}
+  } catch (e) {
+    console.error("Failed to parse video regions", e);
+  }
   return { regions: [], pageBaseAnimation: "ken_burns", suggestedTransition: "fade" };
 }
 
 const AnimationEditorDialog = ({ page, open, onOpenChange, onUpdate }: AnimationEditorDialogProps) => {
-  const initial = useMemo(() => parseVideoRegions(page), [page.video_regions]);
+  const initial = useMemo(() => parseVideoRegions(page), [page]);
   const [regions, setRegions] = useState<Region[]>(initial.regions);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pageBaseAnimation, setPageBaseAnimation] = useState(initial.pageBaseAnimation);
@@ -75,7 +77,7 @@ const AnimationEditorDialog = ({ page, open, onOpenChange, onUpdate }: Animation
       suggested_transition: suggestedTransition,
     };
     onUpdate(page.id, {
-      video_regions: videoRegions as any,
+      video_regions: videoRegions as unknown as Tables<"pages">["video_regions"],
       video_status: "configured",
       video_transition: suggestedTransition,
     });

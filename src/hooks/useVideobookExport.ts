@@ -280,7 +280,9 @@ export function useVideobookExport() {
             pageBaseAnimation = vr.page_base_animation || "static";
             transition = vr.suggested_transition || page.video_transition || "fade";
           }
-        } catch {}
+        } catch (e) {
+          console.error("Failed to parse video regions", e);
+        }
 
         const totalFrames = Math.ceil(audioDuration * FPS);
 
@@ -379,8 +381,8 @@ export function useVideobookExport() {
       // Cleanup
       canvas.width = 0;
       canvas.height = 0;
-    } catch (err: any) {
-      if (err.message === "Cancelado") {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === "Cancelado") {
         setExporting(false);
         setProgress(null);
         return;

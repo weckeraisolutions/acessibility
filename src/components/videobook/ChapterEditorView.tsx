@@ -23,7 +23,7 @@ interface Props {
 
 const ChapterEditorView = ({ chapter, pages, projectId, projectName, onBack, onUpdateChapter, onPagesRefetch }: Props) => {
   const playerRef = useRef<VideobookPlayerHandle>(null);
-  const [layout, setLayout] = useState<"single" | "double">((chapter.videobook_layout as any) || "single");
+  const [layout, setLayout] = useState<"single" | "double">((chapter.videobook_layout as "single" | "double") || "single");
   const [exportOpen, setExportOpen] = useState(false);
   const [currentPageIdx, setCurrentPageIdx] = useState(0);
   const hd = useHighResPages();

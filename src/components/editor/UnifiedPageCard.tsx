@@ -54,10 +54,12 @@ const UnifiedPageCard = ({
   const audiobookStatus = page.audiobook_status;
   const audiodescStatus = page.audiodesc_status;
   const [reportOpen, setReportOpen] = useState(false);
-  const validated = (page as any).audiodesc_validated as boolean | undefined;
-  const score = (page as any).audiodesc_validation_score as number | null | undefined;
-  const violations = ((page as any).audiodesc_validation_violations as any[] | null | undefined) || [];
-  const textOriginal = (page as any).audiodesc_text_original as string | null | undefined;
+  const validated = page.audiodesc_validated;
+  const score = page.audiodesc_validation_score;
+  const violations = Array.isArray(page.audiodesc_validation_violations)
+    ? (page.audiodesc_validation_violations as unknown as Array<{ regra?: string; trecho?: string; explicacao?: string; }>)
+    : [];
+  const textOriginal = page.audiodesc_text_original;
   const wasCorrected = !!(textOriginal && textOriginal !== page.audiodesc_text);
 
   return (

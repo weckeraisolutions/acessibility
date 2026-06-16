@@ -62,8 +62,8 @@ const InterpreterPanel = ({ chapter, expectedDurationSec, audiobookText, onModeC
       setVideoUrl(path);
       onModeChange("human_video", path);
       toast({ title: "Vídeo enviado", description: "Intérprete humano configurado." });
-    } catch (e: any) {
-      toast({ title: "Erro no upload", description: e.message, variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Erro no upload", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
     } finally {
       setUploading(false);
     }
@@ -85,7 +85,6 @@ const InterpreterPanel = ({ chapter, expectedDurationSec, audiobookText, onModeC
             <div id="vlibras-target" className="p-2 bg-muted/30 rounded text-xs max-h-32 overflow-auto">
               {audiobookText || <span className="italic">Sem texto carregado.</span>}
             </div>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <VLibras forceOnload />
           </div>
         </TabsContent>

@@ -212,8 +212,8 @@ const ProjectDetail = () => {
                 narrationSpeed={narrationSpeed}
                 onNarrationSpeedChange={setNarrationSpeed}
                 userPlan={profile?.plan}
-                enableDualValidation={(project as any).enable_dual_validation || false}
-                onEnableDualValidationChange={(v) => updateProject({ enable_dual_validation: v } as any)}
+                enableDualValidation={project.enable_dual_validation || false}
+                onEnableDualValidationChange={(v) => updateProject({ enable_dual_validation: v })}
                 onRefreshElevenlabsVoices={() => loadElevenlabsVoices()}
                 refreshingElevenlabsVoices={refreshingVoices}
               />

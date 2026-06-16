@@ -35,7 +35,7 @@ const NewProject = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragOver, setDragOver] = useState(false);
 
-  const handleFile = (f: File) => {
+  const handleFile = useCallback((f: File) => {
     if (f.type !== "application/pdf") {
       toast({ title: "Formato inválido", description: "Apenas arquivos PDF são aceitos.", variant: "destructive" });
       return;
@@ -45,13 +45,13 @@ const NewProject = () => {
       return;
     }
     setFile(f);
-  };
+  }, [toast]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  }, []);
+  }, [handleFile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

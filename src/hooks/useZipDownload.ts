@@ -60,6 +60,7 @@ export function useZipDownload() {
       if (blob) saveAs(blob, `${projectName}_${chapterName}.zip`);
     } catch (e) { toast.error("Erro ao criar ZIP"); }
     setDownloading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const downloadFullBook = useCallback(async (
@@ -110,6 +111,7 @@ export function useZipDownload() {
       if (blob) saveAs(blob, `${projectName}_${suffix}.zip`);
     } catch { toast.error("Erro ao criar ZIP"); }
     setDownloading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { downloading, progress, currentFile, totalFiles, cancel, downloadChapter, downloadFullBook };

@@ -46,7 +46,7 @@ serve(async (req) => {
 
     const collectionId = Deno.env.get("ELEVENLABS_COLLECTION_ID") ?? "EeX6rO9BE2F5Evmmr9sB";
     // Paginate through ALL voices in the collection (ElevenLabs returns up to 100 per page)
-    const allVoices: any[] = [];
+    const allVoices: Record<string, unknown>[] = [];
     let nextPageToken: string | null = null;
     let pageCount = 0;
     do {
@@ -101,11 +101,13 @@ serve(async (req) => {
     // Deduplicate by voice_id and sort alphabetically by name
     const seen = new Set<string>();
     const voices = allVoices
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((v: any) => {
         if (!v?.voice_id || seen.has(v.voice_id)) return false;
         seen.add(v.voice_id);
         return true;
       })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((v: any) => ({
         voice_id: v.voice_id,
         name: v.name,

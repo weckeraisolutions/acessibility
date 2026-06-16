@@ -12,7 +12,7 @@ type Page = Tables<"pages">;
 interface Props {
   chapters: ChapterRow[];
   pages: Page[];
-  onCreate: (data: { title: string; start_page: number; end_page: number }) => Promise<any>;
+  onCreate: (data: { title: string; start_page: number; end_page: number }) => Promise<ChapterRow>;
   onUpdate: (id: string, patch: Partial<ChapterRow>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onOpen: (chapter: ChapterRow) => void;
@@ -24,7 +24,7 @@ const statusVariant = (s: string) => {
   if (s === "error") return "destructive";
   return "outline";
 };
-const statusLabel = (s: string) => ({ draft: "Rascunho", processing: "Processando", ready: "Pronto", error: "Erro" } as any)[s] || s;
+const statusLabel = (s: string) => ({ draft: "Rascunho", processing: "Processando", ready: "Pronto", error: "Erro" } as Record<string, string>)[s] || s;
 
 const ChapterListPanel = ({ chapters, pages, onCreate, onUpdate, onDelete, onOpen }: Props) => {
   const [editorOpen, setEditorOpen] = useState(false);

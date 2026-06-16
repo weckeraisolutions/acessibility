@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import SEO from "@/components/SEO";
-// @ts-ignore - no types shipped
 import VLibras from "@djpfs/react-vlibras";
 import {
   Upload, Brain, Pencil, Download, BookOpen, Image, Film,

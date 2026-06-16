@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 function estimateTimestamps(
-  regions: any[],
+  regions: { text: string }[],
   text: string,
   audioDuration: number
 ) {
@@ -223,7 +223,7 @@ Coordenadas x, y, width, height são valores de 0.0 a 1.0 em proporção das dim
     // Strip markdown code fences if present
     rawText = rawText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
 
-    let parsed: any;
+    let parsed: { regions?: { text: string }[] } | unknown;
     try {
       parsed = JSON.parse(rawText);
     } catch {
@@ -234,7 +234,7 @@ Coordenadas x, y, width, height são valores de 0.0 a 1.0 em proporção das dim
       );
     }
 
-    const regions = parsed.regions || [];
+    const regions = (parsed as { regions?: { text: string }[] }).regions || [];
     const regionsWithTimestamps = estimateTimestamps(
       regions,
       audiobook_text,
