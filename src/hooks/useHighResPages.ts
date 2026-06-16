@@ -36,6 +36,7 @@ async function renderPageToBlob(
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext("2d")!;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), "image/png");
@@ -125,7 +126,7 @@ export function useHighResPages() {
 
         await supabase
           .from("pages")
-          .update({ image_hd_url: hdUrl } as any)
+          .update({ image_hd_url: hdUrl })
           .eq("project_id", projectId)
           .eq("page_number", p.page_number);
       }

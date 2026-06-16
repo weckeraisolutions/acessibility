@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
   delay: number
@@ -18,6 +19,7 @@ export function useDebounce<T extends (...args: any[]) => any>(
   }, []);
 
   return useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (...args: any[]) => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {

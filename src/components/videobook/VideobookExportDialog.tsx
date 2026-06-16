@@ -23,7 +23,7 @@ interface Props {
 
 const VideobookExportDialog = ({ open, onOpenChange, chapter, pages, projectName, flipbookContainer }: Props) => {
   const [resolution, setResolution] = useState<"1080p" | "4k">("1080p");
-  const [layout, setLayout] = useState<"single" | "double">((chapter.videobook_layout as any) || "single");
+  const [layout, setLayout] = useState<"single" | "double">((chapter.videobook_layout as "single" | "double") || "single");
   const [confirmed, setConfirmed] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const { exporting, progress, resultBlob, exportChapter, cancel, downloadResult } = useChapterVideoExport();
@@ -47,8 +47,8 @@ const VideobookExportDialog = ({ open, onOpenChange, chapter, pages, projectName
         flipbookContainer,
       });
       toast.success("Videobook exportado!");
-    } catch (e: any) {
-      if (e.message !== "Cancelado") toast.error("Erro: " + e.message);
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message !== "Cancelado") toast.error("Erro: " + e.message);
     }
   };
 
@@ -91,7 +91,7 @@ const VideobookExportDialog = ({ open, onOpenChange, chapter, pages, projectName
 
             <div>
               <Label className="text-xs">Layout do flipbook</Label>
-              <Select value={layout} onValueChange={(v) => setLayout(v as any)}>
+              <Select value={layout} onValueChange={(v) => setLayout(v as "single" | "double")}>
                 <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single">1 página por vez</SelectItem>

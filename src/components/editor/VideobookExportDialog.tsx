@@ -39,8 +39,8 @@ const VideobookExportDialog = ({ open, onOpenChange, pages, projectId, projectNa
     try {
       await exportVideobook(pages, projectId, projectName, resolution);
       toast.success("Videobook exportado com sucesso!");
-    } catch (e: any) {
-      toast.error("Erro na exportação: " + e.message);
+    } catch (e: unknown) {
+      toast.error("Erro na exportação: " + (e instanceof Error ? e.message : String(e)));
     }
   };
 

@@ -61,7 +61,7 @@ export async function userOwnsPage(userId: string, pageId: string): Promise<stri
     .eq("id", pageId)
     .maybeSingle();
   if (error || !data) return null;
-  // @ts-ignore — embedded relation
+  // @ts-expect-error — embedded relation
   const ownerId = data.projects?.user_id;
   if (ownerId !== userId) return null;
   return data.project_id as string;

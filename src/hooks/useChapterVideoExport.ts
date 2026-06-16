@@ -193,7 +193,7 @@ export function useChapterVideoExport() {
 
       // Phase 4: encode
       update(4, 4, "Encoding final (H.264)", 0);
-      ffmpeg.on("progress", (e: any) => {
+      ffmpeg.on("progress", (e: { progress?: number }) => {
         if (e?.progress != null) update(4, 4, "Encoding final (H.264)", Math.min(99, Math.round(e.progress * 100)));
       });
       await ffmpeg.exec([
@@ -224,23 +224,25 @@ export function useChapterVideoExport() {
           const path = `${session.user.id}/${chapter.project_id}/${fname}`;
           await supabase.storage.from("videobook-final").upload(path, videoBlob, { upsert: true, contentType: "video/mp4" });
           const { data: urlData } = await supabase.storage.from("videobook-final").createSignedUrl(path, 60 * 60 * 24 * 30);
-          await supabase.from("chapters" as any).update({
+          await supabase.from("chapters").update({
             videobook_url: urlData?.signedUrl || path,
             videobook_status: "ready",
             videobook_resolution: options.resolution,
             videobook_layout: options.layout,
-          } as any).eq("id", chapter.id);
+          }).eq("id", chapter.id);
         }
       } catch (e) {
         console.warn("[chapter export] upload failed", e);
       }
 
       return videoBlob;
-    } catch (e: any) {
-      if (e.message !== "Cancelado") {
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message !== "Cancelado") {
         try {
-          await supabase.from("chapters" as any).update({ videobook_status: "error" } as any).eq("id", chapter.id);
-        } catch {}
+          await supabase.from("chapters").update({ videobook_status: "error" }).eq("id", chapter.id);
+        } catch (innerE) {
+           console.error("Failed to update status to error:", innerE);
+        }
       }
       throw e;
     } finally {

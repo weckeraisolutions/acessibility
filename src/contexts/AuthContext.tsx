@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       supabase.from("user_roles").select("role").eq("user_id", userId),
     ]);
     if (data) {
-      const isAdmin = roles?.some((r: any) => r.role === "admin") || false;
+      const isAdmin = roles?.some((r: { role: string }) => r.role === "admin") || false;
       setProfile({
         id: data.id,
         name: data.name,

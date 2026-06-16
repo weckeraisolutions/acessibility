@@ -35,7 +35,7 @@ export function useChapters(projectId: string | undefined) {
   const persist = useCallback((updated: Chapter[]) => {
     setChapters(updated);
     if (projectId) {
-      supabase.from("projects").update({ chapters_config: updated as any }).eq("id", projectId).then();
+      supabase.from("projects").update({ chapters_config: updated as unknown as string }).eq("id", projectId).then();
     }
   }, [projectId]);
 
@@ -77,22 +77,22 @@ export function useChaptersDB(projectId: string | undefined) {
     if (!projectId) return;
     setLoading(true);
     const { data, error } = await supabase
-      .from("chapters" as any)
+      .from("chapters")
       .select("*")
       .eq("project_id", projectId)
       .order("order", { ascending: true });
     if (error) {
       toast({ title: "Erro ao carregar capítulos", description: error.message, variant: "destructive" });
     } else {
-      setChapters((data as any) || []);
+      setChapters((data as unknown as ChapterRow[]) || []);
     }
     setLoading(false);
   }, [projectId, toast]);
 
   useEffect(() => { fetchChapters(); }, [fetchChapters]);
 
-  const overlaps = (start: number, end: number, excludeId?: string) =>
-    chapters.some(c => c.id !== excludeId && start <= c.end_page && end >= c.start_page);
+  const overlaps = useCallback((start: number, end: number, excludeId?: string) =>
+    chapters.some(c => c.id !== excludeId && start <= c.end_page && end >= c.start_page), [chapters]);
 
   const createChapter = useCallback(async (input: { title: string; start_page: number; end_page: number; order?: number; }) => {
     if (!projectId) return null;
@@ -106,17 +106,17 @@ export function useChaptersDB(projectId: string | undefined) {
     }
     const order = input.order ?? chapters.length;
     const { data, error } = await supabase
-      .from("chapters" as any)
-      .insert({ project_id: projectId, title: input.title, start_page: input.start_page, end_page: input.end_page, order } as any)
+      .from("chapters")
+      .insert({ project_id: projectId, title: input.title, start_page: input.start_page, end_page: input.end_page, order })
       .select()
       .single();
     if (error) {
       toast({ title: "Erro ao criar capítulo", description: error.message, variant: "destructive" });
       return null;
     }
-    setChapters(prev => [...prev, data as any].sort((a, b) => a.order - b.order));
-    return data as any as ChapterRow;
-  }, [projectId, chapters, toast]);
+    setChapters(prev => [...prev, data as unknown as ChapterRow].sort((a, b) => a.order - b.order));
+    return data as unknown as ChapterRow;
+  }, [projectId, chapters, toast, overlaps]);
 
   const updateChapter = useCallback(async (id: string, patch: Partial<ChapterRow>) => {
     if (patch.start_page !== undefined && patch.end_page !== undefined) {
@@ -125,16 +125,16 @@ export function useChaptersDB(projectId: string | undefined) {
         return;
       }
     }
-    const { error } = await supabase.from("chapters" as any).update(patch as any).eq("id", id);
+    const { error } = await supabase.from("chapters").update(patch).eq("id", id);
     if (error) {
       toast({ title: "Erro ao atualizar capítulo", description: error.message, variant: "destructive" });
       return;
     }
     setChapters(prev => prev.map(c => c.id === id ? { ...c, ...patch } as ChapterRow : c));
-  }, [toast, chapters]);
+  }, [toast, overlaps]);
 
   const deleteChapter = useCallback(async (id: string) => {
-    const { error } = await supabase.from("chapters" as any).delete().eq("id", id);
+    const { error } = await supabase.from("chapters").delete().eq("id", id);
     if (error) {
       toast({ title: "Erro ao remover capítulo", description: error.message, variant: "destructive" });
       return;

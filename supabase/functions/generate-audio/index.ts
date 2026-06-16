@@ -529,7 +529,7 @@ function applyRhythmTags(
       const trimmed = capLine.trim();
       const isCapsDashList =
         trimmed.length >= 3 &&
-        /^[A-ZÀ-Ý0-9\s\-]+$/.test(trimmed) &&
+        /^[A-ZÀ-Ý0-9\s-]+$/.test(trimmed) &&
         /[A-ZÀ-Ý]/.test(trimmed) &&
         !/[a-zà-ÿ]/.test(trimmed) &&
         trimmed.includes(" - ");
@@ -637,7 +637,7 @@ function applyRhythmTags(
       const nextIsBlank = nextTrimmed === "" || nextTrimmed.startsWith("<break");
       // Check if the next line begins a numbered or bulleted list item.
       // Pattern: digit(s) followed by "." or ")", or bullet symbols • * →
-      const nextIsListItem = /^(\d+[\.\)]\s|[•\*→]\s)/.test(nextTrimmed);
+      const nextIsListItem = /^(\d+[.)]\s|[•*→]\s)/.test(nextTrimmed);
       // Measure line length without counting embedded <break> tags.
       const cleanLen = line.replace(/<break[^>]*\/>/g, "").trim().length;
       if (!nextIsBlank && (cleanLen >= 80 || nextIsListItem)) {
@@ -961,7 +961,7 @@ async function generateWithElevenLabs(
           clearTimeout(timeoutId);
           throw { status: 504, error: "timeout", message: "Timeout na geração ElevenLabs" };
         }
-        if ((e as any)?.error) throw e;
+        if (e && typeof e === 'object' && 'error' in e) throw e;
         lastError = e instanceof Error ? e.message : "Unknown error";
       }
     }
@@ -1068,14 +1068,15 @@ serve(async (req) => {
         const result = await generateWithGemini(text, geminiVoice, styleApplied);
         audioBytes = result.audioBytes;
         mimeType = result.mimeType;
-      } catch (geminiErr: any) {
+      } catch (geminiErr: unknown) {
         // Automatic fallback to ElevenLabs when Gemini quota is exhausted (429),
         // hits a transient API error (5xx / timeout / api_error), as long as we
         // have an ElevenLabs key + voice id available. This prevents the
         // user-visible "Edge Function returned a non-2xx status code" toast on
         // quota-exhausted Gemini calls.
-        const errCode = geminiErr?.error;
-        const errStatus = geminiErr?.status;
+        const geminiErrorObj = geminiErr && typeof geminiErr === 'object' ? geminiErr as { error?: string, status?: number } : {};
+        const errCode = geminiErrorObj.error;
+        const errStatus = geminiErrorObj.status;
         const isFallbackable =
           errCode === "gemini_quota_exceeded" ||
           errCode === "timeout" ||
@@ -1162,9 +1163,9 @@ serve(async (req) => {
       page_id,
       engine,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("generate-audio error:", e);
-    if (e?.error) return respond({ success: false, ...e }, e.status || 500);
+    if (e && typeof e === 'object' && 'error' in e) return respond({ success: false, ...e }, (e as {status?: number}).status || 500);
     return respond({ success: false, error: "api_error", message: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });

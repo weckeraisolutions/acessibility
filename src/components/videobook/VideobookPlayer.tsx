@@ -47,6 +47,7 @@ function preloadImage(src: string): Promise<void> {
 
 const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layout, onLayoutChange, onTimeUpdate, onPageChange }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flipBookRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const accumulatedRef = useRef(0);
@@ -123,7 +124,7 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
         }
       });
     return () => { cancelled = true; };
-  }, [imgsKey, reloadKey]);
+  }, [imgsKey, reloadKey, imgs]);
 
   // ---- Pause audio when layout flips (re-render of flipbook) ----
   useEffect(() => {
@@ -173,7 +174,7 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
     };
   }, [currentIdx, sortedPages.length, onTimeUpdate]);
 
-  const handleFlip = useCallback((e: any) => {
+  const handleFlip = useCallback((e: { data: number }) => {
     const idx = typeof e?.data === "number" ? e.data : 0;
     setCurrentIdx(idx);
     onPageChange?.(idx);
@@ -257,7 +258,7 @@ const VideobookPlayer = forwardRef<VideobookPlayerHandle, Props>(({ pages, layou
               ref={flipBookRef}
               width={dims.w}
               height={dims.h}
-              size={"fixed" as any}
+              size={"fixed"}
               minWidth={MIN_W}
               maxWidth={1600}
               minHeight={MIN_H}

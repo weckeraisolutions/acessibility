@@ -103,11 +103,11 @@ export async function callGeminiWithFailover(
       throw err;
     } catch (e) {
       // BothKeysFailedError already constructed → rethrow
-      if (e && typeof e === "object" && (e as any).both_keys_failed) throw e;
+      if (e && typeof e === "object" && 'both_keys_failed' in e && e.both_keys_failed) throw e;
 
       lastThrown = e;
       lastStatus = lastStatus || 0;
-      lastErrorText = (e as any)?.message || String(e);
+      lastErrorText = e instanceof Error ? e.message : String(e);
 
       if (!isLast && keys.length > 1) {
         const nextIdx = order[i + 1];
@@ -135,5 +135,5 @@ export async function callGeminiWithFailover(
 }
 
 export function isBothKeysFailed(e: unknown): e is BothKeysFailedError {
-  return !!(e && typeof e === "object" && (e as any).both_keys_failed === true);
+  return !!(e && typeof e === "object" && 'both_keys_failed' in e && e.both_keys_failed === true);
 }

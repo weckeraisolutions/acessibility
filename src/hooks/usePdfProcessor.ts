@@ -33,6 +33,7 @@ async function renderPageToBlob(
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const ctx = canvas.getContext("2d")!;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/png");
@@ -96,8 +97,8 @@ export function usePdfProcessor(
       let pdfDoc: pdfjsLib.PDFDocumentProxy;
       try {
         pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      } catch (err: any) {
-        if (err?.name === "PasswordException") {
+      } catch (err: unknown) {
+        if (err && typeof err === 'object' && 'name' in err && err.name === "PasswordException") {
           throw new Error("PASSWORD_PROTECTED");
         }
         throw new Error("PDF inválido ou corrompido.");
@@ -174,11 +175,11 @@ export function usePdfProcessor(
       await supabase.from("projects").update({ processing_status: "ready" }).eq("id", project.id);
       await refetch();
       setState((s) => ({ ...s, processing: false }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       const msg =
-        err.message === "PASSWORD_PROTECTED"
+        err instanceof Error && err.message === "PASSWORD_PROTECTED"
           ? "Este PDF está protegido por senha. Remova a senha e tente novamente."
-          : err.message || "Erro ao processar o PDF.";
+          : (err instanceof Error ? err.message : "Erro ao processar o PDF.");
       setState((s) => ({ ...s, processing: false, error: msg }));
     }
   }

@@ -47,9 +47,9 @@ const Settings = () => {
       .single()
       .then(({ data }) => {
         if (data) {
-          setUseElevenlabs((data as any).use_elevenlabs || false);
-          setElevenlabsVoiceId((data as any).elevenlabs_default_voice_id || "");
-          setElevenlabsModel((data as any).elevenlabs_default_model || "eleven_multilingual_v2");
+          setUseElevenlabs(data.use_elevenlabs || false);
+          setElevenlabsVoiceId(data.elevenlabs_default_voice_id || "");
+          setElevenlabsModel(data.elevenlabs_default_model || "eleven_multilingual_v2");
         }
       });
   }, [user]);
@@ -71,7 +71,7 @@ const Settings = () => {
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    const updates: Record<string, any> = { name };
+    const updates: Record<string, unknown> = { name };
     if (profile?.plan === "premium" || profile?.plan === "enterprise") {
       updates.use_elevenlabs = useElevenlabs;
       updates.elevenlabs_default_voice_id = elevenlabsVoiceId || null;
@@ -101,9 +101,9 @@ const Settings = () => {
 
   const plan = planConfig[profile?.plan || "free"] || planConfig.free;
   const isPremium = profile?.plan === "premium" || profile?.plan === "enterprise";
-  const pagesUsed = (profile as any)?.pages_used_month ?? 0;
-  const resetDate = (profile as any)?.month_reset_at
-    ? new Date((profile as any).month_reset_at).toLocaleDateString("pt-BR")
+  const pagesUsed = profile?.pages_used_month ?? 0;
+  const resetDate = profile?.month_reset_at
+    ? new Date(profile.month_reset_at).toLocaleDateString("pt-BR")
     : "—";
 
   const allVoices: ElevenLabsVoice[] = [

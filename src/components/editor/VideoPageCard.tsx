@@ -47,7 +47,7 @@ const VideoPageCard = ({ page, bookType, onUpdate, onDetectSingle }: VideoPageCa
     setDetecting(false);
   };
 
-  const regionsCount = (page.video_regions as any)?.regions?.length || 0;
+  const regionsCount = (page.video_regions as { regions?: unknown[] })?.regions?.length || 0;
 
   return (
     <>

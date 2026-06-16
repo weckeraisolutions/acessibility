@@ -78,7 +78,7 @@ export function applyRhythmTags(
       const trimmed = capLine.trim();
       const isCapsDashList =
         trimmed.length >= 3 &&
-        /^[A-ZÀ-Ý0-9\s\-]+$/.test(trimmed) &&
+        /^[A-ZÀ-Ý0-9\s-]+$/.test(trimmed) &&
         /[A-ZÀ-Ý]/.test(trimmed) &&
         !/[a-zà-ÿ]/.test(trimmed) &&
         trimmed.includes(" - ");
@@ -160,7 +160,7 @@ export function applyRhythmTags(
       const nextLine = lineArr[li + 1];
       const nextTrimmed = nextLine.trimStart();
       const nextIsBlank = nextTrimmed === "" || nextTrimmed.startsWith("<break");
-      const nextIsListItem = /^(\d+[\.\)]\s|[•\*→]\s)/.test(nextTrimmed);
+      const nextIsListItem = /^(\d+[.)]\s|[•*→]\s)/.test(nextTrimmed);
       const cleanLen = line.replace(/<break[^>]*\/>/g, "").trim().length;
       if (!nextIsBlank && (cleanLen >= 80 || nextIsListItem)) {
         counts.lineBreak++;
