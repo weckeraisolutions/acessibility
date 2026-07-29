@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
+import { createPrivateStorageUrl } from "@/lib/storage";
 
 type Project = Tables<"projects">;
 type Page = Tables<"pages">;
@@ -26,7 +27,13 @@ export function useProjectEditor(projectId: string | undefined) {
       setProject(projRes.data);
     }
     if (!pagesRes.error) {
-      setPages(pagesRes.data || []);
+      const securedPages = await Promise.all((pagesRes.data || []).map(async (page) => ({
+        ...page,
+        image_url: await createPrivateStorageUrl("page-images", page.image_url),
+        thumbnail_url: await createPrivateStorageUrl("page-thumbnails", page.thumbnail_url),
+        image_hd_url: await createPrivateStorageUrl("page-images-hd", page.image_hd_url),
+      })));
+      setPages(securedPages);
     }
     setLoading(false);
   }, [projectId, toast]);

@@ -136,14 +136,11 @@ export function usePdfProcessor(
               if (imgUp.error) throw imgUp.error;
               if (thumbUp.error) throw thumbUp.error;
 
-              const imageUrl = supabase.storage.from("page-images").getPublicUrl(imagePath).data.publicUrl;
-              const thumbUrl = supabase.storage.from("page-thumbnails").getPublicUrl(thumbPath).data.publicUrl;
-
               await supabase.from("pages").insert({
                 project_id: project.id,
                 page_number: pageNum,
-                image_url: imageUrl,
-                thumbnail_url: thumbUrl,
+                image_url: imagePath,
+                thumbnail_url: thumbPath,
               });
               succeeded++;
             } catch (pageErr) {

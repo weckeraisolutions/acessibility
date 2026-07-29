@@ -367,10 +367,8 @@ export function useVideobookExport() {
         if (session) {
           const filePath = `${session.user.id}/${projectId}/videobook.mp4`;
           await supabase.storage.from("videobook-final").upload(filePath, videoBlob, { upsert: true, contentType: "video/mp4" });
-          const { data: urlData } = supabase.storage.from("videobook-final").getPublicUrl(filePath);
-          if (urlData?.publicUrl) {
-            await supabase.from("projects").update({ videobook_url: urlData.publicUrl }).eq("id", projectId);
-          }
+          const { data: urlData } = await supabase.storage.from("videobook-final").createSignedUrl(filePath, 60 * 60 * 24 * 30);
+          await supabase.from("projects").update({ videobook_url: urlData?.signedUrl || filePath }).eq("id", projectId);
         }
       } catch (e) {
         console.warn("Upload failed, video still available locally", e);
