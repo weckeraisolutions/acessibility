@@ -21,6 +21,7 @@ dist-ssr
 referencias/
 .codex-audit/
 .codex-docs/
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*
