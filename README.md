@@ -19,6 +19,8 @@ O gerenciador oficial do projeto é o npm. Não use Bun, Yarn ou pnpm para insta
 2. Preencha somente as configurações públicas do frontend.
 3. Nunca coloque chaves administrativas ou Secrets de provedores em variáveis `VITE_*`.
 
+Para homologação, use `.env.staging.local`. Esse arquivo é privado e carregado somente pelos comandos de staging.
+
 Variáveis atuais:
 
 ```env
@@ -39,6 +41,12 @@ npm ci
 npm run dev
 ```
 
+Para executar com o Supabase de homologação:
+
+```bash
+npm run dev:staging
+```
+
 ## Validação
 
 Antes de integrar uma alteração:
@@ -47,6 +55,12 @@ Antes de integrar uma alteração:
 npm run lint
 npm test
 npm run build
+```
+
+Para validar o build de homologação:
+
+```bash
+npm run build:staging
 ```
 
 O lint ainda possui avisos conhecidos de Fast Refresh em componentes existentes. Erros não são aceitos.
