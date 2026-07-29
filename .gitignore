@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment files (never commit values)
+.env
+.env.*
+!.env.example
+
+# Private audiovisual references and local audit artifacts
+referencias/
+.codex-audit/
+.codex-docs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
