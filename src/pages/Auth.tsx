@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Logo from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,13 @@ const Auth = () => {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
+  const redirectTarget = nextPath ?? "/dashboard";
+  const oauthRedirectUri = nextPath
+    ? `${window.location.origin}${nextPath}`
+    : window.location.origin;
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [signupName, setSignupName] = useState("");
@@ -34,7 +41,7 @@ const Auth = () => {
   }
 
   if (session) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={redirectTarget} replace />;
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,7 +55,7 @@ const Auth = () => {
     if (error) {
       toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
     } else {
-      navigate("/dashboard");
+      navigate(redirectTarget);
     }
   };
 
@@ -64,7 +71,7 @@ const Auth = () => {
       password: signupPassword,
       options: {
         data: { name: signupName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: oauthRedirectUri,
       },
     });
     setIsLoading(false);
@@ -77,7 +84,7 @@ const Auth = () => {
 
   const handleGoogleLogin = async () => {
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: oauthRedirectUri,
     });
     if (result.error) {
       toast({ title: "Erro ao entrar com Google", description: String(result.error), variant: "destructive" });
@@ -86,7 +93,7 @@ const Auth = () => {
 
   const handleAppleLogin = async () => {
     const result = await lovable.auth.signInWithOAuth("apple", {
-      redirect_uri: window.location.origin,
+      redirect_uri: oauthRedirectUri,
     });
     if (result.error) {
       toast({ title: "Erro ao entrar com Apple", description: String(result.error), variant: "destructive" });
