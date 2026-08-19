@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://rlsipiinlgjytlmrqbav.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "accessibility-studio",
+      "version": "0.1.0",
+      "title": "Accessibility Studio"
+    },
+    "tools": [
+      {
+        "name": "list_projects",
+        "title": "Listar projetos",
+        "description": "Lista os projetos (ebooks) acessíveis do usuário autenticado, com status de processamento e total de páginas.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "description": "Número máximo de projetos a retornar (padrão 20)."
+            },
+            "search": {
+              "type": "string",
+              "description": "Filtro opcional por trecho do nome do projeto."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_project",
+        "title": "Detalhes do projeto",
+        "description": "Retorna os detalhes de um projeto, incluindo configurações globais de narração e capítulos.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "project_id": {
+              "type": "string",
+              "description": "ID (uuid) do projeto."
+            }
+          },
+          "required": [
+            "project_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_pages",
+        "title": "Listar páginas",
+        "description": "Lista as páginas de um projeto com o status de audiobook, audiodescrição e videobook.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "project_id": {
+              "type": "string",
+              "description": "ID (uuid) do projeto."
+            },
+            "from_page": {
+              "type": "integer",
+              "description": "Número da primeira página do intervalo."
+            },
+            "to_page": {
+              "type": "integer",
+              "description": "Número da última página do intervalo."
+            }
+          },
+          "required": [
+            "project_id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_page",
+        "title": "Ler página",
+        "description": "Retorna o texto do audiobook e da audiodescrição de uma página específica de um projeto.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "project_id": {
+              "type": "string",
+              "description": "ID (uuid) do projeto."
+            },
+            "page_number": {
+              "type": "integer",
+              "description": "Número da página dentro do projeto."
+            }
+          },
+          "required": [
+            "project_id",
+            "page_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_page_text",
+        "title": "Atualizar texto da página",
+        "description": "Atualiza o texto de narração (audiobook) e/ou de audiodescrição de uma página do projeto.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "project_id": {
+              "type": "string",
+              "description": "ID (uuid) do projeto."
+            },
+            "page_number": {
+              "type": "integer",
+              "description": "Número da página dentro do projeto."
+            },
+            "audiobook_text": {
+              "type": "string",
+              "description": "Novo texto de narração do audiobook."
+            },
+            "audiodesc_text": {
+              "type": "string",
+              "description": "Novo texto de audiodescrição."
+            }
+          },
+          "required": [
+            "project_id",
+            "page_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
