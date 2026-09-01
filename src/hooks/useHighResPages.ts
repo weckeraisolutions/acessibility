@@ -3,6 +3,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { createPrivateStorageUrl } from "@/lib/storage";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -72,7 +73,7 @@ export function useHighResPages() {
       const p = subset[i];
       setProgress({ current: i + 1, total: subset.length, message: `Verificando ${i + 1}/${subset.length}` });
       if (p.image_hd_url) continue;
-      const url = p.image_url;
+      const url = await createPrivateStorageUrl("page-images", p.image_url);
       if (!url) continue;
       const w = await probeImageWidth(url);
       if (w < HD_THRESHOLD) needHd.push(p);
@@ -121,12 +122,9 @@ export function useHighResPages() {
           .upload(path, blob, { contentType: "image/png", upsert: true });
         if (up.error) throw new Error(`Upload falhou (pág ${p.page_number}): ${up.error.message}`);
 
-        const { data: urlData } = supabase.storage.from("page-images-hd").getPublicUrl(path);
-        const hdUrl = urlData.publicUrl;
-
         await supabase
           .from("pages")
-          .update({ image_hd_url: hdUrl })
+          .update({ image_hd_url: path })
           .eq("project_id", projectId)
           .eq("page_number", p.page_number);
       }

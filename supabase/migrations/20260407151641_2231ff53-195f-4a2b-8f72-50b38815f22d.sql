@@ -86,4 +86,5 @@ TO authenticated
 USING (bucket_id = 'pdfs');
 
 -- Reset the project so it can be reprocessed
-UPDATE projects SET processing_status = 'pending', total_pages = 0 WHERE id = '23ce50c0-b064-4394-ab7e-69ccf25dc858';
+-- Project-specific recovery updates belong in an audited data migration,
+-- not in the reusable schema history.

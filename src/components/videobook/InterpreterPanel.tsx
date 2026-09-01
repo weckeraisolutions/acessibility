@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import VLibras from "@djpfs/react-vlibras";
 import type { ChapterRow } from "@/hooks/useChapters";
+import { createPrivateStorageUrl } from "@/lib/storage";
 
 interface Props {
   chapter: ChapterRow;
@@ -19,8 +20,23 @@ const InterpreterPanel = ({ chapter, expectedDurationSec, audiobookText, onModeC
   const [mode, setMode] = useState<"vlibras" | "human_video" | "none">(chapter.interpreter_mode || "none");
   const [uploading, setUploading] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(chapter.interpreter_video_url);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    let active = true;
+    createPrivateStorageUrl("interpreter-videos", videoUrl)
+      .then((url) => {
+        if (active) setVideoPreviewUrl(url);
+      })
+      .catch(() => {
+        if (active) setVideoPreviewUrl(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [videoUrl]);
 
   const handleTabChange = (v: string) => {
     const m = v as "vlibras" | "human_video" | "none";
@@ -93,7 +109,7 @@ const InterpreterPanel = ({ chapter, expectedDurationSec, audiobookText, onModeC
           {videoUrl ? (
             <div className="space-y-2">
               <Label className="text-xs">Vídeo atual:</Label>
-              <video src={videoUrl.startsWith("http") ? videoUrl : `https://rlsipiinlgjytlmrqbav.supabase.co/storage/v1/object/authenticated/interpreter-videos/${videoUrl}`} controls className="w-full rounded" />
+              <video src={videoPreviewUrl || undefined} controls className="w-full rounded" />
             </div>
           ) : (
             <div className="border-2 border-dashed rounded-lg p-6 text-center">

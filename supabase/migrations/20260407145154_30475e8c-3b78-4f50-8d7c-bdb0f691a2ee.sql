@@ -30,11 +30,5 @@ ON public.user_roles FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
 
--- Insert admin role for weckeraisolutions@gmail.com
-INSERT INTO public.user_roles (user_id, role)
-VALUES ('7ed5e078-99f9-40f2-934f-93a64894b9ac', 'admin');
-
--- Update plan to enterprise with unlimited access
-UPDATE public.profiles
-SET plan = 'enterprise', pages_used_month = 0
-WHERE id = '7ed5e078-99f9-40f2-934f-93a64894b9ac';
+-- Administrative roles and plan overrides are environment data.
+-- Assign them only after the corresponding Auth user exists in the target project.
