@@ -2,7 +2,11 @@
 
 import { createLovableAuth } from "@lovable.dev/cloud-auth-js";
 import { supabase } from "../supabase/client";
-const lovableAuth = createLovableAuth();
+const lovableAuth = createLovableAuth({
+  // Vercel does not provide Lovable's relative /~oauth proxy, so use the
+  // published Lovable project as the OAuth broker explicitly.
+  oauthBrokerUrl: "https://acessibility.lovable.app/~oauth/initiate",
+});
 
 type SignInOptions = {
   redirect_uri?: string;

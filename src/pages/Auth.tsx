@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
+import { lovable } from "@/integrations/lovable/index";
 import SEO from "@/components/SEO";
 
 const Auth = () => {
@@ -83,25 +84,23 @@ const Auth = () => {
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: authCallbackUrl },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: authCallbackUrl,
     });
-    if (error) {
+    if (result.error) {
       setIsLoading(false);
-      toast({ title: "Erro ao entrar com Google", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao entrar com Google", description: String(result.error), variant: "destructive" });
     }
   };
 
   const handleAppleLogin = async () => {
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: { redirectTo: authCallbackUrl },
+    const result = await lovable.auth.signInWithOAuth("apple", {
+      redirect_uri: authCallbackUrl,
     });
-    if (error) {
+    if (result.error) {
       setIsLoading(false);
-      toast({ title: "Erro ao entrar com Apple", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao entrar com Apple", description: String(result.error), variant: "destructive" });
     }
   };
 
