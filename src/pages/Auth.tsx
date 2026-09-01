@@ -10,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
-import { lovable } from "@/integrations/lovable/index";
 import SEO from "@/components/SEO";
 
 const Auth = () => {
@@ -21,9 +20,9 @@ const Auth = () => {
   const rawNext = searchParams.get("next");
   const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
   const redirectTarget = nextPath ?? "/dashboard";
-  const oauthRedirectUri = nextPath
-    ? `${window.location.origin}${nextPath}`
-    : window.location.origin;
+  const authCallbackUrl = `${window.location.origin}/auth${
+    nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
+  }`;
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [signupName, setSignupName] = useState("");
@@ -71,7 +70,7 @@ const Auth = () => {
       password: signupPassword,
       options: {
         data: { name: signupName },
-        emailRedirectTo: oauthRedirectUri,
+        emailRedirectTo: authCallbackUrl,
       },
     });
     setIsLoading(false);
@@ -83,20 +82,26 @@ const Auth = () => {
   };
 
   const handleGoogleLogin = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: oauthRedirectUri,
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: authCallbackUrl },
     });
-    if (result.error) {
-      toast({ title: "Erro ao entrar com Google", description: String(result.error), variant: "destructive" });
+    if (error) {
+      setIsLoading(false);
+      toast({ title: "Erro ao entrar com Google", description: error.message, variant: "destructive" });
     }
   };
 
   const handleAppleLogin = async () => {
-    const result = await lovable.auth.signInWithOAuth("apple", {
-      redirect_uri: oauthRedirectUri,
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: authCallbackUrl },
     });
-    if (result.error) {
-      toast({ title: "Erro ao entrar com Apple", description: String(result.error), variant: "destructive" });
+    if (error) {
+      setIsLoading(false);
+      toast({ title: "Erro ao entrar com Apple", description: error.message, variant: "destructive" });
     }
   };
 
@@ -149,10 +154,10 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Entrando..." : "Entrar"}
                   </Button>
-                  <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin}>
+                  <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
                     Entrar com Google
                   </Button>
-                  <Button type="button" variant="outline" className="w-full" onClick={handleAppleLogin}>
+                  <Button type="button" variant="outline" className="w-full" onClick={handleAppleLogin} disabled={isLoading}>
                     Entrar com Apple
                   </Button>
                   <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
