@@ -1,7 +1,8 @@
 // Shared authentication helpers for edge functions.
-// All functions use verify_jwt = false (Lovable default) and validate JWTs in code.
+// Functions validate JWTs in code.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { getObject } from "./r2.ts";
 
 export interface AuthedUser {
   id: string;
@@ -68,24 +69,56 @@ export async function userOwnsPage(userId: string, pageId: string): Promise<stri
 }
 
 /**
- * SSRF guard: only allow URLs whose hostname is the project's Supabase host
- * or a *.supabase.co / *.supabase.in subdomain.
+ * SSRF guard for legacy image URLs: only this project's own Supabase host over HTTPS.
  */
 export function isAllowedFetchUrl(rawUrl: string): boolean {
   try {
     const u = new URL(rawUrl);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return false;
-    const host = u.hostname.toLowerCase();
+    if (u.protocol !== "https:") return false;
     const supaUrl = Deno.env.get("SUPABASE_URL");
-    if (supaUrl) {
-      try {
-        const supaHost = new URL(supaUrl).hostname.toLowerCase();
-        if (host === supaHost) return true;
-      } catch { /* ignore */ }
-    }
-    if (host.endsWith(".supabase.co") || host.endsWith(".supabase.in")) return true;
-    return false;
+    return !!supaUrl && u.hostname.toLowerCase() === new URL(supaUrl).hostname.toLowerCase();
   } catch {
     return false;
   }
+}
+
+/** Database columns that point to R2 files store `r2:{file_objects.id}`. */
+export const R2_REF_PREFIX = "r2:";
+
+export function r2FileIdFromRef(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith(R2_REF_PREFIX)) return null;
+  const id = value.slice(R2_REF_PREFIX.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
+}
+
+/**
+ * Loads a page image owned by userId within projectId. Accepts an R2 file id,
+ * an `r2:{id}` reference, or a legacy URL on this project's Supabase host.
+ * Returns null when the image is missing, not owned, or not allowed.
+ */
+export async function loadPageImage(
+  userId: string,
+  projectId: string,
+  imageFileId: unknown,
+  imageUrl: unknown,
+): Promise<{ bytes: Uint8Array; contentType: string } | null> {
+  const fileId = typeof imageFileId === "string" ? imageFileId : r2FileIdFromRef(imageUrl);
+  if (fileId) {
+    const url = Deno.env.get("SUPABASE_URL")!;
+    const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: file } = await admin
+      .from("file_objects")
+      .select("object_key, content_type, kind, status")
+      .eq("id", fileId)
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (!file || file.status !== "uploaded" || !["page-image", "page-image-hd"].includes(file.kind)) return null;
+    const obj = await getObject(file.object_key);
+    return { bytes: obj.bytes, contentType: file.content_type };
+  }
+  if (typeof imageUrl !== "string" || !isAllowedFetchUrl(imageUrl)) return null;
+  const res = await fetch(imageUrl);
+  if (!res.ok) return null;
+  return { bytes: new Uint8Array(await res.arrayBuffer()), contentType: res.headers.get("content-type") || "image/png" };
 }

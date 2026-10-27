@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { getAuthedUser } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,19 +70,16 @@ serve(async (req) => {
   try {
     const { text, book_type, page_id } = await req.json();
 
-    if (!text || typeof text !== "string") {
-      return respond({ success: false, error: "missing_fields", message: "Campo obrigatório: text" }, 400);
-    }
-
-    // Allow internal service-role calls (from extract-text) OR an authenticated end-user.
+    // Internal only: extract-text calls this with the service role after checking
+    // the project's plan. Direct user calls would bypass that plan check.
     const authHeader = req.headers.get("Authorization") || "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const isInternalCall = !!serviceKey && authHeader === `Bearer ${serviceKey}`;
-    if (!isInternalCall) {
-      const user = await getAuthedUser(req);
-      if (!user) {
-        return respond({ success: false, error: "unauthorized", message: "Autenticação obrigatória." }, 401);
-      }
+    if (!serviceKey || authHeader !== `Bearer ${serviceKey}`) {
+      return respond({ success: false, error: "unauthorized", message: "Uso interno apenas." }, 401);
+    }
+
+    if (!text || typeof text !== "string") {
+      return respond({ success: false, error: "missing_fields", message: "Campo obrigatório: text" }, 400);
     }
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
@@ -157,7 +153,7 @@ serve(async (req) => {
     try {
       parsed = JSON.parse(content);
     } catch (e) {
-      console.error(`[VALIDATION] page_id=${page_id} json_parse_failed content=${content.slice(0, 300)}`);
+      console.error(`[VALIDATION] page_id=${page_id} json_parse_failed content_length=${content.length}`);
       return respond({ success: false, error: "openai_parse_error", message: "JSON inválido na resposta OpenAI." }, 500);
     }
 

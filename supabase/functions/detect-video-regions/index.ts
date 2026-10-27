@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
-import { getAuthedUser, userOwnsPage, isAllowedFetchUrl } from "../_shared/auth.ts";
+import { getAuthedUser, userOwnsPage, loadPageImage } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,8 +9,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+interface DetectedRegion {
+  text: string;
+  text_trigger?: string;
+  [key: string]: unknown;
+}
+
+interface DetectionResult {
+  regions?: DetectedRegion[];
+  page_base_animation?: string;
+  suggested_transition?: string;
+}
+
 function estimateTimestamps(
-  regions: { text: string }[],
+  regions: DetectedRegion[],
   text: string,
   audioDuration: number
 ) {
@@ -55,17 +67,11 @@ serve(async (req) => {
     const {
       page_id,
       image_url,
+      image_file_id,
       audiobook_text,
       audio_duration_seconds,
       book_type,
     } = await req.json();
-
-    if (!page_id || !image_url) {
-      return new Response(
-        JSON.stringify({ success: false, error: "page_id and image_url are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     const user = await getAuthedUser(req);
     if (!user) {
@@ -74,17 +80,18 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    if (!page_id || (!image_url && !image_file_id)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "page_id and image_file_id (or image_url) are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const ownedProjectId = await userOwnsPage(user.id, page_id);
     if (!ownedProjectId) {
       return new Response(
         JSON.stringify({ success: false, error: "forbidden" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    if (!isAllowedFetchUrl(image_url)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "invalid_image_url" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -103,19 +110,20 @@ serve(async (req) => {
       );
     }
 
-    // Download image
-    const imgResponse = await fetch(image_url);
-    if (!imgResponse.ok) {
+    // Load the page image from R2 (or a legacy URL on this project's host)
+    const image = await loadPageImage(user.id, ownedProjectId, image_file_id, image_url);
+    if (!image) {
       return new Response(
         JSON.stringify({ success: false, error: "Failed to download image" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const imgBuffer = await imgResponse.arrayBuffer();
-    const base64Image = btoa(
-      new Uint8Array(imgBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-    );
-    const contentType = imgResponse.headers.get("content-type") || "image/png";
+    let binary = "";
+    for (let i = 0; i < image.bytes.length; i += 32768) {
+      binary += String.fromCharCode(...image.bytes.subarray(i, i + 32768));
+    }
+    const base64Image = btoa(binary);
+    const contentType = image.contentType;
 
     const prompt = `Analise esta imagem de página de livro e identifique todas as regiões visuais relevantes para animação de videobook educacional.
 
@@ -159,10 +167,10 @@ Coordenadas x, y, width, height são valores de 0.0 a 1.0 em proporção das dim
     let geminiResponse: Response;
     try {
       geminiResponse = await callGeminiWithFailover(async (apiKey, _idx) => {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
         return await fetch(geminiUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
           body: JSON.stringify({
             contents: [
               {
@@ -223,18 +231,18 @@ Coordenadas x, y, width, height são valores de 0.0 a 1.0 em proporção das dim
     // Strip markdown code fences if present
     rawText = rawText.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
 
-    let parsed: { regions?: { text: string }[] } | unknown;
+    let parsed: DetectionResult;
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      console.error("Failed to parse Gemini response:", rawText);
+      console.error("Failed to parse Gemini response, length:", rawText.length);
       return new Response(
         JSON.stringify({ success: false, error: "parse_error", message: "Não foi possível interpretar a resposta da IA." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const regions = (parsed as { regions?: { text: string }[] }).regions || [];
+    const regions = parsed.regions || [];
     const regionsWithTimestamps = estimateTimestamps(
       regions,
       audiobook_text,

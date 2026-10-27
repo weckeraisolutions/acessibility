@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { callGeminiWithFailover, validateGeminiKeysConfigured, isBothKeysFailed } from "../_shared/gemini-keys.ts";
 import { normalizeText, preprocessForTTS } from "../_shared/text-utils.ts";
-import { getAuthedUser, userOwnsProject } from "../_shared/auth.ts";
+import { getAuthedUser, userOwnsProject, R2_REF_PREFIX } from "../_shared/auth.ts";
+import { deleteObject, presignDownload, putObject, sha256Hex } from "../_shared/r2.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -218,13 +219,13 @@ ${chunkText}`;
   let geminiResponse: Response;
   try {
     geminiResponse = await callGeminiWithFailover(async (apiKey, _idx) => {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
       try {
         return await fetch(geminiUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
           signal: controller.signal,
           body: JSON.stringify({
             contents: [{ parts: [{ text: ttsPrompt }] }],
@@ -1009,26 +1010,37 @@ serve(async (req) => {
 
     // ---- [AUDIO-DEBUG] Permanent diagnostic logs (do not remove) ----
     const callOrigin = skip_page_update && narration_id ? "multi-narration" : "page-main";
-    const textPreview = typeof text === "string"
-      ? `${text.slice(0, 80).replace(/\n/g, " ")}${text.length > 80 ? "…" : ""} (len=${text.length})`
-      : `(invalid type: ${typeof text})`;
+    const textLength = typeof text === "string" ? String(text.length) : `invalid:${typeof text}`;
     console.log(
       `[AUDIO-DEBUG] payload received: origin=${callOrigin} mode=${mode} use_elevenlabs=${!!use_elevenlabs} ` +
       `page_id=${page_id} project_id=${project_id} page_number=${page_number} narration_id=${narration_id || "-"} ` +
-      `voice=${voice || "-"} elevenlabs_voice_id=${elevenlabs_voice_id || "-"} text="${textPreview}"`
+      `voice=${voice || "-"} elevenlabs_voice_id=${elevenlabs_voice_id || "-"} text_length=${textLength}`
     );
     console.log(`[AUDIO-DEBUG] speed_preset received (raw): ${JSON.stringify(narration_speed)}`);
     // ----------------------------------------------------------------
 
-    if (!page_id || !project_id || !text || !mode) {
-      return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios faltando" }, 400);
-    }
-
     // Auth + ownership
     const user = await getAuthedUser(req);
     if (!user) return respond({ success: false, error: "unauthorized", message: "Autenticação obrigatória." }, 401);
+    if (!page_id || !project_id || !text || !mode) {
+      return respond({ success: false, error: "missing_fields", message: "Campos obrigatórios faltando" }, 400);
+    }
     const owns = await userOwnsProject(user.id, project_id);
     if (!owns) return respond({ success: false, error: "forbidden", message: "Acesso negado a este projeto." }, 403);
+    if (mode !== "audiobook" && mode !== "audiodesc") {
+      return respond({ success: false, error: "missing_fields", message: "mode deve ser audiobook ou audiodesc" }, 400);
+    }
+
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // The page (and the narration, when given) must belong to this project;
+    // otherwise a caller could overwrite another user's page through their own project_id.
+    const { data: pageRow } = await supabase.from("pages").select("id").eq("id", page_id).eq("project_id", project_id).maybeSingle();
+    if (!pageRow) return respond({ success: false, error: "forbidden", message: "Página não pertence a este projeto." }, 403);
+    if (narration_id) {
+      const { data: narrationRow } = await supabase
+        .from("page_narrations").select("id").eq("id", narration_id).eq("page_id", page_id).eq("project_id", project_id).maybeSingle();
+      if (!narrationRow) return respond({ success: false, error: "forbidden", message: "Narração não pertence a esta página." }, 403);
+    }
 
     if (!text.trim() || text.trim() === "PÁGINA_SEM_NARRAÇÃO" || text.trim() === "PÁGINA_SEM_AUDIODESCRIÇÃO") {
       return respond({ success: false, error: "empty_text", message: "Texto vazio ou sem conteúdo narrável" }, 400);
@@ -1105,36 +1117,55 @@ serve(async (req) => {
     const wordCount = text.split(/\s+/).filter(Boolean).length;
     const estimatedDurationSeconds = parseFloat(((wordCount / 130) * 60).toFixed(2));
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const bucket = mode === "audiobook" ? "audiobook-audios" : "audiodesc-audios";
+    // Store the audio in R2 and register it; the previous audio for the same
+    // page, mode and narration is removed only after the new one is saved.
+    const kind = mode === "audiobook" ? "audiobook-audio" : "audiodesc-audio";
     const pageNum = String(page_number || 1).padStart(3, "0");
     const ext = getExtension(mimeType);
-    const filePath = skip_page_update && narration_id
-      ? `${project_id}/narrations/pag_${pageNum}_${narration_id}.${ext}`
-      : `${project_id}/pag_${pageNum}.${ext}`;
+    const fileId = crypto.randomUUID();
+    const fileName = narration_id ? `pag_${pageNum}_narracao.${ext}` : `pag_${pageNum}.${ext}`;
+    const objectKey = `users/${user.id}/projects/${project_id}/${kind}/${fileId}-${fileName}`;
+    const checksum = await sha256Hex(audioBytes);
 
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, audioBytes, { contentType: mimeType, upsert: true });
-
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      return respond({ success: false, error: "storage_error", message: uploadError.message }, 500);
+    try {
+      await putObject(objectKey, audioBytes, mimeType, checksum);
+    } catch (uploadError) {
+      console.error("R2 upload error:", uploadError instanceof Error ? uploadError.message : String(uploadError));
+      return respond({ success: false, error: "storage_error", message: "Falha ao salvar o áudio. Tente novamente." }, 502);
     }
 
-    const { data: signedUrlData } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+    let previousQuery = supabase.from("file_objects").select("id, object_key").eq("page_id", page_id).eq("kind", kind);
+    previousQuery = narration_id ? previousQuery.eq("narration_id", narration_id) : previousQuery.is("narration_id", null);
+    const { data: previousFiles } = await previousQuery;
 
-    // Cache-buster: ensures clients fetch the freshly regenerated audio
-    // even when the storage path is identical (upsert overwrite).
-    const baseSignedUrl = signedUrlData?.signedUrl || "";
-    const audioUrl = baseSignedUrl
-      ? `${baseSignedUrl}${baseSignedUrl.includes("?") ? "&" : "?"}v=${Date.now()}`
-      : "";
+    const { error: insertError } = await supabase.from("file_objects").insert({
+      id: fileId,
+      user_id: user.id,
+      project_id,
+      page_id,
+      narration_id: narration_id ?? null,
+      kind,
+      object_key: objectKey,
+      original_name: fileName,
+      content_type: mimeType,
+      size_bytes: audioBytes.length,
+      checksum_sha256: checksum,
+      status: "uploaded",
+      uploaded_at: new Date().toISOString(),
+    });
+    if (insertError) {
+      console.error("file_objects insert error:", insertError.message);
+      await deleteObject(objectKey).catch(() => {});
+      return respond({ success: false, error: "storage_error", message: "Falha ao registrar o áudio. Tente novamente." }, 500);
+    }
+
+    for (const old of previousFiles ?? []) {
+      await deleteObject(old.object_key).catch((e) => console.error("R2 delete of previous audio failed:", e instanceof Error ? e.message : String(e)));
+      await supabase.from("file_objects").delete().eq("id", old.id);
+    }
+
+    const audioRef = `${R2_REF_PREFIX}${fileId}`;
+    const audioUrl = await presignDownload(objectKey, 15 * 60);
 
     if (!skip_page_update) {
       const audioUrlField = mode === "audiobook" ? "audiobook_audio_url" : "audiodesc_audio_url";
@@ -1146,7 +1177,7 @@ serve(async (req) => {
       await supabase
         .from("pages")
         .update({
-          [audioUrlField]: audioUrl,
+          [audioUrlField]: audioRef,
           [statusField]: "audio_generated",
           [durationField]: estimatedDurationSeconds,
           [voiceDbField]: engine === "elevenlabs" ? elevenlabs_voice_id : voice,
@@ -1159,6 +1190,8 @@ serve(async (req) => {
     return respond({
       success: true,
       audio_url: audioUrl,
+      audio_ref: audioRef,
+      audio_file_id: fileId,
       duration_seconds: estimatedDurationSeconds,
       page_id,
       engine,

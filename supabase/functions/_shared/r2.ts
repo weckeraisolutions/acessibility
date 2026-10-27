@@ -76,6 +76,27 @@ export async function headObject(key: string): Promise<ObjectInfo | null> {
   };
 }
 
+/** Server-side upload, used when the function itself produces the file. */
+export async function putObject(key: string, bytes: Uint8Array, contentType: string, checksumSha256Hex: string) {
+  const res = await client.fetch(objectUrl(key), {
+    method: "PUT",
+    headers: { "content-type": contentType, "x-amz-checksum-sha256": hexToBase64(checksumSha256Hex) },
+    body: bytes,
+  });
+  if (!res.ok) throw new Error(`R2 PUT failed with HTTP ${res.status}`);
+}
+
+export async function getObject(key: string): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  const res = await client.fetch(objectUrl(key), { method: "GET" });
+  if (!res.ok) throw new Error(`R2 GET failed with HTTP ${res.status}`);
+  return { bytes: new Uint8Array(await res.arrayBuffer()), contentType: res.headers.get("content-type") };
+}
+
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export async function deleteObject(key: string): Promise<void> {
   const res = await client.fetch(objectUrl(key), { method: "DELETE" });
   if (!res.ok && res.status !== 404) throw new Error(`R2 DELETE failed with HTTP ${res.status}`);
