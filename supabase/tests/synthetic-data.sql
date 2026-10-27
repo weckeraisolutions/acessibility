@@ -11,6 +11,14 @@ VALUES
    'autor-b@synthetic.invalid', now(), '{"provider":"email","providers":["email"],"synthetic":true}', '{"name":"Autor Sintético B"}', now(), now())
 ON CONFLICT (id) DO NOTHING;
 
+-- GoTrue cannot read NULL token columns; raw-inserted users need empty strings.
+UPDATE auth.users
+SET confirmation_token = coalesce(confirmation_token, ''),
+    recovery_token = coalesce(recovery_token, ''),
+    email_change_token_new = coalesce(email_change_token_new, ''),
+    email_change = coalesce(email_change, '')
+WHERE email LIKE '%@synthetic.invalid';
+
 INSERT INTO public.projects (id, user_id, name, book_title, book_type, total_pages, processing_status)
 VALUES
   ('5e5e0000-0000-4000-8000-0000000001a1', '5e5e0000-0000-4000-8000-00000000000a', 'Livro Sintético A', 'A Ilha das Vozes', 'general', 3, 'completed'),
