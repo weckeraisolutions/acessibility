@@ -141,8 +141,14 @@ function splitTextForTts(text: string, maxChars = GEMINI_CHUNK_CHAR_LIMIT): stri
   return chunks.length ? chunks : [normalized];
 }
 
-function wrapPcmAsWav(pcmBytes: Uint8Array): Uint8Array {
-  const byteRate = GEMINI_PCM_SAMPLE_RATE * GEMINI_PCM_CHANNELS * (GEMINI_PCM_BITS_PER_SAMPLE / 8);
+/** Sample rate declared by Gemini in the mime type (e.g. "audio/L16;codec=pcm;rate=24000"). */
+function pcmSampleRate(mimeType: string): number {
+  const match = mimeType.match(/rate=(\d+)/);
+  return match ? Number(match[1]) : GEMINI_PCM_SAMPLE_RATE;
+}
+
+function wrapPcmAsWav(pcmBytes: Uint8Array, sampleRate = GEMINI_PCM_SAMPLE_RATE): Uint8Array {
+  const byteRate = sampleRate * GEMINI_PCM_CHANNELS * (GEMINI_PCM_BITS_PER_SAMPLE / 8);
   const blockAlign = GEMINI_PCM_CHANNELS * (GEMINI_PCM_BITS_PER_SAMPLE / 8);
   const dataSize = pcmBytes.length;
   const header = new ArrayBuffer(44);
@@ -155,7 +161,7 @@ function wrapPcmAsWav(pcmBytes: Uint8Array): Uint8Array {
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true); // PCM
   view.setUint16(22, GEMINI_PCM_CHANNELS, true);
-  view.setUint32(24, GEMINI_PCM_SAMPLE_RATE, true);
+  view.setUint32(24, sampleRate, true);
   view.setUint32(28, byteRate, true);
   view.setUint16(32, blockAlign, true);
   view.setUint16(34, GEMINI_PCM_BITS_PER_SAMPLE, true);
@@ -214,7 +220,9 @@ TEXTO PARA NARRAR:
 
 ${chunkText}`;
 
-  const model = "gemini-2.5-pro-preview-tts";
+  // Pro TTS has no free tier; the model can be switched with the
+  // GEMINI_TTS_MODEL secret without a redeploy.
+  const model = (Deno.env.get("GEMINI_TTS_MODEL") ?? "").trim() || "gemini-2.5-pro-preview-tts";
 
   let geminiResponse: Response;
   try {
@@ -307,7 +315,8 @@ async function generateWithGemini(
   if (results.length === 1) {
     const only = results[0];
     if (only.mimeType.includes("L16") || only.mimeType.includes("pcm")) {
-      return { audioBytes: wrapPcmAsWav(only.audioBytes), mimeType: "audio/wav" };
+      console.log(`[Gemini] audio format=${only.mimeType}`);
+      return { audioBytes: wrapPcmAsWav(only.audioBytes, pcmSampleRate(only.mimeType)), mimeType: "audio/wav" };
     }
     return only;
   }
@@ -326,7 +335,7 @@ async function generateWithGemini(
     offset += part.length;
   }
 
-  return { audioBytes: wrapPcmAsWav(mergedPcm), mimeType: "audio/wav" };
+  return { audioBytes: wrapPcmAsWav(mergedPcm, pcmSampleRate(results[0].mimeType)), mimeType: "audio/wav" };
 }
 
 // preprocessTextForPTBR is now the shared preprocessForTTS utility.
