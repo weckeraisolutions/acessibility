@@ -80,7 +80,15 @@ if (process.argv.includes('--providers')) {
   r = await call('detect-video-regions', jwtA, { page_id: A.page, image_file_id: imageA, audiobook_text: 'Era uma vez uma ilha.', audio_duration_seconds: 4 });
   check('detect-video-regions: lê imagem do R2', r.status === 200 && r.body.success === true, `HTTP ${r.status} ${r.body.error ?? ''}`);
 
-  const gen = () => call('generate-audio', jwtA, { page_id: A.page, project_id: A.project, page_number: 1, text: 'Era uma vez uma ilha onde cada pedra contava uma história.', voice: 'Zephyr', mode: 'audiobook' });
+  r = await call('get-elevenlabs-voices', jwtA, {});
+  check('get-elevenlabs-voices: lista vozes', r.status === 200 && Array.isArray(r.body.voices) && r.body.voices.length > 0, `${r.body.voices?.length ?? 0} vozes`);
+  const voiceId = r.body.voices?.[0]?.voice_id ?? r.body.voices?.[0]?.id;
+  if (voiceId) {
+    const prev = await fetch(`${SUPABASE_URL}/functions/v1/preview-elevenlabs-voice`, { method: 'POST', headers: { apikey: publishable, Authorization: `Bearer ${jwtA}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ voice_id: voiceId }) });
+    check('preview-elevenlabs-voice: devolve áudio', prev.ok, `HTTP ${prev.status}`);
+  }
+
+  const gen = () => call('generate-audio', jwtA, { page_id: A.page, project_id: A.project, page_number: 1, text: 'Era uma vez uma ilha onde cada pedra contava uma história.', voice: 'Zephyr', mode: 'audiobook', elevenlabs_voice_id: voiceId });
   const g1 = await gen();
   check('generate-audio: gera e grava no R2', g1.status === 200 && g1.body.success && /^r2:/.test(g1.body.audio_ref ?? ''), `HTTP ${g1.status} ${g1.body.error ?? ''} ${g1.body.engine ?? ''}`);
   if (g1.status === 200) {
@@ -95,16 +103,10 @@ if (process.argv.includes('--providers')) {
     check('generate-audio: outro usuário não baixa o áudio', dl.status === 404, `HTTP ${dl.status}`);
   }
 
-  r = await call('generate-audio', jwtA, { page_id: A.page2, project_id: A.project, narration_id: A.narration, skip_page_update: true, page_number: 2, text: 'A menina Lia escutava as pedras.', voice: 'Kore', mode: 'audiobook' });
-  check('generate-audio: narração extra grava no R2', r.status === 200 && r.body.success, `HTTP ${r.status} ${r.body.error ?? ''}`);
-
-  r = await call('get-elevenlabs-voices', jwtA, {});
-  check('get-elevenlabs-voices: lista vozes', r.status === 200 && Array.isArray(r.body.voices) && r.body.voices.length > 0, `${r.body.voices?.length ?? 0} vozes`);
-  const voiceId = r.body.voices?.[0]?.voice_id ?? r.body.voices?.[0]?.id;
-  if (voiceId) {
-    const prev = await fetch(`${SUPABASE_URL}/functions/v1/preview-elevenlabs-voice`, { method: 'POST', headers: { apikey: publishable, Authorization: `Bearer ${jwtA}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ voice_id: voiceId }) });
-    check('preview-elevenlabs-voice: devolve áudio', prev.ok, `HTTP ${prev.status}`);
-  }
+  r = await call('generate-audio', jwtA, { page_id: A.page2, project_id: A.project, narration_id: A.narration, skip_page_update: true, page_number: 2, text: 'A menina Lia escutava as pedras.', voice: 'Kore', mode: 'audiobook', elevenlabs_voice_id: voiceId });
+  check('generate-audio: narração extra grava no R2', r.status === 200 && r.body.success, `HTTP ${r.status} ${r.body.error ?? ''} ${r.body.engine ?? ''}`);
+  r = await call('generate-audio', jwtA, { page_id: A.page, project_id: A.project, page_number: 1, text: 'Teste de voz premium.', mode: 'audiodesc', use_elevenlabs: true, elevenlabs_voice_id: voiceId });
+  check('generate-audio: ElevenLabs direto grava no R2', r.status === 200 && r.body.success && /^r2:/.test(r.body.audio_ref ?? ''), `HTTP ${r.status} ${r.body.error ?? ''}`);
 
   // Dual validation path: extract-text calls validate-audiodesc internally for enterprise projects.
   await sql(`update public.projects set enable_dual_validation = true where id='${A.project}'; update public.profiles set plan = 'enterprise' where id='${A.id}'`);
@@ -114,7 +116,7 @@ if (process.argv.includes('--providers')) {
   await sql(`update public.projects set enable_dual_validation = false where id='${A.project}'; update public.profiles set plan = 'free' where id='${A.id}'`);
 
   await call('r2-files', jwtA, { action: 'purge-project', project_id: A.project });
-  await sql(`update public.pages set audiobook_audio_url = null, audiobook_status = 'pending', audiodesc_validated = false where project_id='${A.project}'`);
+  await sql(`update public.pages set audiobook_audio_url = null, audiobook_status = 'pending', audiodesc_audio_url = null, audiodesc_status = 'pending', audiodesc_validated = false where project_id='${A.project}'`);
 }
 
 console.log(results.join('\n'));
