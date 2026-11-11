@@ -119,9 +119,9 @@ const Settings = () => {
   }, {});
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-card">
-        <div className="container flex h-16 items-center justify-between">
+    <div className="app-shell">
+      <header className="app-topbar">
+        <div className="studio-container flex h-[72px] items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4 mr-1" /> Dashboard
@@ -133,7 +133,7 @@ const Settings = () => {
         </div>
       </header>
 
-      <main className="container max-w-2xl py-8 space-y-6">
+      <main className="studio-container max-w-3xl space-y-6 py-10">
         {/* SEÇÃO 1 — Perfil */}
         <Card>
           <CardHeader><CardTitle>Perfil</CardTitle></CardHeader>

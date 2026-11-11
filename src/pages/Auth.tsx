@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Logo from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { ArrowLeft, AudioLines, BookOpen, Check, Eye, Film } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -93,18 +94,6 @@ const Auth = () => {
     }
   };
 
-  const handleAppleLogin = async () => {
-    setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: { redirectTo: authCallbackUrl },
-    });
-    if (error) {
-      setIsLoading(false);
-      toast({ title: "Erro ao entrar com Apple", description: error.message, variant: "destructive" });
-    }
-  };
-
   const handleForgotPassword = async () => {
     if (!loginEmail) {
       toast({ title: "Informe seu email", description: "Digite seu email no campo acima.", variant: "destructive" });
@@ -121,20 +110,41 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="app-shell grid min-h-screen lg:grid-cols-[1.15fr_.85fr]">
       <SEO
         title="Entrar — Accessibility"
         description="Acesse sua conta Accessibility para criar audiobooks, audiodescrições e videobooks acessíveis com IA."
         path="/auth"
       />
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center gap-2">
-          <Logo size="lg" />
-          <p className="text-muted-foreground text-sm">Acessibilidade Editorial com Inteligência Artificial</p>
+      <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        <video autoPlay loop muted playsInline preload="metadata" src="/videos/hero-bg.mp4" className="absolute inset-0 h-full w-full object-cover opacity-30" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,10,17,.65),rgba(5,10,17,.92)),linear-gradient(0deg,#050a11,transparent_55%)]" />
+        <div className="relative z-10"><Link to="/" className="inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><Logo size="md" /></Link></div>
+        <div className="relative z-10 max-w-2xl">
+          <span className="app-eyebrow">Accessibility Studio</span>
+          <h1 className="studio-display studio-display--section mt-6">Toda a produção editorial em um único fluxo.</h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Texto, audiodescrição, narração e videobook organizados para que você revise apenas o que exige decisão humana.</p>
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {[AudioLines, Eye, Film].map((Icon, index) => <div key={index} className="rounded-2xl border border-white/10 bg-black/25 p-4 backdrop-blur"><Icon size={20} className="text-primary" /><span className="mt-3 block text-sm text-muted-foreground">{["Narração", "Audiodescrição", "Videobook"][index]}</span></div>)}
+          </div>
         </div>
+        <div className="relative z-10 flex items-center gap-2 text-sm text-muted-foreground"><Check size={16} className="text-green-300" /> Interface acessível e orientada por etapas</div>
+      </section>
 
-        <Card>
-          <CardContent className="pt-6">
+      <section className="flex min-h-screen items-center justify-center px-5 py-10 md:px-10">
+        <div className="w-full max-w-md space-y-7">
+          <div className="flex items-center justify-between lg:hidden">
+            <Logo size="sm" />
+            <Link to="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={15} /> Voltar</Link>
+          </div>
+          <div>
+            <span className="app-eyebrow">Área de produção</span>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight">Acesse seu estúdio</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Continue de onde parou ou crie um novo projeto.</p>
+          </div>
+
+        <Card className="app-panel border-white/10 shadow-2xl shadow-black/20">
+          <CardContent className="p-6">
             <Tabs defaultValue="login">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
@@ -156,9 +166,6 @@ const Auth = () => {
                   </Button>
                   <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
                     Entrar com Google
-                  </Button>
-                  <Button type="button" variant="outline" className="w-full" onClick={handleAppleLogin} disabled={isLoading}>
-                    Entrar com Apple
                   </Button>
                   <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
                     Esqueci minha senha
@@ -192,7 +199,9 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+        <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground"><BookOpen size={14} /> Seus projetos e arquivos permanecem privados.</p>
       </div>
+      </section>
     </div>
   );
 };

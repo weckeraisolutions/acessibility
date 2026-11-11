@@ -17,7 +17,7 @@ const Logo = ({ size = "md" }: { size?: "sm" | "md" | "lg" }) => {
         <path d="M34 18c1.5 1.5 2.5 3.5 2.5 6s-1 4.5-2.5 6" stroke="hsl(var(--secondary))" strokeWidth="2" strokeLinecap="round" fill="none" />
         <path d="M38 14c2.5 2.8 4 6.2 4 10s-1.5 7.2-4 10" stroke="hsl(var(--secondary))" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
       </svg>
-      <span className={`${s.text} font-bold text-primary`}>Accessibility</span>
+      <span className={`${s.text} font-semibold tracking-tight text-foreground`}>Accessibility</span>
     </div>
   );
 };

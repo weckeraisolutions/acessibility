@@ -107,9 +107,9 @@ const NewProject = () => {
   const canSubmit = !!file && !uploading;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
-        <div className="container flex h-16 items-center gap-4">
+    <div className="app-shell">
+      <header className="app-topbar">
+        <div className="studio-container flex h-[72px] items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
@@ -117,8 +117,9 @@ const NewProject = () => {
         </div>
       </header>
 
-      <main className="container py-8">
-        <form onSubmit={handleSubmit} className="mx-auto max-w-[600px] space-y-6">
+      <main className="studio-container py-10 md:py-16">
+        <div className="mx-auto mb-8 max-w-[720px]"><span className="app-eyebrow">Novo projeto</span><h1 className="mt-2 text-3xl font-semibold tracking-tight">Comece pelo livro</h1><p className="mt-2 text-muted-foreground">Envie o PDF e confirme o tipo de conteúdo. O sistema prepara a estrutura para revisão.</p></div>
+        <form onSubmit={handleSubmit} className="app-panel mx-auto max-w-[720px] space-y-7 p-6 md:p-8">
           <div className="space-y-2">
             <Label>Tipo do livro</Label>
             <Select value={bookType} onValueChange={setBookType}>
@@ -135,7 +136,7 @@ const NewProject = () => {
           <div className="space-y-2">
             <Label>Arquivo PDF *</Label>
             <div
-              className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
+              className={`relative min-h-64 rounded-2xl border border-dashed p-8 text-center transition-colors cursor-pointer flex items-center justify-center ${
                 dragOver ? "border-primary bg-primary/5" : "border-input hover:border-primary/50"
               }`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -168,10 +169,11 @@ const NewProject = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">Arraste seu PDF aqui ou clique para selecionar</p>
-                  <p className="text-xs text-muted-foreground">Máximo 100MB • O nome do projeto será extraído do arquivo</p>
+                <div className="space-y-3">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"><Upload className="h-6 w-6" /></span>
+                  <p className="font-medium">Arraste seu PDF aqui</p>
+                  <p className="text-sm text-muted-foreground">ou clique para selecionar o arquivo</p>
+                  <p className="text-xs text-muted-foreground">Máximo 100 MB · o nome do projeto será extraído do arquivo</p>
                 </div>
               )}
             </div>
@@ -184,7 +186,7 @@ const NewProject = () => {
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={!canSubmit}>
+          <Button type="submit" className="min-h-12 w-full rounded-full" disabled={!canSubmit}>
             {uploading ? "Criando projeto..." : "Criar Projeto"}
           </Button>
         </form>

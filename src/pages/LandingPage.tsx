@@ -1,887 +1,150 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import SEO from "@/components/SEO";
 import VLibras from "@djpfs/react-vlibras";
 import {
-  Upload, Brain, Pencil, Download, BookOpen, Image, Film,
-  Shield, FileText, Mic, School, GraduationCap, Accessibility,
-  BookMarked, Check, Menu, X, Play, Plus, Minus, ChevronRight, Sparkles,
+  ArrowRight, AudioLines, BookOpen, Check, ChevronRight, Eye, FileText,
+  Film, Menu, Pause, Play, ShieldCheck, Sparkles, Upload, WandSparkles, X,
 } from "lucide-react";
+import Logo from "@/components/Logo";
+import SEO from "@/components/SEO";
 
-/* ═══════════════════════════════════════════
-   HOOKS
-   ═══════════════════════════════════════════ */
+const navLinks = [
+  { label: "Solução", id: "solucao" },
+  { label: "Fluxo", id: "como-funciona" },
+  { label: "Conformidade", id: "conformidade" },
+  { label: "Planos", id: "planos" },
+];
 
-function useReveal() {
-  useEffect(() => {
-    const reveal = () => {
-      document.querySelectorAll(".lp-reveal:not(.visible)").forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top < window.innerHeight - 40) {
-          el.classList.add("visible");
-        }
-      });
-    };
-    requestAnimationFrame(reveal);
-    window.addEventListener("scroll", reveal, { passive: true });
-    return () => window.removeEventListener("scroll", reveal);
-  }, []);
-}
+const features = [
+  { icon: AudioLines, eyebrow: "Narração", title: "Audiobook com controle editorial", copy: "Extraia, revise e gere a narração por página ou capítulo. Corrija apenas o trecho que precisa de atenção.", accent: "blue" },
+  { icon: Eye, eyebrow: "Contexto visual", title: "Audiodescrição orientada por norma", copy: "Produza descrições objetivas e editáveis, com revisão humana antes da aprovação final.", accent: "teal" },
+  { icon: Film, eyebrow: "Produção audiovisual", title: "Videobook organizado por capítulo", copy: "Sincronize páginas e áudio, gere o vídeo-base e prepare a entrega para o intérprete de Libras.", accent: "orange" },
+];
 
-function useCounter(end: number, duration = 2000) {
-  const [val, setVal] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const started = useRef(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && !started.current) {
-        started.current = true;
-        const start = performance.now();
-        const tick = (now: number) => {
-          const t = Math.min((now - start) / duration, 1);
-          const eased = 1 - Math.pow(1 - t, 3);
-          setVal(Math.round(eased * end));
-          if (t < 1) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
-    }, { threshold: 0.3 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [end, duration]);
-  return { ref, val };
-}
+const plans = [
+  { name: "Free", price: "R$ 0", detail: "Para validar o primeiro fluxo", items: ["15 páginas por mês", "1 projeto", "Audiobook e audiodescrição"] },
+  { name: "Creator", price: "R$ 97", detail: "Para produção recorrente", items: ["150 páginas por mês", "3 projetos", "Download por capítulo"] },
+  { name: "Pro", price: "R$ 197", detail: "Para operação editorial", items: ["500 páginas por mês", "10 projetos", "Videobook e exportação"], featured: true },
+];
 
-/* Particle canvas */
-function ParticleCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    let raf: number;
-    const particles: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
-    const resize = () => { canvas.width = canvas.offsetWidth * 2; canvas.height = canvas.offsetHeight * 2; };
-    resize();
-    window.addEventListener("resize", resize);
-    const N = 60;
-    for (let i = 0; i < N; i++) {
-      particles.push({
-        x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.5) * 0.6,
-        r: Math.random() * 2 + 1,
-      });
-    }
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const p of particles) {
-        if (!prefersReduced) { p.x += p.vx; p.y += p.vy; }
-        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(79,172,222,0.4)";
-        ctx.fill();
-      }
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < 160) {
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(79,172,222,${0.15 * (1 - d / 160)})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          }
-        }
-      }
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", resize); };
-  }, []);
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.6 }} />;
-}
-
-const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-
-/* ═══════════════════════════════════════════
-   LOGO
-   ═══════════════════════════════════════════ */
-const Logo = () => (
-  <div className="flex items-center gap-2">
-    <svg width={32} height={32} viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <circle cx="24" cy="10" r="4" fill="#4FACDE" />
-      <path d="M24 16c-3 0-5.5 1-7 2l1.5 3c1.2-.8 3.2-1.5 5.5-1.5s4.3.7 5.5 1.5l1.5-3c-1.5-1-4-2-7-2z" fill="#4FACDE" />
-      <path d="M21 22v10h2.5v-4h1v4H27V22h-1.5v4h-3v-4H21z" fill="#4FACDE" />
-      <path d="M34 18c1.5 1.5 2.5 3.5 2.5 6s-1 4.5-2.5 6" stroke="#2E86C1" strokeWidth="2" strokeLinecap="round" fill="none" />
-      <path d="M38 14c2.5 2.8 4 6.2 4 10s-1.5 7.2-4 10" stroke="#2E86C1" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.5" />
-    </svg>
-    <span className="font-semibold text-lg tracking-tight" style={{ color: "var(--lp-text-primary)" }}>Accessibility</span>
-  </div>
-);
-
-/* ═══════════════════════════════════════════
-   FAQ ITEM
-   ═══════════════════════════════════════════ */
-function FaqItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="glass-card mb-3">
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4FACDE] rounded-2xl"
-        aria-expanded={open}
-      >
-        <span className="font-medium text-[15px]" style={{ color: "var(--lp-text-primary)" }}>{q}</span>
-        <span className="ml-4 shrink-0 transition-transform duration-300" style={{ transform: open ? "rotate(45deg)" : "rotate(0deg)", color: "var(--lp-accent-blue)" }}>
-          <Plus size={18} />
-        </span>
-      </button>
-      <div
-        className="overflow-hidden transition-all duration-400"
-        style={{ maxHeight: open ? "400px" : "0px", opacity: open ? 1 : 0, transition: "max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease" }}
-      >
-        <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: "var(--lp-text-secondary)" }}>{a}</p>
-      </div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════
-   MAIN COMPONENT
-   ═══════════════════════════════════════════ */
 const LandingPage = () => {
-  useReveal();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [playing, setPlaying] = useState(true);
   const [scrolled, setScrolled] = useState(false);
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
+    const onScroll = () => setScrolled(window.scrollY > 28);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const navLinks = [
-    { label: "Solução", id: "solucao" },
-    { label: "Funcionalidades", id: "funcionalidades" },
-    { label: "Como Funciona", id: "como-funciona" },
-    { label: "Conformidade", id: "conformidade" },
-    { label: "Planos", id: "planos" },
-    { label: "FAQ", id: "faq" },
-  ];
-
-  const c1 = useCounter(45600000, 2500);
-  const c2 = useCounter(6500000, 2500);
-  const c3 = useCounter(10000000, 2500);
-
-  const formatNum = (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", ",")} milhões`;
-    return n.toLocaleString("pt-BR");
+  const toggleVideo = () => {
+    const video = document.getElementById("hero-video") as HTMLVideoElement | null;
+    if (!video) return;
+    if (video.paused) { void video.play(); setPlaying(true); }
+    else { video.pause(); setPlaying(false); }
   };
 
-  const logoItems = [
-    "🏫 Secretarias de Educação",
-    "📚 Editoras Educacionais",
-    "♿ Profissionais de Acessibilidade",
-    "🎓 Instituições de Ensino",
-    "📖 Autores Independentes",
-    "🏛️ Ministério da Educação",
-  ];
-
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: "var(--lp-bg-base)" }}>
-      <SEO
-        title="Accessibility — Livros acessíveis com IA"
-        description="Transforme PDFs em audiobooks, audiodescrições e videobooks acessíveis com IA. Conforme LBI e ABNT NBR 16452:2016."
-        path="/"
-        jsonLd={{
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          mainEntity: [
-            { "@type": "Question", name: "A plataforma funciona com qualquer tipo de livro?", acceptedAnswer: { "@type": "Answer", text: "Sim. A Accessibility suporta livros didáticos, literários, técnicos, infantis e gerais. A inteligência artificial adapta as regras de extração ao tipo de livro selecionado." } },
-            { "@type": "Question", name: "As audiodescrições realmente seguem a ABNT NBR 16452:2016?", acceptedAnswer: { "@type": "Answer", text: "Sim. Os prompts enviados à IA foram desenvolvidos com o conteúdo técnico real da norma — incluindo regras de redação, objetividade, proporcionalidade ao contexto e critérios de inclusão e exclusão de elementos visuais." } },
-            { "@type": "Question", name: "Qual a diferença entre Gemini TTS e ElevenLabs?", acceptedAnswer: { "@type": "Answer", text: "O Gemini TTS oferece 30 vozes de alta qualidade com excelente pronúncia em português brasileiro. O ElevenLabs, disponível no plano Enterprise, oferece vozes ultra-realistas com naturalidade ainda maior, ideal para audiobooks comerciais." } },
-            { "@type": "Question", name: "Posso editar o texto antes de gerar o áudio?", acceptedAnswer: { "@type": "Answer", text: "Sim. O texto extraído pela IA é totalmente editável antes da geração do áudio. Você pode corrigir, adicionar ou remover conteúdo conforme necessário." } },
-            { "@type": "Question", name: "Os arquivos gerados têm uso comercial?", acceptedAnswer: { "@type": "Answer", text: "Sim. Os arquivos MP3, ZIP e MP4 gerados pela plataforma podem ser utilizados comercialmente como parte dos materiais acessíveis do seu produto editorial." } },
-            { "@type": "Question", name: "Existe limite de tamanho de arquivo PDF?", acceptedAnswer: { "@type": "Answer", text: "O limite atual é de 100MB por arquivo, o que comporta a grande maioria dos livros didáticos e literários." } },
-          ],
-        }}
-      />
+    <div className="studio-site min-h-screen overflow-x-hidden bg-background text-foreground">
+      <SEO title="Accessibility — Produção editorial acessível" description="Transforme PDFs em audiobooks, audiodescrições e videobooks com uma esteira editorial acessível." path="/" />
+      <VLibras forceOnload />
 
-      <VLibras forceOnload={true} />
-
-      {/* Global keyframes */}
-      <style>{`
-        @keyframes float{0%,100%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(0)}50%{transform:perspective(1000px) rotateY(-6deg) rotateX(2deg) translateY(-10px)}}
-        @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
-        @keyframes playerProgress{0%{width:20%}100%{width:65%}}
-        @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.3)}}
-        @keyframes scroll-logos{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-        @keyframes shield-glow{0%,100%{filter:drop-shadow(0 0 8px rgba(79,172,222,0.3))}50%{filter:drop-shadow(0 0 20px rgba(79,172,222,0.6))}}
-      `}</style>
-
-      {/* ──── HEADER ──── */}
-      <header
-        className="fixed top-0 inset-x-0 z-50 transition-all duration-300 lp-bg-base"
-        style={{
-          background: scrolled ? "rgba(6,10,16,0.95)" : "rgba(6,10,16,0.8)",
-          backdropFilter: `blur(${scrolled ? 32 : 24}px)`,
-          WebkitBackdropFilter: `blur(${scrolled ? 32 : 24}px)`,
-          borderBottom: "1px solid var(--lp-glass-border)",
-        }}
-      >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 lg:px-8">
-          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4FACDE] rounded" aria-label="Voltar ao topo">
-            <Logo />
-          </button>
-
-          <nav className="hidden lg:flex items-center gap-7" aria-label="Navegação principal">
-            {navLinks.map((l) => (
-              <button key={l.id} onClick={() => scrollTo(l.id)} className="text-[15px] font-medium tracking-[0.01em] transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4FACDE] rounded px-1" style={{ color: "var(--lp-text-secondary)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "var(--lp-text-primary)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "var(--lp-text-secondary)")}
-              >{l.label}</button>
-            ))}
+      <header className={`studio-header ${scrolled ? "is-scrolled" : ""}`}>
+        <div className="studio-container flex h-[72px] items-center justify-between">
+          <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Voltar ao topo" className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><Logo size="sm" /></button>
+          <nav className="hidden items-center gap-7 lg:flex" aria-label="Navegação principal">
+            {navLinks.map((link) => <button key={link.id} onClick={() => scrollTo(link.id)} className="studio-nav-link">{link.label}</button>)}
           </nav>
-
           <div className="flex items-center gap-3">
-            <Link to="/auth" className="hidden lg:inline-flex items-center justify-center font-semibold text-[15px] tracking-[0.02em] px-5 py-2.5 rounded-lg text-white transition-all duration-200" style={{ background: "var(--lp-blue-mid)" }}
-              onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 20px var(--lp-blue-glow)")}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
-            >Acessar Plataforma</Link>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="lg:hidden p-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4FACDE]" style={{ color: "var(--lp-text-primary)" }} aria-label="Menu">
-              {menuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
+            <Link to="/auth" className="studio-button studio-button--quiet hidden sm:inline-flex">Entrar</Link>
+            <Link to="/auth" className="studio-button studio-button--primary hidden sm:inline-flex">Começar grátis <ArrowRight size={16} /></Link>
+            <button className="studio-icon-button lg:hidden" onClick={() => setMenuOpen((v) => !v)} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} aria-expanded={menuOpen}>{menuOpen ? <X size={20} /> : <Menu size={20} />}</button>
           </div>
         </div>
-
-        {menuOpen && (
-          <div className="lg:hidden" style={{ borderTop: "1px solid var(--lp-glass-border)", background: "rgba(6,10,16,0.97)", backdropFilter: "blur(24px)" }}>
-            <div className="flex flex-col gap-1 p-4">
-              {navLinks.map((l) => (
-                <button key={l.id} onClick={() => { scrollTo(l.id); setMenuOpen(false); }}
-                  className="text-sm py-2.5 px-3 rounded-lg text-left transition-colors" style={{ color: "var(--lp-text-secondary)" }}>{l.label}</button>
-              ))}
-              <Link to="/auth" className="font-semibold text-sm py-2.5 px-3 rounded-lg text-white text-center mt-2" style={{ background: "var(--lp-blue-mid)" }}>Acessar Plataforma</Link>
-            </div>
-          </div>
-        )}
+        {menuOpen && <nav className="studio-mobile-nav" aria-label="Navegação móvel">
+          {navLinks.map((link) => <button key={link.id} onClick={() => { scrollTo(link.id); setMenuOpen(false); }}>{link.label}</button>)}
+          <Link to="/auth">Acessar plataforma</Link>
+        </nav>}
       </header>
 
-      {/* ──── HERO ──── */}
-      <section className="relative min-h-screen flex items-center pt-20 overflow-hidden lp-bg-base">
-        {/* Video background */}
-        <video
-          autoPlay loop muted playsInline preload="auto"
-          // @ts-expect-error fetchpriority is a valid HTML attribute for LCP hinting
-          fetchpriority="high"
-          className="absolute inset-0 w-full h-full object-cover z-0"
-          style={{ filter: "blur(4px) brightness(0.45)", opacity: 0.75, transform: "scale(1.1)" }}
-          src="/videos/hero-bg.mp4"
-          width="1920" height="1080"
-        />
-        <ParticleCanvas />
-        <div className="relative z-10 mx-auto max-w-7xl px-5 lg:px-8 w-full grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16">
-          {/* Left */}
-          <div className="lp-reveal">
-            {/* HERO HEADLINE — solid color, no gradient text */}
-            <h1 className="font-serif leading-[1.1] mb-6" style={{
-              fontSize: "clamp(48px, 6vw, 88px)",
-              letterSpacing: "-0.01em",
-              color: "#FFFFFF",
-            }}>
-              Transforme qualquer livro em uma{" "}
-              <em className="not-italic" style={{ color: "var(--lp-accent-blue)", fontStyle: "italic" }}>experiência acessível</em>
-            </h1>
-
-            <p className="text-base lg:text-lg leading-[1.7] tracking-[0.01em] max-w-xl mb-8" style={{ color: "var(--lp-text-secondary)" }}>
-              Gere Audiobooks, Audiodescrições e Videobooks de qualquer livro em PDF — com IA, em conformidade com a Lei Brasileira de Inclusão.
-            </p>
-
-            <div className="flex flex-wrap gap-4 mb-8">
-              <Link to="/auth" className="inline-flex items-center justify-center font-semibold text-[15px] tracking-[0.02em] px-7 py-4 rounded-xl text-white transition-all duration-200" style={{ background: "var(--lp-orange)" }}
-                onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 0 30px var(--lp-orange-glow), 0 4px 16px rgba(0,0,0,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}
-              >Começar Agora — É Grátis</Link>
-              <button onClick={() => scrollTo("como-funciona")} className="glass-card inline-flex items-center gap-2 text-[15px] font-semibold tracking-[0.02em] px-6 py-4 rounded-xl" style={{ color: "var(--lp-text-primary)" }}>
-                <Play size={16} /> Ver Demonstração
-              </button>
+      <main>
+        <section className="studio-hero">
+          <div className="studio-glow studio-glow--blue" /><div className="studio-glow studio-glow--orange" />
+          <div className="studio-container relative z-10 grid items-center gap-12 py-20 lg:grid-cols-[0.9fr_1.1fr] lg:py-28">
+            <div className="max-w-2xl">
+              <div className="studio-kicker"><Sparkles size={14} /> Esteira editorial de acessibilidade</div>
+              <h1 className="studio-display mt-7">Produza no ritmo do <em>pensamento.</em></h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Transforme livros em audiobooks, audiodescrições e videobooks dentro de um fluxo único, revisável e orientado por exceções.</p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link to="/auth" className="studio-button studio-button--primary">Criar primeiro projeto <ArrowRight size={17} /></Link>
+                <button onClick={() => scrollTo("como-funciona")} className="studio-button studio-button--quiet"><Play size={16} /> Ver o fluxo</button>
+              </div>
+              <div className="mt-8 flex flex-wrap gap-x-5 gap-y-3 text-sm text-muted-foreground">
+                {["Revisão humana", "Arquivos privados", "Processo retomável"].map((item) => <span key={item} className="flex items-center gap-2"><Check size={15} className="text-[hsl(var(--success))]" />{item}</span>)}
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-x-5 gap-y-2 mb-8">
-              {["Conforme Lei 13.146/2015", "ABNT NBR 16452:2016", "Sem instalação"].map(t => (
-                <span key={t} className="flex items-center gap-1.5 text-xs" style={{ color: "var(--lp-text-muted)" }}>
-                  <Check size={14} style={{ color: "var(--lp-accent-green)" }} /> {t}
-                </span>
-              ))}
-            </div>
-
-            {/* Social proof counters */}
-            <div className="flex flex-wrap gap-6">
-              {[
-                { num: "500+", label: "projetos processados" },
-                { num: "3", label: "normas ABNT atendidas" },
-                { num: "100%", label: "conforme Lei 13.146/2015" },
-              ].map((s, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="font-serif italic text-xl" style={{ color: "var(--lp-accent-blue)" }}>{s.num}</span>
-                  <span className="text-xs" style={{ color: "var(--lp-text-muted)" }}>{s.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Right — Mockup refinado: Editor Audiobook */}
-          <div className="lp-reveal hidden lg:block" style={{ perspective: "1200px" }}>
-            <div style={{
-              background: "rgba(10,18,32,0.92)", backdropFilter: "blur(40px)", border: "1px solid var(--lp-glass-border)",
-              borderRadius: 20, boxShadow: "0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)",
-              animation: "float 6s ease-in-out infinite", overflow: "hidden",
-            }}>
-              {/* Title bar */}
-              <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid var(--lp-glass-border)" }}>
-                <span className="w-3 h-3 rounded-full" style={{ background: "#ff5f57" }} />
-                <span className="w-3 h-3 rounded-full" style={{ background: "#febc2e" }} />
-                <span className="w-3 h-3 rounded-full" style={{ background: "#28c840" }} />
-                <span className="ml-3 text-xs flex items-center gap-1.5" style={{ color: "var(--lp-text-muted)" }}>
-                  <BookOpen size={11} /> Editor — Audiobook
-                </span>
-                <span className="ml-auto inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(39,174,96,0.15)", border: "1px solid rgba(39,174,96,0.3)", color: "var(--lp-accent-green)" }}>
-                  <span className="w-1 h-1 rounded-full" style={{ background: "var(--lp-accent-green)", animation: "pulse-dot 2s infinite" }} /> ao vivo
-                </span>
+            <div className="studio-product-frame" aria-label="Demonstração visual do Accessibility Studio">
+              <div className="studio-window-bar">
+                <div className="flex gap-1.5" aria-hidden="true"><span /><span /><span /></div>
+                <span className="text-xs text-muted-foreground">Accessibility Studio · Projeto em revisão</span>
+                <span className="studio-live"><span /> sincronizado</span>
               </div>
-
-              {/* Toolbar */}
-              <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: "1px solid var(--lp-glass-border)", background: "rgba(255,255,255,0.02)" }}>
-                {[
-                  { icon: Brain, label: "IA" },
-                  { icon: Mic, label: "Voz" },
-                  { icon: Pencil, label: "Editar" },
-                  { icon: Download, label: "Export" },
-                ].map((t, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md" style={{ background: i === 1 ? "rgba(46,134,193,0.18)" : "var(--lp-glass-bg)", border: i === 1 ? "1px solid rgba(79,172,222,0.35)" : "1px solid var(--lp-glass-border)", color: i === 1 ? "var(--lp-accent-blue)" : "var(--lp-text-muted)" }}>
-                    <t.icon size={10} /> {t.label}
-                  </span>
-                ))}
-                <span className="ml-auto text-[10px]" style={{ color: "var(--lp-text-muted)" }}>Pág. 1 / 24</span>
+              <div className="studio-video-wrap">
+                <video id="hero-video" autoPlay loop muted playsInline preload="metadata" src="/videos/hero-bg.mp4" />
+                <div className="studio-video-shade" />
+                <button onClick={toggleVideo} className="studio-video-control" aria-label={playing ? "Pausar vídeo" : "Reproduzir vídeo"}>{playing ? <Pause size={17} /> : <Play size={17} />}</button>
+                <div className="studio-video-caption"><span>Capítulo 03</span><strong>O mundo que cabe em um livro</strong><small>Página 12 de 24 · narração aprovada</small></div>
               </div>
-
-              {/* Pages thumbnails */}
-              <div className="p-5 grid grid-cols-4 gap-3">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="rounded-lg aspect-[3/4] relative overflow-hidden" style={{ background: i===1 ? "rgba(46,134,193,0.22)" : "var(--lp-glass-bg)", border: i===1 ? "1px solid rgba(79,172,222,0.5)" : "1px solid var(--lp-glass-border)", boxShadow: i===1 ? "0 0 16px rgba(79,172,222,0.25)" : "none" }}>
-                    <div className="p-2">
-                      <div className="w-full h-1.5 rounded-full mb-1.5" style={{ background: "var(--lp-glass-border)" }} />
-                      <div className="w-3/4 h-1.5 rounded-full mb-1.5" style={{ background: "var(--lp-glass-bg)" }} />
-                      <div className="w-1/2 h-1.5 rounded-full" style={{ background: "var(--lp-glass-bg)" }} />
-                    </div>
-                    {i === 1 && (
-                      <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: "var(--lp-accent-green)" }}>
-                        <Check size={9} className="text-white" />
-                      </div>
-                    )}
-                    <span className="absolute bottom-1 left-1.5 text-[8px]" style={{ color: "var(--lp-text-muted)" }}>{String(i).padStart(2, "0")}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Text extract preview */}
-              <div className="mx-5 mb-3 p-3 rounded-lg" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Sparkles size={10} style={{ color: "var(--lp-accent-teal)" }} />
-                  <span className="text-[10px] font-medium tracking-wider uppercase" style={{ color: "var(--lp-accent-teal)" }}>Texto extraído</span>
-                </div>
-                <div className="space-y-1.5">
-                  <div className="w-full h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
-                  <div className="w-[92%] h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
-                  <div className="w-[78%] h-1.5 rounded-full" style={{ background: "var(--lp-glass-border)" }} />
-                </div>
-              </div>
-
-              {/* Waveform / progress bars */}
-              <div className="px-5 pb-3 space-y-2">
-                {[100, 85, 92, 60].map((w, i) => (
-                  <div key={i} className="h-2 rounded-full overflow-hidden" style={{ width: `${w}%`, background: "var(--lp-glass-bg)" }}>
-                    <div className="h-full rounded-full" style={{ width: "60%", background: "linear-gradient(90deg, rgba(79,172,222,0.5), rgba(79,172,222,0.05))", animation: "shimmer 2s infinite" }} />
-                  </div>
-                ))}
-              </div>
-
-              {/* Audio player */}
-              <div className="mx-5 mb-5 p-3 rounded-xl flex items-center gap-3" style={{ background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)" }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--lp-blue-mid)", boxShadow: "0 0 12px var(--lp-blue-glow)" }}><Play size={14} fill="white" stroke="white" /></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-medium" style={{ color: "var(--lp-text-primary)" }}>Capítulo 01 — Introdução</span>
-                    <span className="text-[9px]" style={{ color: "var(--lp-text-muted)" }}>NBR 15599</span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--lp-glass-border)" }}>
-                    <div className="h-full rounded-full" style={{ width: "35%", background: "linear-gradient(90deg, var(--lp-blue-mid), var(--lp-accent-teal))", animation: "playerProgress 4s ease-in-out infinite alternate" }} />
-                  </div>
-                </div>
-                <span className="text-[10px] shrink-0" style={{ color: "var(--lp-text-muted)" }}>1:24</span>
+              <div className="studio-editor-strip">
+                <div className="studio-mini-panel"><span className="studio-panel-label">Páginas</span><div className="studio-thumbnails"><span /><span className="active" /><span /></div></div>
+                <div className="studio-mini-panel studio-wave-panel"><span className="studio-panel-label">Narração</span><div className="studio-wave" aria-hidden="true">{Array.from({ length: 24 }).map((_, i) => <i key={i} style={{ height: `${18 + ((i * 17) % 38)}%` }} />)}</div></div>
+                <div className="studio-mini-panel"><span className="studio-panel-label">Exceções</span><strong className="studio-big-number">3</strong><small className="text-muted-foreground">itens para revisar</small></div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ──── LOGO BAR ──── */}
-      <section className="py-8 lp-bg-surface section-divider">
-        <p className="text-center text-xs tracking-[0.1em] uppercase font-medium mb-5" style={{ color: "var(--lp-text-muted)" }}>Desenvolvido para atender</p>
-        <div className="overflow-hidden" style={{ maskImage: "linear-gradient(to right, transparent, black 15%, black 85%, transparent)", WebkitMaskImage: "linear-gradient(to right, transparent, black 15%, black 85%, transparent)" }}>
-          <div className="flex gap-12" style={{ animation: "scroll-logos 25s linear infinite", width: "max-content" }}>
-            {[...logoItems, ...logoItems].map((item, i) => (
-              <span key={i} className="text-sm whitespace-nowrap px-4 py-2 rounded-lg transition-colors duration-300"
-                style={{ color: "var(--lp-text-muted)", border: "1px solid var(--lp-glass-border)" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "var(--lp-text-primary)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "var(--lp-text-muted)")}
-              >{item}</span>
-            ))}
+        <section className="studio-proof-bar" aria-label="Públicos atendidos"><div className="studio-container flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+          {["Editoras", "Instituições de ensino", "Produtores editoriais", "Profissionais de acessibilidade", "Autores"].map((item) => <span key={item}>{item}</span>)}
+        </div></section>
+
+        <section id="solucao" className="studio-section"><div className="studio-container">
+          <div className="studio-section-heading"><span className="studio-kicker"><WandSparkles size={14} /> Uma única operação</span><h2 className="studio-display studio-display--section">Do PDF à entrega, sem perder o contexto.</h2><p>O sistema organiza produção, revisão e aprovação para que o operador atue somente onde uma decisão humana é necessária.</p></div>
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+            {features.map(({ icon: Icon, eyebrow, title, copy, accent }) => <article key={title} className={`studio-feature-card studio-feature-card--${accent}`}><div className="studio-feature-icon"><Icon size={22} /></div><span className="studio-panel-label">{eyebrow}</span><h3>{title}</h3><p>{copy}</p><div className="studio-card-visual" aria-hidden="true"><span /><span /><span /><span /></div></article>)}
           </div>
-        </div>
-      </section>
+        </div></section>
 
-      {/* ──── NÚMEROS (interstitial full-width) ──── */}
-      <section id="solucao" className="py-20 lg:py-24 lp-bg-accent section-divider">
-        <div className="mx-auto max-w-[900px] px-5 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-0 lp-reveal-stagger">
+        <section id="como-funciona" className="studio-section studio-section--contrast"><div className="studio-container grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          <div className="lg:sticky lg:top-28"><span className="studio-kicker"><FileText size={14} /> Fluxo visível</span><h2 className="studio-display studio-display--section mt-6">Cada etapa informa o próximo passo.</h2><p className="mt-5 max-w-lg text-muted-foreground">Progresso real, bloqueios compreensíveis e retomada segura. Sem depender de uma aba aberta para saber o que aconteceu.</p></div>
+          <ol className="studio-process-list">
             {[
-              { ref: c1.ref, val: c1.val, label: "Brasileiros com alguma deficiência (IBGE 2022)" },
-              { ref: c2.ref, val: c2.val, label: "Pessoas com deficiência visual no Brasil" },
-              { ref: c3.ref, val: c3.val, label: "Pessoas surdas no Brasil" },
-            ].map((item, i) => (
-              <div key={i} ref={item.ref} className="text-center px-6 md:px-12 lp-reveal relative" style={i > 0 ? { borderLeft: undefined } : {}}>
-                <div className="font-serif italic mb-3" style={{
-                  fontSize: "clamp(40px, 5vw, 64px)",
-                  background: "linear-gradient(135deg, var(--lp-accent-blue), var(--lp-accent-teal))",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}>{formatNum(item.val)}</div>
-                <p className="text-sm" style={{ color: "var(--lp-text-secondary)" }}>{item.label}</p>
-                {i < 2 && <div className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 w-px h-16" style={{ background: "var(--lp-glass-border)" }} />}
-              </div>
-            ))}
-          </div>
-          <p className="text-center text-sm mt-10" style={{ color: "var(--lp-text-muted)" }}>Cada livro publicado sem acessibilidade é uma barreira. A Accessibility derruba essas barreiras.</p>
-        </div>
-      </section>
+              [Upload, "Importar", "Envie o PDF e confirme a estrutura do livro."],
+              [Sparkles, "Processar", "Texto, imagens e audiodescrições são preparados."],
+              [Eye, "Revisar exceções", "A interface destaca apenas o que precisa de decisão."],
+              [AudioLines, "Produzir narração", "Gere e aprove blocos, páginas ou capítulos."],
+              [Film, "Exportar", "Monte o vídeo-base e organize a entrega editorial."],
+            ].map(([Icon, title, copy], index) => { const StepIcon = Icon as typeof Upload; return <li key={title as string}><span className="studio-step-number">0{index + 1}</span><span className="studio-step-icon"><StepIcon size={20} /></span><div><h3>{title as string}</h3><p>{copy as string}</p></div><ChevronRight size={18} className="text-muted-foreground" /></li>; })}
+          </ol>
+        </div></section>
 
-      {/* ──── FUNCIONALIDADES (Bento Grid) ──── */}
-      <section id="funcionalidades" className="py-20 lg:py-28 lp-bg-surface section-divider">
-        <div className="mx-auto max-w-[1100px] px-5 lg:px-8">
-          <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>
-            Três recursos. Uma solução{" "}
-            <span style={{ color: "var(--lp-accent-teal)" }}>completa</span>.
-          </h2>
-          <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Tudo o que você precisa para transformar livros em materiais acessíveis.</p>
+        <section id="conformidade" className="studio-section"><div className="studio-container"><div className="studio-compliance-panel">
+          <div><span className="studio-kicker"><ShieldCheck size={14} /> Acessibilidade desde a interface</span><h2 className="studio-display studio-display--section mt-6">Produzir conteúdo acessível exige uma ferramenta acessível.</h2><p className="mt-5 max-w-2xl text-muted-foreground">Navegação por teclado, foco visível, contraste, linguagem operacional e estados que não dependem somente de cor fazem parte do produto.</p></div>
+          <div className="studio-compliance-grid">{["Lei Brasileira de Inclusão", "ABNT NBR 16452", "Fluxos por teclado", "Revisão humana"].map((item) => <span key={item}><Check size={16} />{item}</span>)}</div>
+        </div></div></section>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lp-reveal-stagger">
-            {/* Audiobook */}
-            <div className="glass-card card-feature-audio p-7 flex flex-col lp-reveal h-full">
-              <div className="feature-icon-wrap feature-icon-wrap--audio">
-                <BookOpen size={22} />
-              </div>
-              <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiobook com IA</h3>
-              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Extração inteligente do texto com reconhecimento de contexto pedagógico. Narração profissional com vozes ultra-realistas em português brasileiro.</p>
-              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(79,172,222,0.4)", color: "var(--lp-accent-blue)" }}>Conforme NBR 15599</span>
-            </div>
+        <section id="planos" className="studio-section studio-section--contrast"><div className="studio-container">
+          <div className="studio-section-heading"><span className="studio-kicker">Comece pequeno</span><h2 className="studio-display studio-display--section">Um plano para cada ritmo de produção.</h2></div>
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">{plans.map((plan) => <article key={plan.name} className={`studio-plan ${plan.featured ? "is-featured" : ""}`}>{plan.featured && <span className="studio-plan-badge">Mais escolhido</span>}<h3>{plan.name}</h3><p>{plan.detail}</p><div className="studio-price">{plan.price}<small>/mês</small></div><ul>{plan.items.map((item) => <li key={item}><Check size={15} />{item}</li>)}</ul><Link to="/auth" className={`studio-button ${plan.featured ? "studio-button--primary" : "studio-button--quiet"}`}>Escolher {plan.name}</Link></article>)}</div>
+        </div></section>
 
-            {/* Audiodescrição */}
-            <div className="glass-card card-feature-audiodesc p-7 flex flex-col lp-reveal h-full">
-              <div className="feature-icon-wrap feature-icon-wrap--audiodesc">
-                <Image size={22} />
-              </div>
-              <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Audiodescrição Inteligente</h3>
-              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Descrição precisa de elementos visuais seguindo a ABNT NBR 16452:2016. Nível de detalhe proporcional ao contexto pedagógico.</p>
-              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(45,212,171,0.4)", color: "var(--lp-accent-teal)" }}>Conforme NBR 16452:2016</span>
-            </div>
+        <section className="studio-final-cta"><div className="studio-container text-center"><BookOpen size={30} className="mx-auto text-primary" /><h2 className="studio-display studio-display--section mx-auto mt-6 max-w-3xl">Seu próximo livro pode nascer acessível.</h2><p className="mx-auto mt-5 max-w-xl text-muted-foreground">Crie um projeto, envie o PDF e acompanhe toda a produção em uma única esteira.</p><Link to="/auth" className="studio-button studio-button--primary mt-8">Começar grátis <ArrowRight size={17} /></Link></div></section>
+      </main>
 
-            {/* Videobook */}
-            <div className="glass-card card-feature-video p-7 flex flex-col lp-reveal h-full">
-              <div className="feature-icon-wrap feature-icon-wrap--video">
-                <Film size={22} />
-              </div>
-              <h3 className="font-semibold text-lg mb-3" style={{ color: "var(--lp-text-primary)" }}>Videobook Animado</h3>
-              <p className="text-sm leading-[1.7] mb-5 flex-1" style={{ color: "var(--lp-text-secondary)" }}>Páginas do livro em vídeo animado sincronizado com narração. Animações Ken Burns, Spotlight e Pan. Editor visual com linha do tempo. Exportação MP4.</p>
-              <span className="inline-flex self-start items-center text-xs font-medium tracking-[0.08em] uppercase px-3 py-1 rounded-full" style={{ border: "1px solid rgba(244,145,58,0.4)", color: "var(--lp-accent-orange)" }}>Plano Enterprise</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ──── COMO FUNCIONA (Timeline) ──── */}
-      <section id="como-funciona" className="py-20 lg:py-28 relative lp-bg-elevated section-divider">
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(46,134,193,0.05) 0%, transparent 70%)" }} />
-        <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Do PDF ao audiobook em minutos</h2>
-          <p className="text-center mb-16 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Quatro passos simples para transformar qualquer livro.</p>
-
-          <div className="relative max-w-[700px] mx-auto">
-            <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2" style={{ background: "linear-gradient(to bottom, transparent, rgba(79,172,222,0.4) 10%, rgba(79,172,222,0.4) 90%, transparent)" }} />
-
-            {[
-              { icon: Upload, num: "01", title: "Upload", desc: "Faça upload do PDF do livro. A plataforma processa automaticamente todas as páginas." },
-              { icon: Brain, num: "02", title: "Extração Inteligente", desc: "A IA analisa cada página, identifica o tipo de conteúdo e extrai texto para narração." },
-              { icon: Pencil, num: "03", title: "Revisão e Edição", desc: "Revise o texto gerado. Ajuste voz, estilo de narração e configurações por página." },
-              { icon: Download, num: "04", title: "Geração e Download", desc: "Gere os áudios com um clique. Download de MP3, por capítulo ou livro completo em ZIP." },
-            ].map((step, i) => {
-              const isOdd = i % 2 === 0;
-              return (
-                <div key={i} className="lp-reveal mb-12 lg:mb-12 flex flex-col lg:grid lg:grid-cols-[1fr_60px_1fr] items-start lg:items-center">
-                  <div className={`hidden lg:block ${isOdd ? "text-right pr-6" : ""}`}>
-                    {isOdd && (
-                      <div>
-                        <h3 className="font-semibold text-base mb-2" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
-                        <p className="text-sm leading-[1.7]" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 lg:justify-center lg:gap-0 mb-3 lg:mb-0">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center relative z-10" style={{ background: "var(--lp-glass-bg)", border: "1px solid rgba(79,172,222,0.4)", boxShadow: "0 0 20px rgba(79,172,222,0.2)" }}>
-                      <step.icon size={20} style={{ color: "var(--lp-accent-blue)" }} />
-                    </div>
-                    <h3 className="lg:hidden font-semibold text-base" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
-                  </div>
-                  <div className={`hidden lg:block ${!isOdd ? "pl-6" : ""}`}>
-                    {!isOdd && (
-                      <div>
-                        <h3 className="font-semibold text-base mb-2" style={{ color: "var(--lp-text-primary)" }}>{step.title}</h3>
-                        <p className="text-sm leading-[1.7]" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
-                      </div>
-                    )}
-                  </div>
-                  <p className="lg:hidden text-sm leading-[1.7] ml-16" style={{ color: "var(--lp-text-secondary)" }}>{step.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ──── CONFORMIDADE LEGAL ──── */}
-      <section id="conformidade" className="py-20 lg:py-28 lp-bg-interstitial section-divider">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Conformidade com a legislação brasileira</h2>
-          <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Desenvolvido em conformidade total com as normas de acessibilidade.</p>
-
-          <div className="lp-reveal card-featured p-8 lg:p-12 rounded-3xl relative">
-            <div className="grid md:grid-cols-3 gap-8 lp-reveal-stagger">
-              {[
-                { icon: Shield, title: "Lei nº 13.146/2015", sub: "Lei Brasileira de Inclusão", desc: "Garante o direito de acesso à informação em igualdade de condições. O artigo 68 determina a obrigatoriedade de livros em formatos acessíveis.", color: "var(--lp-accent-blue)" },
-                { icon: FileText, title: "ABNT NBR 16452:2016", sub: "Norma de Audiodescrição", desc: "Os prompts de extração visual seguem as diretrizes técnicas desta norma — objetividade, presente do indicativo, do geral para o específico.", color: "var(--lp-accent-teal)" },
-                { icon: Mic, title: "Lei nº 10.436/2002", sub: "Lei Libras + Decreto 5.626", desc: "Reconhece a Língua Brasileira de Sinais como meio legal de comunicação. A audiodescrição gerada pode ser base para produção de conteúdo em Libras.", color: "var(--lp-accent-orange)" },
-              ].map((law, i) => (
-                <div key={i} className="lp-reveal">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: `color-mix(in srgb, ${law.color} 12%, transparent)` }}>
-                    <law.icon size={20} style={{ color: law.color }} />
-                  </div>
-                  <h3 className="font-semibold text-base mb-1" style={{ color: law.color }}>{law.title}</h3>
-                  <p className="text-xs font-medium mb-3" style={{ color: "var(--lp-accent-teal)" }}>{law.sub}</p>
-                  <p className="text-sm leading-[1.7]" style={{ color: "var(--lp-text-secondary)" }}>{law.desc}</p>
-                </div>
-              ))}
-            </div>
-            {/* Urgency banner */}
-            <div className="mt-10 pt-8 flex flex-col md:flex-row items-center gap-6" style={{ borderTop: "1px solid rgba(46,134,193,0.15)" }}>
-              <div className="text-5xl" style={{ animation: "shield-glow 3s ease-in-out infinite" }}>⚖️</div>
-              <p className="text-sm leading-[1.7] flex-1" style={{ color: "var(--lp-text-secondary)" }}>
-                O artigo 68 da Lei 13.146/2015 determina que instituições de ensino e editoras devem disponibilizar materiais em formatos acessíveis. A Accessibility automatiza esse processo.
-              </p>
-              <Link to="/auth" className="shrink-0 inline-flex items-center font-semibold text-[15px] tracking-[0.02em] px-6 py-3 rounded-xl text-white transition-all duration-200" style={{ background: "var(--lp-blue-mid)" }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 0 20px var(--lp-blue-glow)")}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
-              >Adequar meus materiais →</Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ──── PARA QUEM É (horizontal list with dividers) ──── */}
-      <section className="py-20 lg:py-28 lp-bg-elevated section-divider">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 className="font-serif text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Quem usa a Accessibility</h2>
-          <div className="lp-reveal grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--lp-glass-border)" }}>
-            {[
-              { icon: "🏫", title: "Editoras e Produtoras", desc: "Transforme seu catálogo inteiro em formato acessível. Atenda às obrigações legais e amplie seu mercado." },
-              { icon: "🎓", title: "Secretarias e Escolas", desc: "Ofereça materiais didáticos acessíveis para alunos com deficiência visual, auditiva ou dificuldades de leitura." },
-              { icon: "♿", title: "Profissionais de Acessibilidade", desc: "Acelere seu fluxo de produção com suporte de IA especializada em normas brasileiras." },
-              { icon: "📖", title: "Autores Independentes", desc: "Publique seu livro já acessível desde o lançamento, sem depender de terceiros." },
-            ].map((a, i) => (
-              <div key={i} className="px-8 py-10 transition-colors duration-300"
-                style={{ borderRight: i < 3 ? "1px solid var(--lp-glass-border)" : "none" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "var(--lp-glass-bg-hover)")}
-                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-              >
-                <span className="text-3xl block mb-4">{a.icon}</span>
-                <h3 className="font-semibold text-base mb-2" style={{ color: "var(--lp-text-primary)" }}>{a.title}</h3>
-                <p className="text-sm leading-[1.7]" style={{ color: "var(--lp-text-secondary)" }}>{a.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ──── PLANOS ──── */}
-      <section id="planos" className="py-20 lg:py-28 lp-bg-surface section-divider">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <h2 className="font-serif text-center mb-4 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Planos para cada necessidade</h2>
-          <p className="text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-secondary)" }}>Comece grátis. Escale quando precisar.</p>
-
-          {(() => {
-            const plans = [
-              {
-                name: "Free",
-                price: "R$0",
-                period: "/mês",
-                features: [
-                  "15 páginas/mês",
-                  "1 projeto",
-                  "Audiobook + Audiodescrição",
-                  "TTS Gemini",
-                  "Download MP3",
-                  "Conforme Lei 13.146/2015"
-                ],
-                cta: "Começar Grátis",
-                ctaTo: "/auth",
-                variant: "default" as const,
-              },
-              {
-                name: "Creator",
-                price: "R$97",
-                period: "/mês",
-                features: [
-                  "150 páginas/mês",
-                  "3 projetos",
-                  "Audiobook + Audiodescrição",
-                  "TTS Gemini",
-                  "Controle de velocidade",
-                  "Download MP3 e ZIP"
-                ],
-                cta: "Escolher Creator",
-                ctaTo: "/auth",
-                variant: "default" as const,
-              },
-              {
-                name: "Pro",
-                price: "R$197",
-                period: "/mês",
-                features: [
-                  "500 páginas/mês",
-                  "10 projetos",
-                  "Audiobook + Audiodescrição",
-                  "TTS Gemini",
-                  "Videobook MP4",
-                  "Controle de velocidade",
-                  "Download MP3 e ZIP"
-                ],
-                cta: "Escolher Pro",
-                ctaTo: "/auth",
-                variant: "featured" as const,
-                badge: "Mais popular",
-              },
-              {
-                name: "Enterprise",
-                price: "R$497",
-                period: "/mês",
-                features: [
-                  "1.500 páginas/mês",
-                  "Projetos ilimitados",
-                  "Audiobook + Audiodescrição",
-                  "TTS Gemini + ElevenLabs (chave própria)",
-                  "Videobook MP4 (Em desenvolvimento)",
-                  "Controle de velocidade",
-                  "Download MP3 e ZIP",
-                  "Suporte prioritário"
-                ],
-                cta: "Escolher Enterprise",
-                ctaTo: "/auth",
-                variant: "default" as const,
-                footerNote: "* ElevenLabs requer assinatura própria a partir de $99/mês"
-              },
-            ];
-            return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch lp-reveal-stagger max-w-6xl mx-auto">
-                {plans.map((p) => {
-                  const isFeatured = p.variant === "featured";
-                  return (
-                    <div
-                      key={p.name}
-                      className={`${isFeatured ? "card-featured scale-[1.02]" : "glass-card"} p-6 lp-reveal relative flex flex-col`}
-                      style={isFeatured ? { boxShadow: "0 0 0 1px rgba(79,172,222,0.1), 0 20px 60px rgba(46,134,193,0.2), 0 8px 32px rgba(0,0,0,0.4)", zIndex: 10 } : undefined}
-                    >
-                      {isFeatured && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold tracking-[0.08em] uppercase px-4 py-1.5 rounded-full text-white whitespace-nowrap" style={{ background: "var(--lp-orange)", boxShadow: "0 0 16px var(--lp-orange-glow)" }}>{p.badge}</span>
-                      )}
-                      <h3 className={`font-semibold text-lg mb-1 ${isFeatured ? "pt-1" : ""}`} style={{ color: "var(--lp-text-primary)" }}>{p.name}</h3>
-                      <div className="flex items-baseline gap-1 mb-5">
-                        <span className="font-serif" style={{ fontSize: "38px", fontWeight: 800, letterSpacing: "-0.02em", color: "var(--lp-text-primary)" }}>{p.price}</span>
-                        <span className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{p.period}</span>
-                      </div>
-                      <ul className="space-y-3 mb-6 flex-1">
-                        {p.features.map((f, i) => (
-                          <li key={i} className="flex items-center gap-2.5 text-sm" style={{ color: "var(--lp-text-secondary)" }}>
-                            <Check size={15} style={{ color: "var(--lp-accent-green)", flexShrink: 0 }} />
-                            <span>{f}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      {p.footerNote && (
-                        <p className="text-xs mb-3 italic" style={{ color: "var(--lp-text-muted)" }}>{p.footerNote}</p>
-                      )}
-                      <Link
-                        to={p.ctaTo}
-                        className="block text-center font-semibold text-[15px] tracking-[0.02em] py-3 rounded-xl transition-all duration-200"
-                        style={isFeatured
-                          ? { background: "linear-gradient(135deg, var(--lp-orange), #f39c12)", color: "white" }
-                          : { background: "var(--lp-glass-bg)", border: "1px solid var(--lp-glass-border)", color: "var(--lp-text-primary)" }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          if (isFeatured) e.currentTarget.style.boxShadow = "0 0 24px var(--lp-orange-glow)";
-                          else e.currentTarget.style.background = "var(--lp-glass-bg-hover)";
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          if (isFeatured) e.currentTarget.style.boxShadow = "none";
-                          else e.currentTarget.style.background = "var(--lp-glass-bg)";
-                        }}
-                      >{p.cta}</Link>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
-          <p className="text-center text-xs mt-8 lp-reveal" style={{ color: "var(--lp-text-muted)" }}>Todos os planos incluem acesso completo às funcionalidades do nível. Cancele quando quiser.</p>
-        </div>
-      </section>
-
-      {/* ──── DEPOIMENTO ──── */}
-      <section className="py-16 lg:py-20 lp-bg-accent section-divider">
-        <div className="mx-auto max-w-3xl px-5 lg:px-8">
-          <div className="card-featured p-10 lg:p-14 text-center lp-reveal">
-            <span className="font-serif text-6xl leading-none" style={{ color: "var(--lp-accent-blue)" }}>"</span>
-            <p className="text-base lg:text-lg leading-[1.7] my-6" style={{ color: "var(--lp-text-secondary)" }}>
-              A Accessibility reduziu de semanas para horas o processo de produção de audiobooks para nossa coleção didática. A conformidade com a NBR 16452 é real — foi o primeiro produto que realmente entregou isso.
-            </p>
-            <div className="flex items-center justify-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm text-white" style={{ background: "linear-gradient(135deg, var(--lp-blue-mid), var(--lp-teal))" }}>EC</div>
-              <div className="text-left">
-                <p className="text-sm font-medium" style={{ color: "var(--lp-text-primary)" }}>Editora Educacional</p>
-                <p className="text-xs" style={{ color: "var(--lp-text-muted)" }}>Coordenadora de Acessibilidade</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ──── FAQ ──── */}
-      <section id="faq" className="py-20 lg:py-28 lp-bg-base section-divider">
-        <div className="mx-auto max-w-3xl px-5 lg:px-8">
-          <h2 className="font-serif text-center mb-14 lp-reveal" style={{ color: "var(--lp-text-primary)", fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700 }}>Perguntas frequentes</h2>
-          <div className="lp-reveal">
-            {[
-              { q: "A plataforma funciona com qualquer tipo de livro?", a: "Sim. A Accessibility suporta livros didáticos, literários, técnicos, infantis e gerais. A inteligência artificial adapta as regras de extração ao tipo de livro selecionado." },
-              { q: "As audiodescrições realmente seguem a ABNT NBR 16452:2016?", a: "Sim. Os prompts enviados à IA foram desenvolvidos com o conteúdo técnico real da norma — incluindo regras de redação, objetividade, proporcionalidade ao contexto e critérios de inclusão e exclusão de elementos visuais." },
-              { q: "Qual a diferença entre Gemini TTS e ElevenLabs?", a: "O Gemini TTS oferece 30 vozes de alta qualidade com excelente pronúncia em português brasileiro. O ElevenLabs, disponível no plano Enterprise, oferece vozes ultra-realistas com naturalidade ainda maior, ideal para audiobooks comerciais." },
-              { q: "Posso editar o texto antes de gerar o áudio?", a: "Sim. O texto extraído pela IA é totalmente editável antes da geração do áudio. Você pode corrigir, adicionar ou remover conteúdo conforme necessário." },
-              { q: "Os arquivos gerados têm uso comercial?", a: "Sim. Os arquivos MP3, ZIP e MP4 gerados pela plataforma podem ser utilizados comercialmente como parte dos materiais acessíveis do seu produto editorial." },
-              { q: "Existe limite de tamanho de arquivo PDF?", a: "O limite atual é de 100MB por arquivo, o que comporta a grande maioria dos livros didáticos e literários." },
-            ].map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}
-          </div>
-        </div>
-      </section>
-
-      {/* ──── CTA FINAL ──── */}
-      <section className="py-24 lg:py-32 relative overflow-hidden lp-bg-accent section-divider">
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: "linear-gradient(135deg, var(--lp-blue-deep) 0%, var(--lp-blue-mid) 50%, var(--lp-blue-deep) 100%)",
-          opacity: 0.3,
-        }} />
-        <div className="absolute top-0 left-[10%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "var(--lp-teal-glow)", filter: "blur(100px)" }} />
-        <div className="absolute bottom-0 right-[10%] w-64 h-64 rounded-full pointer-events-none" style={{ background: "var(--lp-orange-glow)", filter: "blur(100px)" }} />
-        <div className="relative z-10 mx-auto max-w-3xl px-5 text-center lp-reveal">
-          {/* Urgency badge */}
-          <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full text-[13px] font-medium tracking-[0.08em] uppercase"
-            style={{ background: "rgba(230,126,34,0.15)", border: "1px solid rgba(230,126,34,0.3)", color: "var(--lp-accent-orange)" }}>
-            🎯 Oferta de lançamento — Plano Pro com 30 dias grátis
-          </div>
-          <h2 className="font-serif mb-3" style={{
-            fontSize: "clamp(32px, 4vw, 52px)", lineHeight: 1.2, letterSpacing: "-0.02em", fontWeight: 700,
-            color: "#FFFFFF",
-          }}>Comece agora.<br/>Seu primeiro projeto é gratuito.</h2>
-          <p className="text-base mb-10" style={{ color: "var(--lp-text-secondary)" }}>Configure em menos de 5 minutos. Sem cartão de crédito. Cancele quando quiser.</p>
-          <div className="flex flex-wrap justify-center gap-4 mb-6">
-            <Link to="/auth" className="inline-flex items-center font-semibold text-[15px] tracking-[0.02em] px-8 py-4 rounded-xl text-white transition-all duration-200" style={{ background: "var(--lp-orange)" }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 0 30px var(--lp-orange-glow)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "translateY(0)"; }}
-            >Criar conta gratuita →</Link>
-            <a href="mailto:contato@accessibility.com.br" className="glass-card inline-flex items-center text-[15px] font-semibold tracking-[0.02em] px-7 py-4 rounded-xl" style={{ color: "var(--lp-text-primary)" }}>Falar com nossa equipe</a>
-          </div>
-          <p className="text-xs" style={{ color: "var(--lp-text-muted)" }}>✓ Sem cartão de crédito  ·  ✓ Setup em 5 minutos  ·  ✓ Cancele quando quiser</p>
-        </div>
-      </section>
-
-      {/* ──── FOOTER ──── */}
-      <footer className="lp-bg-base section-divider">
-        <div className="mx-auto max-w-7xl px-5 lg:px-8 py-14">
-          <div className="grid md:grid-cols-3 gap-10">
-            <div>
-              <Logo />
-              <p className="text-sm mt-4 leading-[1.7]" style={{ color: "var(--lp-text-secondary)" }}>Plataforma SaaS de acessibilidade editorial com inteligência artificial. Audiobooks, audiodescrições e videobooks em conformidade com a legislação brasileira.</p>
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm mb-4" style={{ color: "var(--lp-text-primary)" }}>Links</h4>
-              <ul className="space-y-2">
-                {[
-                  { label: "Funcionalidades", action: () => scrollTo("funcionalidades") },
-                  { label: "Planos", action: () => scrollTo("planos") },
-                ].map((l, i) => (
-                  <li key={i}><button onClick={l.action} className="text-sm transition-colors duration-200" style={{ color: "var(--lp-text-secondary)" }}
-                    onMouseEnter={e => (e.currentTarget.style.color = "var(--lp-accent-blue)")}
-                    onMouseLeave={e => (e.currentTarget.style.color = "var(--lp-text-secondary)")}
-                  >{l.label}</button></li>
-                ))}
-                <li><Link to="/auth" className="text-sm transition-colors duration-200" style={{ color: "var(--lp-text-secondary)" }}
-                  onMouseEnter={e => (e.currentTarget.style.color = "var(--lp-accent-blue)")}
-                  onMouseLeave={e => (e.currentTarget.style.color = "var(--lp-text-secondary)")}
-                >Acessar plataforma</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-sm mb-4" style={{ color: "var(--lp-text-primary)" }}>Conformidade</h4>
-              <ul className="space-y-2">
-                {["Lei nº 13.146/2015 (LBI)", "ABNT NBR 16452:2016", "Lei nº 10.436/2002", "Decreto nº 5.626/2005"].map((n) => (
-                  <li key={n} className="text-sm" style={{ color: "var(--lp-text-muted)" }}>{n}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <div className="mt-12 pt-6 flex flex-col md:flex-row justify-between gap-4" style={{ borderTop: "1px solid var(--lp-glass-border)" }}>
-            <span className="text-xs" style={{ color: "var(--lp-text-muted)" }}>© 2025 Accessibility. Todos os direitos reservados.</span>
-            <span className="text-xs" style={{ color: "var(--lp-text-muted)" }}>Desenvolvido em conformidade com as normas brasileiras de acessibilidade.</span>
-          </div>
-          {/* Footer a11y note */}
-          <div className="footer-a11y-note">
-            <span className="mr-1.5">♿</span>
-            Esta página usa{" "}
-            <a href="https://brailleinstitute.org/freefont" target="_blank" rel="noopener noreferrer" className="footer-a11y-link">
-              Atkinson Hyperlegible Next
-            </a>
-            {" "}— a fonte criada pelo Braille Institute para pessoas com baixa visão — porque acessibilidade começa aqui.
-          </div>
-        </div>
-      </footer>
+      <footer className="studio-footer"><div className="studio-container flex flex-col items-center justify-between gap-5 py-8 md:flex-row"><Logo size="sm" /><p>Produção editorial acessível, do PDF à entrega.</p><Link to="/auth">Acessar plataforma</Link></div></footer>
     </div>
   );
 };

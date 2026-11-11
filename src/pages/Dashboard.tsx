@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, MoreVertical, FolderOpen, BookOpen, Settings } from "lucide-react";
+import { Plus, MoreVertical, FolderOpen, BookOpen, Settings, AudioLines, Eye } from "lucide-react";
 import SEO from "@/components/SEO";
 
 interface ProjectWithProgress {
@@ -123,7 +123,7 @@ const Dashboard = () => {
   const planLabel = profile?.plan === "free" ? "Gratuito" : profile?.plan === "pro" ? "Pro" : profile?.plan || "Gratuito";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="app-shell">
       <SEO
         title="Dashboard — Accessibility"
         description="Gerencie seus projetos de audiobooks, audiodescrições e videobooks acessíveis."
@@ -131,8 +131,8 @@ const Dashboard = () => {
         noindex
       />
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-card">
-        <div className="container flex h-16 items-center justify-between">
+      <header className="app-topbar">
+        <div className="studio-container flex h-[72px] items-center justify-between">
           <Logo size="sm" />
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">{profile?.name}</span>
@@ -145,15 +145,23 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Meus Projetos</h1>
-          <Button onClick={() => navigate("/projeto/novo")}>
+      <main className="studio-container py-10">
+        <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+          <div><span className="app-eyebrow">Estúdio editorial</span><h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Meus projetos</h1><p className="mt-2 text-sm text-muted-foreground">Acompanhe produção, pendências e próxima ação de cada livro.</p></div>
+          <Button className="min-h-11 rounded-full px-5" onClick={() => navigate("/projeto/novo")}>
             <Plus className="h-4 w-4 mr-1" /> Novo Projeto
           </Button>
         </div>
 
-        <div className="flex gap-2 mb-6">
+        <div className="mb-8 grid gap-3 sm:grid-cols-3">
+          {[
+            [BookOpen, "Projetos", projects.length],
+            [AudioLines, "Em produção", projects.filter((p) => getProjectStatus(p).label !== "Completo").length],
+            [Eye, "Concluídos", projects.filter((p) => getProjectStatus(p).label === "Completo").length],
+          ].map(([Icon, label, value]) => { const MetricIcon = Icon as typeof BookOpen; return <div key={label as string} className="app-panel flex items-center gap-4 p-5"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><MetricIcon size={20} /></span><div><span className="text-sm text-muted-foreground">{label as string}</span><strong className="block text-2xl font-semibold">{value as number}</strong></div></div>; })}
+        </div>
+
+        <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filtrar projetos">
           {filterTabs.map((tab) => (
             <Button
               key={tab.value}
@@ -171,16 +179,16 @@ const Dashboard = () => {
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
         ) : projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Nenhum projeto ainda</h2>
-            <p className="text-muted-foreground mb-4">Clique em + Novo Projeto para começar.</p>
-            <Button onClick={() => navigate("/projeto/novo")}>
+          <div className="app-panel flex flex-col items-center justify-center px-6 py-20 text-center">
+            <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary"><BookOpen className="h-7 w-7" /></span>
+            <h2 className="mb-2 text-xl font-semibold">Seu estúdio está pronto</h2>
+            <p className="mb-6 max-w-md text-muted-foreground">Crie o primeiro projeto e envie um PDF para iniciar a produção editorial acessível.</p>
+            <Button className="min-h-11 rounded-full px-5" onClick={() => navigate("/projeto/novo")}>
               <Plus className="h-4 w-4 mr-1" /> Novo Projeto
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
             {projects.map((project) => {
               const total = project.total_pages || 1;
               const abPct = Math.round((project.audiobook_approved / total) * 100);
@@ -189,7 +197,7 @@ const Dashboard = () => {
               const status = getProjectStatus(project);
 
               return (
-                <Card key={project.id} className="hover:shadow-md transition-shadow">
+                <Card key={project.id} className="app-panel overflow-hidden border-white/10 transition hover:-translate-y-0.5 hover:border-white/20">
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div className="space-y-1">
                       <CardTitle className="text-base">{project.name}</CardTitle>
@@ -218,12 +226,12 @@ const Dashboard = () => {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>{new Date(project.created_at).toLocaleDateString("pt-BR")}</span>
                       <span>{project.total_pages} páginas</span>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-3 rounded-2xl border border-white/10 bg-black/15 p-4">
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs"><span>Audiobook</span><span>{abPct}%</span></div>
                         <Progress value={abPct} className="h-1.5" />
@@ -237,7 +245,7 @@ const Dashboard = () => {
                         <Progress value={vcPct} className="h-1.5" />
                       </div>
                     </div>
-                    <Button className="w-full" size="sm" onClick={() => navigate(`/projeto/${project.id}`)}>
+                    <Button className="min-h-11 w-full rounded-full" size="sm" onClick={() => navigate(`/projeto/${project.id}`)}>
                       <FolderOpen className="h-4 w-4 mr-1" /> Abrir
                     </Button>
                   </CardContent>

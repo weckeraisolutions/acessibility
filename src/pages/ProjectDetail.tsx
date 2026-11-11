@@ -119,7 +119,7 @@ const ProjectDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -127,7 +127,7 @@ const ProjectDetail = () => {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="app-shell flex min-h-screen flex-col items-center justify-center gap-4">
         <p className="text-muted-foreground text-lg">Projeto não encontrado ou sem permissão de acesso.</p>
         <Button onClick={() => navigate("/dashboard")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar ao Dashboard
@@ -155,7 +155,7 @@ const ProjectDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="app-shell flex min-h-screen flex-col">
       <EditorHeader
         projectName={project.name}
         pages={pages}
