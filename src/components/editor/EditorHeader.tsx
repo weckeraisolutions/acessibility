@@ -31,17 +31,20 @@ const EditorHeader = ({ projectName, pages, saving, activeTab, onNameChange }: E
 
   const extracted = pages.filter((p) => {
     if (activeTab === "videobook") return p.video_status !== "pending";
+    if (activeTab === "unified") return !!p.audiobook_text || !!p.audiodesc_text;
     const text = activeTab !== "audiodesc" ? p.audiobook_text : p.audiodesc_text;
     return !!text;
   }).length;
 
   const audioGenerated = pages.filter((p) => {
     if (activeTab === "videobook") return !!p.video_clip_url;
+    if (activeTab === "unified") return !!p.audiobook_audio_url || !!p.audiodesc_audio_url;
     const url = activeTab === "audiobook" ? p.audiobook_audio_url : p.audiodesc_audio_url;
     return !!url;
   }).length;
 
   const approved = pages.filter((p) => {
+    if (activeTab === "unified") return p.audiobook_status === "approved" || p.audiodesc_status === "approved";
     const status = activeTab === "audiobook" ? p.audiobook_status : activeTab === "audiodesc" ? p.audiodesc_status : p.video_status;
     return status === "approved";
   }).length;
