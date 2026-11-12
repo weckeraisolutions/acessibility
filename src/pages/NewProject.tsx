@@ -113,7 +113,7 @@ const NewProject = () => {
           <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
           </Button>
-          <h1 className="text-lg font-semibold">Novo Projeto</h1>
+          <span className="text-lg font-semibold">Novo Projeto</span>
         </div>
       </header>
 
@@ -121,9 +121,9 @@ const NewProject = () => {
         <div className="mx-auto mb-8 max-w-[720px]"><span className="app-eyebrow">Novo projeto</span><h1 className="mt-2 text-3xl font-semibold tracking-tight">Comece pelo livro</h1><p className="mt-2 text-muted-foreground">Envie o PDF e confirme o tipo de conteúdo. O sistema prepara a estrutura para revisão.</p></div>
         <form onSubmit={handleSubmit} className="app-panel mx-auto max-w-[720px] space-y-7 p-6 md:p-8">
           <div className="space-y-2">
-            <Label>Tipo do livro</Label>
-            <Select value={bookType} onValueChange={setBookType}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label htmlFor="book-type">Tipo do livro</Label>
+            <Select value={bookType} onValueChange={setBookType} disabled={uploading}>
+              <SelectTrigger id="book-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {bookTypes.map((t) => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -134,7 +134,7 @@ const NewProject = () => {
 
           {/* Dropzone */}
           <div className="space-y-2">
-            <Label>Arquivo PDF *</Label>
+            <Label htmlFor="file-input">Arquivo PDF *</Label>
             <div
               className={`relative min-h-64 rounded-2xl border border-dashed p-8 text-center transition-colors cursor-pointer flex items-center justify-center ${
                 dragOver ? "border-primary bg-primary/5" : "border-input hover:border-primary/50"
@@ -142,28 +142,31 @@ const NewProject = () => {
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={onDrop}
-              onClick={() => document.getElementById("file-input")?.click()}
             >
               <input
                 id="file-input"
                 type="file"
                 accept=".pdf"
-                className="hidden"
+                aria-label="Selecionar arquivo PDF"
+                disabled={uploading}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0 focus:opacity-100 focus:bg-background focus:p-8"
                 onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
               />
               {file ? (
                 <div className="flex items-center justify-center gap-3">
                   <FileText className="h-8 w-8 text-primary" />
                   <div className="text-left">
-                    <p className="text-sm font-medium">{file.name}</p>
+                    <p className="break-all text-sm font-medium">{file.name}</p>
                     <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
                   </div>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                    className="relative z-10 h-11 w-11 shrink-0"
+                    aria-label="Remover arquivo selecionado"
+                    disabled={uploading}
+                    onClick={(e) => { e.stopPropagation(); setFile(null); const input = document.getElementById("file-input") as HTMLInputElement; input.value = ""; }}
                   >
                     <X className="h-4 w-4" />
                   </Button>

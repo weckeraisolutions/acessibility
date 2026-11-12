@@ -32,6 +32,15 @@ const Auth = () => {
   const [signupConfirm, setSignupConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const reportAuthError = (message: string) => {
+    const description = message.includes("Invalid login credentials")
+      ? "Email ou senha incorretos. Confira os dados ou use a recuperação de senha."
+      : message.includes("Email not confirmed")
+      ? "Confirme seu email antes de entrar. Verifique também a pasta de spam."
+      : "Não foi possível concluir. Verifique sua conexão e tente novamente. Se persistir, contate o administrador.";
+    toast({ title: "Não foi possível concluir", description, variant: "destructive" });
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -47,16 +56,18 @@ const Auth = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    try {
     const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
+      email: loginEmail.trim(),
       password: loginPassword,
     });
     setIsLoading(false);
     if (error) {
-      toast({ title: "Erro ao entrar", description: error.message, variant: "destructive" });
+      reportAuthError(error.message);
     } else {
       navigate(redirectTarget);
     }
+    } catch { reportAuthError("network"); } finally { setIsLoading(false); }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -66,8 +77,9 @@ const Auth = () => {
       return;
     }
     setIsLoading(true);
+    try {
     const { error } = await supabase.auth.signUp({
-      email: signupEmail,
+      email: signupEmail.trim(),
       password: signupPassword,
       options: {
         data: { name: signupName },
@@ -76,37 +88,43 @@ const Auth = () => {
     });
     setIsLoading(false);
     if (error) {
-      toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" });
+      reportAuthError(error.message);
     } else {
       toast({ title: "Cadastro realizado!", description: "Verifique seu email para confirmar a conta." });
     }
+    } catch { reportAuthError("network"); } finally { setIsLoading(false); }
   };
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
+    try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: authCallbackUrl },
     });
     if (error) {
       setIsLoading(false);
-      toast({ title: "Erro ao entrar com Google", description: error.message, variant: "destructive" });
+      reportAuthError(error.message);
     }
+    } catch { reportAuthError("network"); } finally { setIsLoading(false); }
   };
 
   const handleForgotPassword = async () => {
-    if (!loginEmail) {
+    if (!loginEmail || !document.querySelector<HTMLInputElement>("#login-email")?.checkValidity()) {
       toast({ title: "Informe seu email", description: "Digite seu email no campo acima.", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+    setIsLoading(true);
+    try {
+    const { error } = await supabase.auth.resetPasswordForEmail(loginEmail.trim(), {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      reportAuthError(error.message);
     } else {
-      toast({ title: "Email enviado", description: "Verifique sua caixa de entrada." });
+      toast({ title: "Solicitação recebida", description: "Se houver uma conta com esse email, você receberá as instruções de recuperação." });
     }
+    } catch { reportAuthError("network"); } finally { setIsLoading(false); }
   };
 
   return (
@@ -115,15 +133,16 @@ const Auth = () => {
         title="Entrar — Accessibility"
         description="Acesse sua conta Accessibility para criar audiobooks, audiodescrições e videobooks acessíveis com IA."
         path="/auth"
+        noindex
       />
       <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
-        <video autoPlay loop muted playsInline preload="metadata" src="/videos/hero-bg.mp4" className="absolute inset-0 h-full w-full object-cover opacity-30" />
+        <img src="/images/infantil-poster.jpg" alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,10,17,.65),rgba(5,10,17,.92)),linear-gradient(0deg,#050a11,transparent_55%)]" />
         <div className="relative z-10"><Link to="/" className="inline-flex rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><Logo size="md" /></Link></div>
         <div className="relative z-10 max-w-2xl">
           <span className="app-eyebrow">Accessibility Studio</span>
-          <h1 className="studio-display studio-display--section mt-6">Toda a produção editorial em um único fluxo.</h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Texto, audiodescrição, narração e videobook organizados para que você revise apenas o que exige decisão humana.</p>
+          <h2 className="studio-display studio-display--section mt-6">Toda a produção editorial em um único fluxo.</h2>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">Prepare texto, audiodescrição e narração. Confira cada página antes de aprovar o resultado.</p>
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
             {[AudioLines, Eye, Film].map((Icon, index) => <div key={index} className="rounded-2xl border border-white/10 bg-black/25 p-4 backdrop-blur"><Icon size={20} className="text-primary" /><span className="mt-3 block text-sm text-muted-foreground">{["Narração", "Audiodescrição", "Videobook"][index]}</span></div>)}
           </div>
@@ -139,13 +158,13 @@ const Auth = () => {
           </div>
           <div>
             <span className="app-eyebrow">Área de produção</span>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight">Acesse seu estúdio</h2>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight">Acesse seu estúdio</h1>
             <p className="mt-2 text-sm text-muted-foreground">Continue de onde parou ou crie um novo projeto.</p>
           </div>
 
         <Card className="app-panel border-white/10 shadow-2xl shadow-black/20">
           <CardContent className="p-6">
-            <Tabs defaultValue="login">
+            <Tabs defaultValue={searchParams.get("mode") === "signup" ? "signup" : "login"}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Entrar</TabsTrigger>
                 <TabsTrigger value="signup">Cadastrar</TabsTrigger>
@@ -155,11 +174,11 @@ const Auth = () => {
                 <form onSubmit={handleLogin} className="space-y-4 pt-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
-                    <Input id="login-email" type="email" placeholder="seu@email.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
+                    <Input id="login-email" type="email" autoComplete="email" placeholder="seu@email.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Senha</Label>
-                    <Input id="login-password" type="password" placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
+                    <Input id="login-password" type="password" autoComplete="current-password" placeholder="••••••••" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Entrando..." : "Entrar"}
@@ -167,7 +186,7 @@ const Auth = () => {
                   <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
                     Entrar com Google
                   </Button>
-                  <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
+                  <button type="button" disabled={isLoading} onClick={handleForgotPassword} className="min-h-11 w-full rounded-md text-center text-sm text-muted-foreground hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary transition-colors">
                     Esqueci minha senha
                   </button>
                 </form>
@@ -177,19 +196,20 @@ const Auth = () => {
                 <form onSubmit={handleSignup} className="space-y-4 pt-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Nome</Label>
-                    <Input id="signup-name" placeholder="Seu nome" value={signupName} onChange={(e) => setSignupName(e.target.value)} required />
+                    <Input id="signup-name" autoComplete="name" placeholder="Seu nome" value={signupName} onChange={(e) => setSignupName(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-email">Email</Label>
-                    <Input id="signup-email" type="email" placeholder="seu@email.com" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} required />
+                    <Input id="signup-email" type="email" autoComplete="email" placeholder="seu@email.com" value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>
-                    <Input id="signup-password" type="password" placeholder="••••••••" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required />
+                    <Input id="signup-password" type="password" autoComplete="new-password" minLength={6} aria-describedby="password-help" placeholder="••••••••" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required />
+                    <p id="password-help" className="text-xs text-muted-foreground">Use pelo menos 6 caracteres.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-confirm">Confirmar Senha</Label>
-                    <Input id="signup-confirm" type="password" placeholder="••••••••" value={signupConfirm} onChange={(e) => setSignupConfirm(e.target.value)} required />
+                    <Input id="signup-confirm" type="password" autoComplete="new-password" minLength={6} placeholder="••••••••" value={signupConfirm} onChange={(e) => setSignupConfirm(e.target.value)} required />
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Cadastrando..." : "Cadastrar"}

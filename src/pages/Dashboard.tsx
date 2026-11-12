@@ -47,9 +47,9 @@ function getProjectStatus(p: ProjectWithProgress) {
 
 const filterTabs = [
   { value: "all", label: "Todos" },
-  { value: "audiobook", label: "Audiobook" },
-  { value: "audiodesc", label: "Audiodescrição" },
-  { value: "videobook", label: "Videobook" },
+  { value: "audiobook", label: "Audiobook pendente" },
+  { value: "audiodesc", label: "Audiodescrição pendente" },
+  { value: "videobook", label: "Videobook pendente" },
 ];
 
 const Dashboard = () => {
@@ -58,26 +58,32 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [filter, setFilter] = useState("all");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameName, setRenameName] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const fetchProjects = async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
     // Fetch projects
-    const { data: projectsData } = await supabase
+    const { data: projectsData, error: projectsError } = await supabase
       .from("projects")
       .select("id, name, book_type, total_pages, created_at, processing_status")
       .order("created_at", { ascending: false });
 
-    if (!projectsData) { setProjects([]); setLoading(false); return; }
+    if (projectsError) throw projectsError;
+    if (!projectsData?.length) { setProjects([]); return; }
 
     // Fetch page stats for all projects
     const projectIds = projectsData.map(p => p.id);
-    const { data: pagesData } = await supabase
+    const { data: pagesData, error: pagesError } = await supabase
       .from("pages")
       .select("project_id, audiobook_status, audiodesc_status, video_status")
       .in("project_id", projectIds);
+    if (pagesError) throw pagesError;
 
     const statsMap = new Map<string, { ab: number; ad: number; vc: number }>();
     for (const page of (pagesData || [])) {
@@ -97,7 +103,7 @@ const Dashboard = () => {
         video_configured: s.vc,
       };
     }));
-    setLoading(false);
+    } catch { setLoadError(true); } finally { setLoading(false); }
   };
 
   useEffect(() => {
@@ -106,7 +112,8 @@ const Dashboard = () => {
 
   const handleRename = async () => {
     if (!renameId || !renameName.trim()) return;
-    await supabase.from("projects").update({ name: renameName }).eq("id", renameId);
+    const { error } = await supabase.from("projects").update({ name: renameName.trim() }).eq("id", renameId);
+    if (error) { toast({ title: "Não foi possível renomear", description: "Tente novamente.", variant: "destructive" }); return; }
     setRenameId(null);
     fetchProjects();
     toast({ title: "Projeto renomeado" });
@@ -114,13 +121,20 @@ const Dashboard = () => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from("projects").delete().eq("id", deleteId);
+    const { error } = await supabase.from("projects").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Não foi possível excluir", description: "Atualize a lista e tente novamente.", variant: "destructive" }); return; }
     setDeleteId(null);
     fetchProjects();
     toast({ title: "Projeto excluído" });
   };
 
   const planLabel = profile?.plan === "free" ? "Gratuito" : profile?.plan === "pro" ? "Pro" : profile?.plan || "Gratuito";
+
+  const filteredProjects = projects.filter(project => {
+    if (filter === "all") return true;
+    const approved = filter === "audiobook" ? project.audiobook_approved : filter === "audiodesc" ? project.audiodesc_approved : project.video_configured;
+    return project.total_pages === 0 || approved < project.total_pages;
+  });
 
   return (
     <div className="app-shell">
@@ -135,9 +149,9 @@ const Dashboard = () => {
         <div className="studio-container flex h-[72px] items-center justify-between">
           <Logo size="sm" />
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">{profile?.name}</span>
+            <span className="hidden max-w-48 truncate text-sm font-medium sm:inline">{profile?.name}</span>
             <Badge variant="secondary">{planLabel}</Badge>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate("/configuracoes")}>
+            <Button variant="ghost" size="icon" aria-label="Configurações" className="h-11 w-11" onClick={() => navigate("/configuracoes")}>
               <Settings className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>Sair</Button>
@@ -168,6 +182,7 @@ const Dashboard = () => {
               variant={filter === tab.value ? "default" : "outline"}
               size="sm"
               onClick={() => setFilter(tab.value)}
+              aria-pressed={filter === tab.value}
             >
               {tab.label}
             </Button>
@@ -178,6 +193,8 @@ const Dashboard = () => {
           <div className="flex justify-center py-20">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
+        ) : loadError ? (
+          <div role="alert" className="app-panel space-y-4 p-8 text-center"><h2 className="text-xl font-semibold">Não foi possível carregar seus projetos</h2><p className="text-muted-foreground">Isso não significa que seus dados foram apagados. Confira a conexão e tente novamente.</p><Button onClick={fetchProjects}>Tentar novamente</Button></div>
         ) : projects.length === 0 ? (
           <div className="app-panel flex flex-col items-center justify-center px-6 py-20 text-center">
             <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary"><BookOpen className="h-7 w-7" /></span>
@@ -189,7 +206,8 @@ const Dashboard = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {projects.map((project) => {
+            {filteredProjects.length === 0 && <div role="status" className="app-panel p-8"><p>Nenhum projeto com essa pendência.</p><Button variant="outline" onClick={() => setFilter("all")}>Mostrar todos os projetos</Button></div>}
+            {filteredProjects.map((project) => {
               const total = project.total_pages || 1;
               const abPct = Math.round((project.audiobook_approved / total) * 100);
               const adPct = Math.round((project.audiodesc_approved / total) * 100);
@@ -212,7 +230,7 @@ const Dashboard = () => {
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" aria-label={`Ações de ${project.name}`} className="h-11 w-11 shrink-0">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -260,10 +278,10 @@ const Dashboard = () => {
       <Dialog open={!!renameId} onOpenChange={(o) => !o && setRenameId(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Renomear Projeto</DialogTitle></DialogHeader>
-          <Input value={renameName} onChange={(e) => setRenameName(e.target.value)} />
+          <Input aria-label="Nome do projeto" value={renameName} onChange={(e) => setRenameName(e.target.value)} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenameId(null)}>Cancelar</Button>
-            <Button onClick={handleRename}>Salvar</Button>
+            <Button disabled={!renameName.trim()} onClick={handleRename}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -274,7 +292,7 @@ const Dashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Projeto</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Todos os dados e arquivos serão excluídos permanentemente.
+              Esta ação não pode ser desfeita. O projeto e seus dados serão excluídos. Você perderá o acesso aos arquivos pelo projeto.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
