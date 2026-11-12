@@ -45,7 +45,7 @@ export default function LandingPage() {
     <div className="studio-site min-h-screen bg-background text-foreground" id="inicio">
       <SEO title="Accessibility | Livros em áudio e audiodescrição" description="Prepare livros infantis, literários e educacionais em áudio e audiodescrição, com revisão editorial por página." path="/" />
       <a className="studio-skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <VLibras forceOnload />
+      <VLibras />
       <header className="studio-header" onKeyDown={(event) => {
         if (event.key === "Escape" && menuOpen) { setMenuOpen(false); menuButton.current?.focus(); }
       }}>

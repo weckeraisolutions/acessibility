@@ -98,7 +98,7 @@ const InterpreterPanel = ({ chapter, expectedDurationSec, audiobookText, onModeC
             <div id="vlibras-target" className="p-2 bg-muted/30 rounded text-xs max-h-32 overflow-auto">
               {audiobookText || <span className="italic">Sem texto carregado.</span>}
             </div>
-            <VLibras forceOnload />
+            <VLibras />
           </div>
         </TabsContent>
 
