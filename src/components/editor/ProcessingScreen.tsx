@@ -15,7 +15,7 @@ const ProcessingScreen = ({ progress, currentPage, totalPages, error, onRetry }:
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 px-4">
         <AlertTriangle className="h-12 w-12 text-destructive" />
-        <h2 className="text-xl font-semibold text-foreground">Erro no processamento</h2>
+        <h1 role="alert" className="text-xl font-semibold text-foreground">Erro no processamento</h1>
         <p className="text-muted-foreground text-center max-w-md">{error}</p>
         <Button onClick={onRetry} variant="outline">
           <RefreshCw className="h-4 w-4 mr-2" /> Tentar novamente
@@ -27,10 +27,10 @@ const ProcessingScreen = ({ progress, currentPage, totalPages, error, onRetry }:
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-6 px-4">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      <h2 className="text-xl font-semibold text-foreground">Processando seu livro...</h2>
+      <h1 className="text-xl font-semibold text-foreground">Processando seu livro...</h1>
       <div className="w-full max-w-md space-y-2">
-        <Progress value={progress} className="h-3" />
-        <p className="text-sm text-center text-muted-foreground">
+        <Progress value={progress} className="h-3" aria-label="Páginas processadas" />
+        <p role="status" className="text-sm text-center text-muted-foreground">
           {totalPages > 0
             ? `Processando página ${currentPage} de ${totalPages} — ${progress}%`
             : "Carregando PDF..."}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { deleteProject } from "@/lib/storage";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -121,8 +122,8 @@ const Dashboard = () => {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from("projects").delete().eq("id", deleteId);
-    if (error) { toast({ title: "Não foi possível excluir", description: "Atualize a lista e tente novamente.", variant: "destructive" }); return; }
+    try { await deleteProject(deleteId); }
+    catch (error) { toast({ title: "Não foi possível excluir", description: error instanceof Error ? error.message : "Tente novamente.", variant: "destructive" }); return; }
     setDeleteId(null);
     fetchProjects();
     toast({ title: "Projeto excluído" });
@@ -154,7 +155,7 @@ const Dashboard = () => {
             <Button variant="ghost" size="icon" aria-label="Configurações" className="h-11 w-11" onClick={() => navigate("/configuracoes")}>
               <Settings className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={signOut}>Sair</Button>
+            <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate("/auth", { replace: true }); }}>Sair</Button>
           </div>
         </div>
       </header>

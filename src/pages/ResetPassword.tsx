@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Logo from "@/components/Logo";
@@ -10,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const { session, loading: sessionLoading } = useAuth();
   const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -22,6 +25,7 @@ const ResetPassword = () => {
       return;
     }
     setLoading(true);
+    try {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
@@ -30,25 +34,30 @@ const ResetPassword = () => {
       toast({ title: "Senha atualizada com sucesso!" });
       navigate("/dashboard");
     }
+    } catch { toast({ title: "Não foi possível salvar a senha", description: "Verifique a conexão e tente novamente.", variant: "destructive" }); }
+    finally { setLoading(false); }
   };
+
+  if (sessionLoading) return <p role="status">Verificando link de recuperação...</p>;
+  if (!session) return <main className="app-shell p-8"><h1 role="alert">Link de recuperação inválido ou expirado</h1><Link to="/auth" className="underline">Voltar ao login e solicitar outro link</Link></main>;
 
   return (
     <div className="app-shell flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="flex flex-col items-center gap-2">
           <Logo size="lg" />
-          <p className="text-muted-foreground text-sm">Redefinir senha</p>
+          <h1 className="text-xl">Redefinir senha</h1>
         </div>
         <Card>
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="new-password">Nova Senha</Label>
-                <Input id="new-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input id="new-password" type="password" minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar Senha</Label>
-                <Input id="confirm-password" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+                <Input id="confirm-password" type="password" minLength={8} autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
               </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Salvando..." : "Redefinir Senha"}

@@ -1,5 +1,5 @@
+import { fileId, studioFunctions } from "@/lib/storage";
 import { useState, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,10 +23,16 @@ export function useVideoRegionDetector() {
         return false;
       }
 
-      const { data, error } = await supabase.functions.invoke("detect-video-regions", {
+      let imageFileId: string;
+      try { imageFileId = fileId(page.image_url); }
+      catch (error) {
+        toast({ title: `Erro na página ${page.page_number}`, description: (error as Error).message, variant: "destructive" });
+        return false;
+      }
+      const { data, error } = await studioFunctions.invoke("detect-video-regions", {
         body: {
           page_id: page.id,
-          image_url: page.image_url,
+          image_file_id: imageFileId,
           audiobook_text: page.audiobook_text,
           audio_duration_seconds: page.audiobook_audio_duration_seconds,
           book_type: bookType,

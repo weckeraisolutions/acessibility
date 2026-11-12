@@ -1,5 +1,5 @@
+import { fileId, studioFunctions } from "@/lib/storage";
 import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
 
 type Page = Tables<"pages">;
@@ -37,10 +37,10 @@ async function callExtractText(
   mode: "audiobook" | "audiodesc",
   project: Project
 ) {
-  const { data, error } = await supabase.functions.invoke("extract-text", {
+  const { data, error } = await studioFunctions.invoke("extract-text", {
     body: {
       page_id: page.id,
-      image_url: page.image_url,
+      image_file_id: fileId(page.image_url),
       mode,
       book_type: project.book_type || "general",
       global_style:

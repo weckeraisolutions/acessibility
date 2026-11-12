@@ -1,3 +1,4 @@
+import { fetchStoredFile } from "@/lib/storage";
 import { useState, useRef, useCallback } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -36,9 +37,9 @@ export function useZipDownload() {
       if (cancelledRef.current) return null;
       const page = pagesWithAudio[i];
       const url = getAudioUrl(page, mode)!;
-      const res = await fetch(url);
+      const res = await fetchStoredFile(url, true);
       const blob = await res.blob();
-      const name = `pagina_${String(page.page_number).padStart(3, "0")}.mp3`;
+      const name = `pagina_${String(page.page_number).padStart(3, "0")}.${blob.type.includes("wav") ? "wav" : "mp3"}`;
       const path = subfolder ? `${subfolder}/${name}` : name;
       zip.file(path, blob);
       setCurrentFile(i + 1);
@@ -82,9 +83,9 @@ export function useZipDownload() {
           for (const page of chPages) {
             if (cancelledRef.current) { setDownloading(false); return; }
             const url = getAudioUrl(page, mode)!;
-            const res = await fetch(url);
+            const res = await fetchStoredFile(url, true);
             const b = await res.blob();
-            zip.file(`${ch.name}/pagina_${String(page.page_number).padStart(3, "0")}.mp3`, b);
+            zip.file(`${ch.name}/pagina_${String(page.page_number).padStart(3, "0")}.${b.type.includes("wav") ? "wav" : "mp3"}`, b);
             done++;
             setCurrentFile(done);
             setProgress(Math.round((done / total) * 100));
@@ -96,9 +97,9 @@ export function useZipDownload() {
           if (chPageNums.has(page.page_number)) continue;
           if (cancelledRef.current) { setDownloading(false); return; }
           const url = getAudioUrl(page, mode)!;
-          const res = await fetch(url);
+          const res = await fetchStoredFile(url, true);
           const b = await res.blob();
-          zip.file(`pagina_${String(page.page_number).padStart(3, "0")}.mp3`, b);
+          zip.file(`pagina_${String(page.page_number).padStart(3, "0")}.${b.type.includes("wav") ? "wav" : "mp3"}`, b);
           done++;
           setCurrentFile(done);
           setProgress(Math.round((done / total) * 100));

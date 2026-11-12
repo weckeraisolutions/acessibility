@@ -31,7 +31,7 @@ const EditorHeader = ({ projectName, pages, saving, activeTab, onNameChange }: E
 
   const extracted = pages.filter((p) => {
     if (activeTab === "videobook") return p.video_status !== "pending";
-    const text = activeTab === "audiobook" ? p.audiobook_text : p.audiodesc_text;
+    const text = activeTab !== "audiodesc" ? p.audiobook_text : p.audiodesc_text;
     return !!text;
   }).length;
 
@@ -48,15 +48,15 @@ const EditorHeader = ({ projectName, pages, saving, activeTab, onNameChange }: E
 
   return (
     <header className="border-b bg-card sticky top-0 z-30">
-      <div className="container flex h-14 items-center gap-4">
+      <div className="container flex min-h-14 flex-wrap items-center gap-3 py-2">
         <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Dashboard
         </Button>
 
-        <div className="flex-1 flex justify-center">
+        <div className="min-w-0 flex-1 flex justify-center">
           {editing ? (
             <Input
-              value={name}
+              aria-label="Nome do projeto" value={name}
               onChange={(e) => setName(e.target.value)}
               onBlur={handleConfirm}
               onKeyDown={(e) => e.key === "Enter" && handleConfirm()}
@@ -64,20 +64,20 @@ const EditorHeader = ({ projectName, pages, saving, activeTab, onNameChange }: E
               autoFocus
             />
           ) : (
-            <button onClick={() => setEditing(true)} className="font-semibold hover:underline cursor-pointer bg-transparent border-none text-foreground">
+            <button onClick={() => setEditing(true)} className="truncate font-semibold hover:underline cursor-pointer bg-transparent border-none text-foreground">
               {projectName}
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs" role="status">
           {saving ? (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
             </span>
           ) : (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Check className="h-3 w-3" /> Salvo
+              Edição por página
             </span>
           )}
           <Badge variant="secondary">{extracted} extraídas</Badge>

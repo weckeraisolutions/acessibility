@@ -3,7 +3,7 @@ import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { createPrivateStorageUrl } from "@/lib/storage";
+import { createPrivateStorageUrl, deleteFile, fetchStoredFile, uploadFile } from "@/lib/storage";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -88,7 +88,7 @@ export function useHighResPages() {
       // Fetch project to get pdf_url
       const { data: project, error: projErr } = await supabase
         .from("projects")
-        .select("pdf_url, user_id")
+        .select("pdf_url")
         .eq("id", projectId)
         .single();
       if (projErr || !project?.pdf_url) throw new Error("PDF do projeto não encontrado.");
@@ -96,40 +96,38 @@ export function useHighResPages() {
       setProgress({ current: 0, total: needHd.length, message: "Baixando PDF original..." });
 
       // Get signed URL for the PDF
-      const { data: signed, error: signedErr } = await supabase.storage
-        .from("pdfs")
-        .createSignedUrl(project.pdf_url, 3600);
-      if (signedErr || !signed?.signedUrl) throw new Error("Não foi possível acessar o PDF.");
-
-      const resp = await fetch(signed.signedUrl);
+      const resp = await fetchStoredFile(project.pdf_url);
       if (!resp.ok) throw new Error("Falha ao baixar o PDF.");
       const buf = await resp.arrayBuffer();
 
       const pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+      try {
+        for (let i = 0; i < needHd.length; i++) {
+          const p = needHd[i];
+          setProgress({
+            current: i + 1,
+            total: needHd.length,
+            message: `Renderizando página ${p.page_number} em alta resolução (${i + 1}/${needHd.length})`,
+          });
 
-      for (let i = 0; i < needHd.length; i++) {
-        const p = needHd[i];
-        setProgress({
-          current: i + 1,
-          total: needHd.length,
-          message: `Renderizando página ${p.page_number} em alta resolução (${i + 1}/${needHd.length})`,
-        });
+          const blob = await renderPageToBlob(pdfDoc, p.page_number, HD_TARGET_SCALE);
+          const path = await uploadFile(blob, { project_id: projectId, page_id: p.id, kind: "page-image-hd", file_name: `pag_${pad(p.page_number)}.png` });
 
-        const blob = await renderPageToBlob(pdfDoc, p.page_number, HD_TARGET_SCALE);
-        const path = `${project.user_id}/${projectId}/pag_${pad(p.page_number)}.png`;
-        const up = await supabase.storage
-          .from("page-images-hd")
-          .upload(path, blob, { contentType: "image/png", upsert: true });
-        if (up.error) throw new Error(`Upload falhou (pág ${p.page_number}): ${up.error.message}`);
-
-        await supabase
-          .from("pages")
-          .update({ image_hd_url: path })
-          .eq("project_id", projectId)
-          .eq("page_number", p.page_number);
+          const { error } = await supabase
+            .from("pages")
+            .update({ image_hd_url: path })
+            .eq("project_id", projectId)
+            .eq("page_number", p.page_number)
+            .select("id")
+            .single();
+          if (error) {
+            await deleteFile(path).catch(() => undefined);
+            throw error;
+          }
+        }
+      } finally {
+        await pdfDoc.destroy();
       }
-
-      pdfDoc.destroy();
       setProgress({ current: needHd.length, total: needHd.length, message: "Páginas HD prontas!" });
       return { skipped: false, processed: needHd.length };
     } finally {

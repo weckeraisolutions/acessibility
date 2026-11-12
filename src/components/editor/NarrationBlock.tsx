@@ -1,3 +1,4 @@
+import { studioFunctions, fetchStoredFile, rememberFileUrl } from "@/lib/storage";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -5,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Play, Download, Trash2, Pencil, Check, Eye } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useDebounce } from "@/hooks/useDebounce";
 import { VOICES } from "@/constants/voices";
@@ -61,14 +61,14 @@ const NarrationBlock = ({
     if (!narration.audio_url || narration.audio_url === prevAudioRef.current) return;
     prevAudioRef.current = narration.audio_url;
     let cancelled = false;
-    fetch(narration.audio_url, { cache: "no-store" })
-      .then((r) => r.arrayBuffer())
-      .then((buf) => {
+    fetchStoredFile(narration.audio_url)
+      .then((r) => r.blob())
+      .then((blob) => {
         if (cancelled) return;
-        const mime = narration.audio_url!.includes(".mp3") ? "audio/mpeg" : "audio/wav";
+
         setBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
-          const next = URL.createObjectURL(new Blob([buf], { type: mime }));
+          const next = URL.createObjectURL(blob);
           blobUrlRef.current = next; // keep ref in sync for cleanup
           return next;
         });
@@ -113,7 +113,7 @@ const NarrationBlock = ({
     setEditingLabel(false);
   };
 
-  const currentVoice = narration.voice_id || (isElevenlabs ? selectedElevenlabsVoice : globalVoice);
+  const currentVoice = narration.voice_engine === ttsEngine && narration.voice_id ? narration.voice_id : (isElevenlabs ? selectedElevenlabsVoice : globalVoice);
   const currentSpeed = narration.narration_speed || globalNarrationSpeed;
 
   const handleGenerate = async () => {
@@ -121,10 +121,11 @@ const NarrationBlock = ({
       toast({ title: "Texto necessário", description: "Adicione um texto a este bloco.", variant: "destructive" });
       return;
     }
+    if (!selectedElevenlabsVoice) { toast({ title: "Selecione uma voz ElevenLabs de reserva", variant: "destructive" }); return; }
     setGenerating(true);
     try {
       const effectiveSpeed = currentSpeed || globalNarrationSpeed || "educativo";
-      const { data, error } = await supabase.functions.invoke("generate-audio", {
+      const { data, error } = await studioFunctions.invoke("generate-audio", {
         body: {
           page_id: page.id,
           project_id: project.id,
@@ -150,9 +151,13 @@ const NarrationBlock = ({
         toast({ title: "Erro", description: msg, variant: "destructive" });
         return;
       }
+      if (typeof data.audio_ref !== "string" || typeof data.audio_url !== "string") {
+        throw new Error("A geração terminou sem uma referência de áudio válida.");
+      }
+      rememberFileUrl(data.audio_ref, data.audio_url);
       prevAudioRef.current = null;
       onUpdate(narration.id, {
-        audio_url: data.audio_url,
+        audio_url: data.audio_ref,
         audio_duration_seconds: data.duration_seconds,
         status: "audio_generated",
         voice_id: currentVoice,
@@ -162,8 +167,8 @@ const NarrationBlock = ({
         updated_at: new Date().toISOString(),
       });
       toast({ title: "Áudio gerado", description: `${narration.label} — ${data.duration_seconds}s` });
-    } catch {
-      toast({ title: "Erro", description: "Falha de comunicação.", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Erro", description: error instanceof Error ? error.message : "Falha de comunicação.", variant: "destructive" });
     } finally {
       setGenerating(false);
     }
@@ -172,13 +177,13 @@ const NarrationBlock = ({
   const handleDownload = async () => {
     if (!narration.audio_url) return;
     try {
-      const res = await fetch(narration.audio_url);
+      const res = await fetchStoredFile(narration.audio_url, true);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const safe = narration.label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
       a.href = url;
-      a.download = `pagina_${String(page.page_number).padStart(3, "0")}_${String(narration.position).padStart(2, "0")}_${safe}.mp3`;
+      a.download = `pagina_${String(page.page_number).padStart(3, "0")}_${String(narration.position).padStart(2, "0")}_${safe}.${blob.type.includes("wav") ? "wav" : "mp3"}`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
@@ -198,7 +203,7 @@ const NarrationBlock = ({
               className="h-7 text-xs"
               autoFocus
             />
-            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={saveLabel}>
+            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" aria-label="Salvar nome da narração" onClick={saveLabel}>
               <Check className="h-3 w-3" />
             </Button>
           </>
@@ -213,7 +218,7 @@ const NarrationBlock = ({
               {localLabel}
               <Pencil className="h-2.5 w-2.5 opacity-60" />
             </button>
-            <Button size="icon" variant="ghost" className="h-6 w-6 ml-auto text-destructive hover:text-destructive" onClick={() => onRemove(narration.id)}>
+            <Button size="icon" variant="ghost" className="h-6 w-6 ml-auto text-destructive hover:text-destructive" aria-label={`Excluir ${narration.label}`} onClick={() => onRemove(narration.id)}>
               <Trash2 className="h-3 w-3" />
             </Button>
           </>
@@ -221,6 +226,7 @@ const NarrationBlock = ({
       </div>
 
       <Textarea
+        aria-label={`Texto de ${narration.label}`}
         ref={textareaRef}
         value={localText}
         onChange={(e) => handleTextChange(e.target.value)}
@@ -233,7 +239,7 @@ const NarrationBlock = ({
           <Label className="text-[10px] text-muted-foreground">Voz</Label>
           {isElevenlabs ? (
             <Select value={currentVoice} onValueChange={(v) => onUpdate(narration.id, { voice_id: v, voice_engine: "elevenlabs" })}>
-              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={`Voz ElevenLabs da narração ${narration.label}`} className="h-7 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {elevenlabsVoices.map((v) => (
                   <SelectItem key={v.voice_id} value={v.voice_id}>{v.name}</SelectItem>
@@ -242,7 +248,7 @@ const NarrationBlock = ({
             </Select>
           ) : (
             <Select value={currentVoice} onValueChange={(v) => onUpdate(narration.id, { voice_id: v, voice_engine: "gemini" })}>
-              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={`Voz Gemini da narração ${narration.label}`} className="h-7 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {VOICES.map((v) => (<SelectItem key={v.value} value={v.value}>{v.label}</SelectItem>))}
               </SelectContent>
@@ -252,7 +258,7 @@ const NarrationBlock = ({
         <div>
           <Label className="text-[10px] text-muted-foreground">Velocidade</Label>
           <Select value={currentSpeed} onValueChange={(v) => onUpdate(narration.id, { narration_speed: v })}>
-            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={`Velocidade da narração ${narration.label}`} className="h-7 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="pausada">🐢 Pausada</SelectItem>
               <SelectItem value="educativo">📚 Educativa</SelectItem>
@@ -297,17 +303,17 @@ const NarrationBlock = ({
 
       {blobUrl && (
         <>
-          <audio
+          <audio aria-label={`Áudio de ${narration.label}`}
             ref={audioRef}
             key={`${narration.id}-${narration.updated_at}`}
             controls
             className="w-full h-7"
             preload="metadata"
           >
-            <source src={blobUrl} type="audio/mpeg" />
+            <source src={blobUrl}  />
           </audio>
           <Button variant="outline" size="sm" className="w-full h-7 text-xs" onClick={handleDownload}>
-            <Download className="h-3 w-3 mr-1" /> Download MP3
+            <Download className="h-3 w-3 mr-1" /> Baixar áudio
           </Button>
         </>
       )}

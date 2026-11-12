@@ -19,7 +19,7 @@ const Auth = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const rawNext = searchParams.get("next");
-  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : null;
+  const nextPath = rawNext && /^\/(?!\/)/.test(rawNext) && !rawNext.includes("\\") ? rawNext : null;
   const redirectTarget = nextPath ?? "/dashboard";
   const authCallbackUrl = `${window.location.origin}/auth${
     nextPath ? `?next=${encodeURIComponent(nextPath)}` : ""
@@ -204,12 +204,12 @@ const Auth = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-password">Senha</Label>
-                    <Input id="signup-password" type="password" autoComplete="new-password" minLength={6} aria-describedby="password-help" placeholder="••••••••" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required />
-                    <p id="password-help" className="text-xs text-muted-foreground">Use pelo menos 6 caracteres.</p>
+                    <Input id="signup-password" type="password" autoComplete="new-password" minLength={8} aria-describedby="password-help" placeholder="••••••••" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} required />
+                    <p id="password-help" className="text-xs text-muted-foreground">Use pelo menos 8 caracteres.</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signup-confirm">Confirmar Senha</Label>
-                    <Input id="signup-confirm" type="password" autoComplete="new-password" minLength={6} placeholder="••••••••" value={signupConfirm} onChange={(e) => setSignupConfirm(e.target.value)} required />
+                    <Input id="signup-confirm" type="password" autoComplete="new-password" minLength={8} placeholder="••••••••" value={signupConfirm} onChange={(e) => setSignupConfirm(e.target.value)} required />
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Cadastrando..." : "Cadastrar"}

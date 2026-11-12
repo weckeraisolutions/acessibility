@@ -1,3 +1,4 @@
+import { uploadFile, fetchStoredFile, deleteFile } from "@/lib/storage";
 import { useState, useRef, useCallback } from "react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
@@ -319,7 +320,7 @@ export function useVideobookExport() {
 
         // Fetch audio
         const audioFileName = `audio_${pi}.mp3`;
-        const audioData = await fetchFile(page.audiobook_audio_url!);
+        const audioData = await fetchStoredFile(page.audiobook_audio_url!).then(r => r.arrayBuffer()).then(b => new Uint8Array(b));
         await ffmpeg.writeFile(audioFileName, audioData);
         audioFiles.push(audioFileName);
 
@@ -365,10 +366,9 @@ export function useVideobookExport() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          const filePath = `${session.user.id}/${projectId}/videobook.mp4`;
-          await supabase.storage.from("videobook-final").upload(filePath, videoBlob, { upsert: true, contentType: "video/mp4" });
-          const { data: urlData } = await supabase.storage.from("videobook-final").createSignedUrl(filePath, 60 * 60 * 24 * 30);
-          await supabase.from("projects").update({ videobook_url: urlData?.signedUrl || filePath }).eq("id", projectId);
+          const ref = await uploadFile(videoBlob, { project_id: projectId, kind: "videobook", file_name: "videobook.mp4" });
+          const { error } = await supabase.from("projects").update({ videobook_url: ref }).eq("id", projectId).select("id").single();
+          if (error) { await deleteFile(ref).catch(() => undefined); throw error; }
         }
       } catch (e) {
         console.warn("Upload failed, video still available locally", e);

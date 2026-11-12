@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,7 +30,7 @@ const ProjectDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { profile, user } = useAuth();
-  const { project, pages, loading, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
+  const { project, pages, loading, loadError, saving, updateProject, updatePage, refetch } = useProjectEditor(id);
   const processor = usePdfProcessor(project, pages, refetch);
   const chaptersDB = useChaptersDB(id);
   const [openChapter, setOpenChapter] = useState<ChapterRow | null>(null);
@@ -71,7 +71,8 @@ const ProjectDetail = () => {
     });
   };
 
-  const loadElevenlabsVoices = (opts?: { silent?: boolean }) => {
+  const preferredElevenlabsVoice = profile?.elevenlabs_default_voice_id;
+  const loadElevenlabsVoices = useCallback((opts?: { silent?: boolean }) => {
     if (!opts?.silent) setRefreshingVoices(true);
     return supabase.functions.invoke("get-elevenlabs-voices").then(({ data }) => {
       console.log("[ElevenLabs] Total de vozes retornadas:", data?.voices?.length);
@@ -81,7 +82,8 @@ const ProjectDetail = () => {
         setSelectedElevenlabsVoice((prev) =>
           prev && data.voices.some((v: ElevenLabsVoice) => v.voice_id === prev)
             ? prev
-            : data.voices[0].voice_id
+            : data.voices.some((v: ElevenLabsVoice) => v.voice_id === preferredElevenlabsVoice)
+              ? preferredElevenlabsVoice! : data.voices[0].voice_id
         );
       }
       return data?.voices ?? [];
@@ -89,9 +91,9 @@ const ProjectDetail = () => {
       console.error("[ElevenLabs] Erro ao buscar vozes:", err);
       return [];
     }).finally(() => setRefreshingVoices(false));
-  };
+  }, [preferredElevenlabsVoice]);
 
-  useEffect(() => { loadElevenlabsVoices({ silent: true }); }, []);
+  useEffect(() => { loadElevenlabsVoices({ silent: true }); }, [loadElevenlabsVoices]);
 
   const perPage = isMobile ? 1 : 2;
   const pairs = useMemo(() => {
@@ -108,7 +110,7 @@ const ProjectDetail = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON" || (e.target as HTMLElement).isContentEditable || (e.target as HTMLElement).closest('[role="dialog"],[role="combobox"],[role="tablist"]')) return;
       if (e.key === "ArrowLeft") { e.preventDefault(); setPairIndex((i) => Math.max(0, i - 1)); }
       else if (e.key === "ArrowRight") { e.preventDefault(); setPairIndex((i) => Math.min(totalPairs - 1, i + 1)); }
       if ((e.ctrlKey || e.metaKey) && e.key === "s") e.preventDefault();
@@ -120,7 +122,7 @@ const ProjectDetail = () => {
   if (loading) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span role="status" aria-label="Carregando projeto"><Loader2 className="h-8 w-8 animate-spin text-primary" /></span>
       </div>
     );
   }
@@ -128,7 +130,8 @@ const ProjectDetail = () => {
   if (!project) {
     return (
       <div className="app-shell flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground text-lg">Projeto não encontrado ou sem permissão de acesso.</p>
+        <h1 role="alert" className="text-muted-foreground text-lg">{loadError || "Acesso negado ou projeto não encontrado."}</h1>
+        <Button onClick={() => void refetch()}>Tentar novamente</Button>
         <Button onClick={() => navigate("/dashboard")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar ao Dashboard
         </Button>
@@ -138,8 +141,8 @@ const ProjectDetail = () => {
 
   const processingError =
     processor.error ||
-    (project.processing_status === "failed" && pages.length === 0
-      ? "O processamento anterior falhou antes de salvar as páginas. Tente novamente."
+    (project.processing_status === "failed"
+      ? "O processamento anterior não foi concluído. Tente novamente para processar as páginas restantes."
       : null);
 
   if (processor.processing || processingError || (project.processing_status === "pending" && pages.length === 0)) {

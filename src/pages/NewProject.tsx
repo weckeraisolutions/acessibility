@@ -1,3 +1,4 @@
+import { uploadFile, deleteProject } from "@/lib/storage";
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,51 +58,32 @@ const NewProject = () => {
     e.preventDefault();
     if (!user || !file) return;
 
-    const projectName = deriveProjectName(file.name);
-
     setUploading(true);
-    setUploadProgress(10);
-
-    const { data: project, error: projectError } = await supabase
-      .from("projects")
-      .insert({
-        user_id: user.id,
-        name: projectName,
-        book_title: projectName,
-        book_type: bookType,
-      })
-      .select("id")
-      .single();
-
-    if (projectError || !project) {
-      toast({ title: "Erro ao criar projeto", description: projectError?.message, variant: "destructive" });
-      setUploading(false);
-      return;
-    }
-
-    setUploadProgress(40);
-
-    const filePath = `${user.id}/${project.id}/original.pdf`;
-    const { error: uploadError } = await supabase.storage
-      .from("pdfs")
-      .upload(filePath, file);
-
-    if (uploadError) {
-      toast({ title: "Erro no upload", description: uploadError.message, variant: "destructive" });
-      setUploading(false);
-      return;
-    }
-
-    setUploadProgress(80);
-
-    await supabase
-      .from("projects")
-      .update({ pdf_url: filePath })
-      .eq("id", project.id);
-
-    setUploadProgress(100);
-    toast({ title: "Projeto criado com sucesso!" });
-    navigate(`/projeto/${project.id}`);
+    setUploadProgress(0);
+    let createdId: string | null = null;
+    try {
+      const projectName = deriveProjectName(file.name);
+      const { data: project, error } = await supabase.from("projects").insert({
+        user_id: user.id, name: projectName, book_title: projectName, book_type: bookType,
+      }).select("id").single();
+      if (error || !project) throw error || new Error("Não foi possível criar o projeto.");
+      createdId = project.id;
+      setUploadProgress(25);
+      const ref = await uploadFile(file, { project_id: project.id, kind: "pdf", file_name: file.name });
+      setUploadProgress(75);
+      const { error: saveError } = await supabase.from("projects").update({ pdf_url: ref }).eq("id", project.id);
+      if (saveError) throw saveError;
+      setUploadProgress(100);
+      toast({ title: "Projeto criado com sucesso!" });
+      navigate(`/projeto/${project.id}`);
+    } catch (error) {
+      let cleanupFailed = false;
+      if (createdId) await deleteProject(createdId).catch(() => { cleanupFailed = true; });
+      toast({ title: "Não foi possível criar o projeto", description:
+        (error instanceof Error ? error.message : "Tente novamente.") +
+        (cleanupFailed ? " O projeto incompleto permanece no painel. Exclua-o para limpar os arquivos." : ""),
+        variant: "destructive" });
+    } finally { setUploading(false); }
   };
 
   const canSubmit = !!file && !uploading;
@@ -183,9 +165,9 @@ const NewProject = () => {
           </div>
 
           {uploading && (
-            <div className="space-y-2">
-              <Progress value={uploadProgress} />
-              <p className="text-sm text-center text-muted-foreground">Enviando arquivo...</p>
+            <div className="space-y-2" role="status" aria-live="polite">
+              <Progress value={uploadProgress} aria-label="Etapas do envio" />
+              <p className="text-sm text-center text-muted-foreground">Concluindo etapas do envio. Mantenha esta página aberta.</p>
             </div>
           )}
 

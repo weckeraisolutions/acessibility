@@ -1,3 +1,4 @@
+import { downloadUrl, uploadFile, fetchStoredFile, deleteFile } from "@/lib/storage";
 import { useState, useRef, useCallback } from "react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
@@ -108,7 +109,7 @@ export function useChapterVideoExport() {
         interpVideo.muted = true;
         const url = options.interpreterVideoUrl.startsWith("http")
           ? options.interpreterVideoUrl
-          : (await supabase.storage.from("interpreter-videos").createSignedUrl(options.interpreterVideoUrl, 3600)).data?.signedUrl;
+          : await downloadUrl(options.interpreterVideoUrl);
         if (url) {
           interpVideo.src = url;
           await new Promise((res) => { interpVideo!.onloadedmetadata = () => res(null); interpVideo!.onerror = () => res(null); });
@@ -177,7 +178,7 @@ export function useChapterVideoExport() {
 
         // Save audio
         const audioName = `a_${i}.mp3`;
-        const audioData = await fetchFile(page.audiobook_audio_url!);
+        const audioData = await fetchStoredFile(page.audiobook_audio_url!).then(r => r.arrayBuffer()).then(b => new Uint8Array(b));
         await ffmpeg.writeFile(audioName, audioData);
         audioFiles.push(audioName);
 
@@ -221,15 +222,14 @@ export function useChapterVideoExport() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           const fname = `${slugify(projectName)}_${slugify(chapter.title)}_${options.resolution}.mp4`;
-          const path = `${session.user.id}/${chapter.project_id}/${fname}`;
-          await supabase.storage.from("videobook-final").upload(path, videoBlob, { upsert: true, contentType: "video/mp4" });
-          const { data: urlData } = await supabase.storage.from("videobook-final").createSignedUrl(path, 60 * 60 * 24 * 30);
-          await supabase.from("chapters").update({
-            videobook_url: urlData?.signedUrl || path,
+          const ref = await uploadFile(videoBlob, { project_id: chapter.project_id, chapter_id: chapter.id, kind: "videobook", file_name: fname });
+          const { error } = await supabase.from("chapters").update({
+            videobook_url: ref,
             videobook_status: "ready",
             videobook_resolution: options.resolution,
             videobook_layout: options.layout,
-          }).eq("id", chapter.id);
+          }).eq("id", chapter.id).select("id").single();
+          if (error) { await deleteFile(ref).catch(() => undefined); throw error; }
         }
       } catch (e) {
         console.warn("[chapter export] upload failed", e);

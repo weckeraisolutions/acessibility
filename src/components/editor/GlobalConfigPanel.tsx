@@ -110,7 +110,7 @@ const GlobalConfigPanel = ({
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Motor de Voz (TTS)</Label>
           <Select value={ttsEngine} onValueChange={(v) => onTtsEngineChange(v as TtsEngine)}>
-            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={`Motor de voz ${mode}`} className="mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="gemini">🤖 Google Gemini TTS</SelectItem>
               <SelectItem value="elevenlabs" disabled={!canUseElevenlabs}>
@@ -123,6 +123,7 @@ const GlobalConfigPanel = ({
         <div>
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">Estilo de Narração Global</Label>
           <Textarea
+            aria-label={`Estilo global de ${mode}`}
             rows={3}
             value={style}
             onChange={(e) => onStyleChange(e.target.value)}
@@ -155,18 +156,18 @@ const GlobalConfigPanel = ({
                   <div
                     key={v.voice_id}
                     className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm transition-colors ${selectedElevenlabsVoice === v.voice_id ? "bg-primary/10 font-medium" : "hover:bg-accent"}`}
-                    onClick={() => onElevenlabsVoiceChange(v.voice_id)}
+
                   >
                     {v.preview_url && (
                       <button
                         type="button"
-                        className="shrink-0 h-6 w-6 flex items-center justify-center rounded-full border hover:bg-accent"
+                        aria-label={`Ouvir prévia de ${v.name}`} className="shrink-0 h-11 w-11 flex items-center justify-center rounded-full border hover:bg-accent"
                         onClick={(e) => { e.stopPropagation(); handlePreviewVoice(v.voice_id, v.preview_url); }}
                       >
                         {playingVoiceId === v.voice_id ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                       </button>
                     )}
-                    <span className="truncate">{v.name} — {v.description}</span>
+                    <button type="button" className="min-h-11 flex-1 text-left" aria-pressed={selectedElevenlabsVoice === v.voice_id} onClick={() => onElevenlabsVoiceChange(v.voice_id)}>{v.name} — {v.description}</button>
                     {selectedElevenlabsVoice === v.voice_id && <Badge variant="secondary" className="ml-auto text-[9px] shrink-0">selecionada</Badge>}
                   </div>
                 ))}
@@ -174,7 +175,7 @@ const GlobalConfigPanel = ({
             </ScrollArea>
           ) : (
             <Select value={voice} onValueChange={onVoiceChange}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={`Voz padrão ${mode}`} className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {VOICES.map((v) => (
                   <SelectItem key={v.value} value={v.value}>{v.label} — {v.description}</SelectItem>
@@ -188,7 +189,7 @@ const GlobalConfigPanel = ({
           <div>
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Velocidade de Narração</Label>
             <Select value={narrationSpeed} onValueChange={onNarrationSpeedChange}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={`Velocidade de narração ${mode}`} className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="pausada">🐢 Pausada — ideal para conteúdo complexo</SelectItem>
                 <SelectItem value="educativo">📚 Ritmo educativo — padrão recomendado</SelectItem>
@@ -222,7 +223,7 @@ const GlobalConfigPanel = ({
                   <Badge className="bg-amber-500 text-white border-0 text-[10px]">Exclusivo Enterprise</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Toda audiodescrição passa por auditoria automática com GPT-4o, garantindo conformidade
+                  Toda audiodescrição passa por auditoria automática com GPT-4o, apoiando a revisão de conformidade
                   com ABNT NBR 16452, Lei 13.146/2015 e manual IBC. Inclui correção automática de
                   violações detectadas.
                 </p>

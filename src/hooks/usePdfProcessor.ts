@@ -1,3 +1,4 @@
+import { fetchStoredFile, uploadFile, deleteFile } from "@/lib/storage";
 import { useState, useEffect, useRef } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -40,6 +41,7 @@ async function renderPageToBlob(
   });
   canvas.width = 0;
   canvas.height = 0;
+  page.cleanup();
   return blob;
 }
 
@@ -75,26 +77,22 @@ export function usePdfProcessor(
     if (!project || !project.pdf_url) return;
     setState((s) => ({ ...s, processing: true, error: null, progress: 0 }));
 
+    let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
       const currentUserId = userData?.user?.id;
       if (userError || !currentUserId) throw new Error("Sessão expirada. Entre novamente e tente processar o PDF.");
       if (currentUserId !== project.user_id) throw new Error("Este projeto pertence a outro usuário autenticado.");
 
-      await supabase.from("projects").update({ processing_status: "pending" }).eq("id", project.id);
+      const { error: pendingError } = await supabase.from("projects").update({ processing_status: "pending" }).eq("id", project.id);
+      if (pendingError) throw pendingError;
 
       // 1. Download PDF
-      const { data: signedData, error: signedError } = await supabase.storage
-        .from("pdfs")
-        .createSignedUrl(project.pdf_url, 3600);
-      if (signedError || !signedData?.signedUrl) throw new Error("Não foi possível acessar o PDF.");
-
-      const response = await fetch(signedData.signedUrl);
+      const response = await fetchStoredFile(project.pdf_url);
       if (!response.ok) throw new Error("Falha ao baixar o PDF.");
       const arrayBuffer = await response.arrayBuffer();
 
       // 2. Load PDF
-      let pdfDoc: pdfjsLib.PDFDocumentProxy;
       try {
         pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       } catch (err: unknown) {
@@ -108,12 +106,16 @@ export function usePdfProcessor(
       setState((s) => ({ ...s, totalPages: numPages }));
 
       // 3. Update total_pages
-      await supabase.from("projects").update({ total_pages: numPages }).eq("id", project.id);
+      const { error: totalError } = await supabase.from("projects").update({ total_pages: numPages }).eq("id", project.id);
+      if (totalError) throw totalError;
 
       // 4. Process in batches of 5
       const BATCH = 5;
       let processed = 0;
       let succeeded = 0;
+      const { data: existing, error: existingError } = await supabase.from("pages").select("page_number").eq("project_id", project.id);
+      if (existingError) throw existingError;
+      const existingNumbers = new Set((existing || []).map(p => p.page_number));
 
       for (let start = 1; start <= numPages; start += BATCH) {
         const end = Math.min(start + BATCH - 1, numPages);
@@ -122,27 +124,25 @@ export function usePdfProcessor(
         await Promise.all(
           batch.map(async (pageNum) => {
             try {
+              if (existingNumbers.has(pageNum)) { succeeded++; return; }
               const imageBlob = await renderPageToBlob(pdfDoc, pageNum, 150 / 72);
               const thumbBlob = await renderPageToBlob(pdfDoc, pageNum, 1.0);
 
-              const imagePath = `${currentUserId}/${project.id}/pag_${padNum(pageNum)}.png`;
-              const thumbPath = `${currentUserId}/${project.id}/thumb_${padNum(pageNum)}.png`;
-
-              const [imgUp, thumbUp] = await Promise.all([
-                supabase.storage.from("page-images").upload(imagePath, imageBlob, { contentType: "image/png", upsert: true }),
-                supabase.storage.from("page-thumbnails").upload(thumbPath, thumbBlob, { contentType: "image/png", upsert: true }),
-              ]);
-
-              if (imgUp.error) throw imgUp.error;
-              if (thumbUp.error) throw thumbUp.error;
-
-              await supabase.from("pages").insert({
-                project_id: project.id,
-                page_number: pageNum,
-                image_url: imagePath,
-                thumbnail_url: thumbPath,
-              });
-              succeeded++;
+              const refs: string[] = [];
+              try {
+                const imagePath = await uploadFile(imageBlob, { project_id: project.id, kind: "page-image", file_name: `pag_${padNum(pageNum)}.png` });
+                refs.push(imagePath);
+                const thumbPath = await uploadFile(thumbBlob, { project_id: project.id, kind: "page-thumbnail", file_name: `thumb_${padNum(pageNum)}.png` });
+                refs.push(thumbPath);
+                const { error } = await supabase.from("pages").insert({
+                  project_id: project.id, page_number: pageNum, image_url: imagePath, thumbnail_url: thumbPath,
+                });
+                if (error) throw error;
+                succeeded++;
+              } catch (error) {
+                await Promise.allSettled(refs.map(deleteFile));
+                throw error;
+              }
             } catch (pageErr) {
               console.error(`Erro na página ${pageNum}:`, pageErr);
               toast({ title: `Erro na página ${pageNum}`, description: "Continuando com as demais.", variant: "destructive" });
@@ -159,17 +159,18 @@ export function usePdfProcessor(
       }
 
       // 5. Mark ready (or failed if nothing got through)
-      if (succeeded === 0) {
+      if (succeeded !== numPages) {
         await supabase.from("projects").update({ processing_status: "failed" }).eq("id", project.id);
         await refetch();
         setState((s) => ({
           ...s,
           processing: false,
-          error: "Nenhuma página foi processada. Verifique se o PDF está válido e tente novamente.",
+          error: "Algumas páginas não foram processadas. Tente novamente para completar as páginas restantes.",
         }));
         return;
       }
-      await supabase.from("projects").update({ processing_status: "ready" }).eq("id", project.id);
+      const { error: readyError } = await supabase.from("projects").update({ processing_status: "ready" }).eq("id", project.id);
+      if (readyError) throw readyError;
       await refetch();
       setState((s) => ({ ...s, processing: false }));
     } catch (err: unknown) {
@@ -178,17 +179,15 @@ export function usePdfProcessor(
           ? "Este PDF está protegido por senha. Remova a senha e tente novamente."
           : (err instanceof Error ? err.message : "Erro ao processar o PDF.");
       setState((s) => ({ ...s, processing: false, error: msg }));
+    } finally {
+      if (pdfDoc) await pdfDoc.destroy();
     }
   }
 
   const retry = () => {
-    startedRef.current = false;
+    startedRef.current = true;
     setState({ processing: false, progress: 0, currentPage: 0, totalPages: 0, error: null });
-    // Re-trigger by resetting ref; the effect will fire again
-    setTimeout(() => {
-      startedRef.current = false;
-      processProject();
-    }, 100);
+    void processProject();
   };
 
   return { ...state, retry };

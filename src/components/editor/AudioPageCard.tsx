@@ -1,3 +1,4 @@
+import { fileId, studioFunctions, fetchStoredFile, rememberFileUrl } from "@/lib/storage";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { RotateCw, Play, Download, Check, RefreshCw, Loader2, Square, Plus, Package, X, Eye, Pencil } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
-import { supabase } from "@/integrations/supabase/client";
 import { VOICES } from "@/constants/voices";
 import { ElevenLabsVoice } from "@/constants/elevenlabs-voices";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -132,24 +132,17 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
 
   // Fetch audio as blob for playback — with correct MIME type
   useEffect(() => {
-    if (!audioUrl || audioUrl === prevAudioUrlRef.current) return;
+    if (!audioUrl) { setBlobUrl(null); prevAudioUrlRef.current = null; return; }
+    if (audioUrl === prevAudioUrlRef.current) return;
     prevAudioUrlRef.current = audioUrl;
 
     let cancelled = false;
     setLoadingAudio(true);
 
-    fetch(audioUrl, { cache: "no-store" })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch audio");
-        return res.arrayBuffer();
-      })
-      .then((buffer) => {
+    fetchStoredFile(audioUrl)
+      .then(res => res.blob())
+      .then((blob) => {
         if (cancelled) return;
-        // Determine correct MIME type from URL extension
-        const mime = audioUrl.includes(".mp3") ? "audio/mpeg"
-          : audioUrl.includes(".ogg") ? "audio/ogg"
-          : "audio/wav";
-        const blob = new Blob([buffer], { type: mime });
         setBlobUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           const next = URL.createObjectURL(blob);
@@ -212,10 +205,10 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
     setExtracting(true);
     try {
       // Chamada direta para capturar has_characters / suggested_blocks no audiobook
-      const { data, error } = await supabase.functions.invoke("extract-text", {
+      const { data, error } = await studioFunctions.invoke("extract-text", {
         body: {
           page_id: page.id,
-          image_url: page.image_url,
+          image_file_id: fileId(page.image_url),
           mode,
           book_type: project.book_type,
           global_style: (mode === "audiobook" ? project.audiobook_global_style : project.audiodesc_global_style) || "",
@@ -271,14 +264,14 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
       const zip = new JSZip();
       const pageNum = String(page.page_number).padStart(3, "0");
       if (hasMain) {
-        const r = await fetch(audioUrl!);
-        zip.file(`pagina_${pageNum}_01_narracao_principal.mp3`, await r.blob());
+        const r = await fetchStoredFile(audioUrl!, true);
+        zip.file(`pagina_${pageNum}_01_narracao_principal.${r.headers.get("content-type")?.includes("wav") ? "wav" : "mp3"}`, await r.blob());
       }
       let idx = hasMain ? 2 : 1;
       for (const n of blocks) {
-        const r = await fetch(n.audio_url!);
+        const r = await fetchStoredFile(n.audio_url!, true);
         const safe = n.label.toLowerCase().replace(/[^a-z0-9]+/g, "_");
-        zip.file(`pagina_${pageNum}_${String(idx).padStart(2, "0")}_${safe}.mp3`, await r.blob());
+        zip.file(`pagina_${pageNum}_${String(idx).padStart(2, "0")}_${safe}.${r.headers.get("content-type")?.includes("wav") ? "wav" : "mp3"}`, await r.blob());
         idx++;
       }
       const blob = await zip.generateAsync({ type: "blob" });
@@ -316,9 +309,10 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
       return;
     }
 
+    if (!currentElevenlabsVoice) { toast({ title: "Selecione uma voz ElevenLabs de reserva", variant: "destructive" }); return; }
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-audio", {
+      const { data, error } = await studioFunctions.invoke("generate-audio", {
         body: {
           page_id: page.id,
           project_id: project.id,
@@ -360,13 +354,17 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         return;
       }
 
+      if (typeof data.audio_ref !== "string" || typeof data.audio_url !== "string") {
+        throw new Error("A geração terminou sem uma referência de áudio válida.");
+      }
+      rememberFileUrl(data.audio_ref, data.audio_url);
       // Reset ref to force re-fetch of new audio
       prevAudioUrlRef.current = null;
 
       // Save the correct voice based on engine used
       const savedVoice = isElevenlabs ? currentElevenlabsVoice : currentVoice;
       onUpdate(page.id, {
-        [audioUrlField]: data.audio_url,
+        [audioUrlField]: data.audio_ref,
         [statusField]: "audio_generated",
         [durationField]: data.duration_seconds,
         [voiceField]: savedVoice,
@@ -377,7 +375,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
       setShowRegen(false);
       setRegenStyle("");
     } catch (e) {
-      toast({ title: "Erro", description: "Falha na comunicação com o servidor.", variant: "destructive" });
+      toast({ title: "Erro", description: e instanceof Error ? e.message : "Falha na comunicação com o servidor.", variant: "destructive" });
     } finally {
       setGenerating(false);
     }
@@ -386,13 +384,13 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
   const handleDownload = async () => {
     if (!audioUrl) return;
     try {
-      const res = await fetch(audioUrl);
+      const res = await fetchStoredFile(audioUrl, true);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       const pageNum = String(page.page_number).padStart(3, "0");
-      const ext = audioUrl.includes(".wav") ? "wav" : "mp3";
+      const ext = blob.type.includes("wav") ? "wav" : "mp3";
       a.download = `pagina_${pageNum}_${mode}.${ext}`;
       document.body.appendChild(a);
       a.click();
@@ -449,6 +447,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
             </Label>
           )}
           <Textarea
+            aria-label={`Texto de ${mode === "audiobook" ? "narração" : "audiodescrição"}, página ${page.page_number}`}
             ref={mainTextareaRef}
             value={localText}
             onChange={(e) => handleTextChange(e.target.value)}
@@ -490,7 +489,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
           <div>
             <Label className="text-xs">Motor de Voz (TTS):</Label>
             <Select value={ttsEngine} onValueChange={(v) => onTtsEngineChange(v as TtsEngine)}>
-              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={`Motor de voz ${mode}, página ${page.page_number}`} className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="gemini">🤖 Google Gemini TTS</SelectItem>
                 <SelectItem value="elevenlabs" disabled={!canUseElevenlabs}>
@@ -514,19 +513,19 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                 <div
                   key={v.voice_id}
                   className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-xs cursor-pointer transition-colors ${currentElevenlabsVoice === v.voice_id ? "bg-primary/10 font-medium" : "hover:bg-accent"}`}
-                  onClick={() => handleElevenlabsVoiceSelect(v.voice_id)}
+
                 >
                   {v.preview_url && (
                     <button
                       type="button"
-                      className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full border hover:bg-accent"
+                      className="shrink-0 h-11 w-11 flex items-center justify-center rounded-full border hover:bg-accent"
                       onClick={(e) => { e.stopPropagation(); handlePreviewVoice(v.voice_id, v.preview_url); }}
                       aria-label={playingVoiceId === v.voice_id ? `Parar prévia de ${v.name}` : `Ouvir prévia de ${v.name}`}
                     >
                       {playingVoiceId === v.voice_id ? <Square className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
                     </button>
                   )}
-                  <span className="truncate">{v.name}</span>
+                  <button type="button" className="min-h-11 flex-1 text-left" aria-pressed={currentElevenlabsVoice === v.voice_id} onClick={() => handleElevenlabsVoiceSelect(v.voice_id)}>{v.name}</button>
                   {currentElevenlabsVoice === v.voice_id && <Badge variant="secondary" className="ml-auto text-[8px] shrink-0">✓</Badge>}
                 </div>
               ))}
@@ -536,7 +535,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
               value={currentVoice}
               onValueChange={(v) => onUpdate(page.id, { [voiceField]: v === globalVoice ? null : v })}
             >
-              <SelectTrigger className="mt-1 h-8 text-xs">
+              <SelectTrigger aria-label={`Voz ${mode}, página ${page.page_number}`} className="mt-1 h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -551,6 +550,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
         <div>
           <Label className="text-xs">Estilo:</Label>
           <Input
+            aria-label={`Estilo de ${mode}, página ${page.page_number}`}
             value={localStyle}
             onChange={(e) => handleStyleChange(e.target.value)}
             placeholder="Herda configuração global se vazio"
@@ -568,7 +568,7 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
               value={pageNarrationSpeed || globalNarrationSpeed}
               onValueChange={(v) => onPageNarrationSpeedChange?.(v === globalNarrationSpeed ? null : v)}
             >
-              <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label={`Velocidade ${mode}, página ${page.page_number}`} className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="pausada">🐢 Pausada</SelectItem>
                 <SelectItem value="educativo">📚 Ritmo educativo</SelectItem>
@@ -622,8 +622,8 @@ const AudioPageCard = ({ page, mode, globalVoice, project, onUpdate, ttsEngine, 
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Carregando áudio...
                 </div>
               ) : (
-                <audio key={audioUrl || ""} ref={audioRef} controls className="w-full h-8">
-                  <source src={blobUrl!} type={audioUrl?.includes(".mp3") ? "audio/mpeg" : "audio/wav"} />
+                <audio aria-label={`Áudio de ${mode}, página ${page.page_number}`} key={audioUrl || ""} ref={audioRef} controls className="w-full h-8">
+                  <source src={blobUrl!} />
                 </audio>
               )}
               <div className="flex gap-2">

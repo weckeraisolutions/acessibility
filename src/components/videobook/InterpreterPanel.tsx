@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import VLibras from "@djpfs/react-vlibras";
 import type { ChapterRow } from "@/hooks/useChapters";
-import { createPrivateStorageUrl } from "@/lib/storage";
+import { createPrivateStorageUrl, uploadFile } from "@/lib/storage";
 
 interface Props {
   chapter: ChapterRow;
@@ -71,10 +71,7 @@ const InterpreterPanel = ({ chapter, expectedDurationSec, audiobookText, onModeC
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Não autenticado");
-      const ext = file.name.split(".").pop() || "mp4";
-      const path = `${session.user.id}/${chapter.project_id}/${chapter.id}.${ext}`;
-      const { error } = await supabase.storage.from("interpreter-videos").upload(path, file, { upsert: true, contentType: file.type });
-      if (error) throw error;
+      const path = await uploadFile(file, { project_id: chapter.project_id, chapter_id: chapter.id, kind: "interpreter-video", file_name: file.name });
       setVideoUrl(path);
       onModeChange("human_video", path);
       toast({ title: "Vídeo enviado", description: "Intérprete humano configurado." });
