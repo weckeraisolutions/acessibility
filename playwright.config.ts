@@ -1,10 +1,20 @@
-import { createLovableConfig } from "lovable-agent-playwright-config/config";
+import { defineConfig, devices } from "@playwright/test";
 
-export default createLovableConfig({
-  // Add your custom playwright configuration overrides here
-  // Example:
-  // timeout: 60000,
-  // use: {
-  //   baseURL: 'http://localhost:3000',
-  // },
+// Local end-to-end runs against the staging frontend on the port authorized
+// in R2 CORS and Supabase Auth.
+export default defineConfig({
+  testDir: "./e2e",
+  use: {
+    baseURL: "http://localhost:5173",
+    trace: "on-first-retry",
+  },
+  projects: [
+    { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] } },
+  ],
+  webServer: {
+    command: "npm run dev:staging",
+    url: "http://localhost:5173",
+    reuseExistingServer: true,
+  },
 });

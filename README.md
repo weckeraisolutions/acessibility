@@ -4,7 +4,7 @@ Esteira editorial para transformar ebooks em conteúdos audiovisuais acessíveis
 
 ## Estado do projeto
 
-O sistema está em migração controlada do Lovable Cloud para uma infraestrutura própria, preservando o fluxo atual até a homologação do novo ambiente.
+O sistema roda em infraestrutura própria: frontend React/Vite, Supabase próprio (banco, Auth e Edge Functions) e Cloudflare R2 para arquivos. Não há dependência do Lovable.
 
 ## Requisitos
 

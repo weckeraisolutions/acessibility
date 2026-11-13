@@ -1,8 +1,6 @@
 import { defineConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
-import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
 function crossOriginIsolation(): Plugin {
   return {
@@ -18,15 +16,18 @@ function crossOriginIsolation(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 8080,
+    // 5173 is the local origin authorized in R2 CORS and Supabase Auth;
+    // strictPort avoids silently moving to an unauthorized port.
+    port: 5173,
+    strictPort: true,
     hmr: {
       overlay: false,
     },
   },
-  plugins: [react(), crossOriginIsolation(), mcpPlugin(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), crossOriginIsolation()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
