@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import SEO from "@/components/SEO";
+import { describeAuthError } from "@/lib/authError";
 
 const Auth = () => {
   const { session, loading } = useAuth();
@@ -33,12 +34,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const reportAuthError = (message: string) => {
-    const description = message.includes("Invalid login credentials")
-      ? "Email ou senha incorretos. Confira os dados ou use a recuperação de senha."
-      : message.includes("Email not confirmed")
-      ? "Confirme seu email antes de entrar. Verifique também a pasta de spam."
-      : "Não foi possível concluir. Verifique sua conexão e tente novamente. Se persistir, contate o administrador.";
-    toast({ title: "Não foi possível concluir", description, variant: "destructive" });
+    toast({ title: "Não foi possível concluir", description: describeAuthError(message), variant: "destructive" });
   };
 
   if (loading) {
